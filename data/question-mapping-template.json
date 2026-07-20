@@ -1,0 +1,601 @@
+{
+  "generated_by": "deterministic suggestion engine (Section 6.4 of spec) \u2014 energy_source match + keyword match on criterion text",
+  "common_energy_sources": [
+    "Animal",
+    "Biomass",
+    "Chemical",
+    "Coal",
+    "Gas",
+    "Human",
+    "Hydro",
+    "Nuclear",
+    "Oil",
+    "Solar",
+    "Wind"
+  ],
+  "assignment_1_only_sources": [
+    "Fusion",
+    "Kinetic",
+    "Magnetic",
+    "Thermal"
+  ],
+  "assignment_2_only_sources": [
+    "Garbage",
+    "Geothermal",
+    "Tidal",
+    "Wave"
+  ],
+  "note": "None of these are approved. All require explicit professor review/approval per the mapping workflow before use in analytics.",
+  "mappings": [
+    {
+      "id": "MAP-001",
+      "assignment_1_question_ids": [
+        "A1-018"
+      ],
+      "assignment_2_question_ids": [
+        "A2-030"
+      ],
+      "mapping_name": "Renewable \u2014 Animal",
+      "common_concept": "renewable",
+      "energy_source": "Animal",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-002",
+      "assignment_1_question_ids": [
+        "A1-008"
+      ],
+      "assignment_2_question_ids": [
+        "A2-019"
+      ],
+      "mapping_name": "Renewable \u2014 Biomass",
+      "common_concept": "renewable",
+      "energy_source": "Biomass",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-003",
+      "assignment_1_question_ids": [
+        "A1-030"
+      ],
+      "assignment_2_question_ids": [
+        "A2-028"
+      ],
+      "mapping_name": "Renewable \u2014 Chemical",
+      "common_concept": "renewable",
+      "energy_source": "Chemical",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-004",
+      "assignment_1_question_ids": [
+        "A1-010"
+      ],
+      "assignment_2_question_ids": [
+        "A2-025"
+      ],
+      "mapping_name": "Renewable \u2014 Coal",
+      "common_concept": "renewable",
+      "energy_source": "Coal",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-005",
+      "assignment_1_question_ids": [
+        "A1-020"
+      ],
+      "assignment_2_question_ids": [
+        "A2-027"
+      ],
+      "mapping_name": "Renewable \u2014 Gas",
+      "common_concept": "renewable",
+      "energy_source": "Gas",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-006",
+      "assignment_1_question_ids": [
+        "A1-016"
+      ],
+      "assignment_2_question_ids": [
+        "A2-029"
+      ],
+      "mapping_name": "Renewable \u2014 Human",
+      "common_concept": "renewable",
+      "energy_source": "Human",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-007",
+      "assignment_1_question_ids": [
+        "A1-006"
+      ],
+      "assignment_2_question_ids": [
+        "A2-018"
+      ],
+      "mapping_name": "Renewable \u2014 Hydro",
+      "common_concept": "renewable",
+      "energy_source": "Hydro",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-008",
+      "assignment_1_question_ids": [
+        "A1-022"
+      ],
+      "assignment_2_question_ids": [
+        "A2-021"
+      ],
+      "mapping_name": "Renewable \u2014 Nuclear",
+      "common_concept": "renewable",
+      "energy_source": "Nuclear",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-009",
+      "assignment_1_question_ids": [
+        "A1-012"
+      ],
+      "assignment_2_question_ids": [
+        "A2-024"
+      ],
+      "mapping_name": "Renewable \u2014 Oil",
+      "common_concept": "renewable",
+      "energy_source": "Oil",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-010",
+      "assignment_1_question_ids": [
+        "A1-002"
+      ],
+      "assignment_2_question_ids": [
+        "A2-016"
+      ],
+      "mapping_name": "Renewable \u2014 Solar",
+      "common_concept": "renewable",
+      "energy_source": "Solar",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-011",
+      "assignment_1_question_ids": [
+        "A1-004"
+      ],
+      "assignment_2_question_ids": [
+        "A2-017"
+      ],
+      "mapping_name": "Renewable \u2014 Wind",
+      "common_concept": "renewable",
+      "energy_source": "Wind",
+      "criterion": null,
+      "mapping_type": "CONCEPTUAL_ONE_TO_ONE",
+      "comparison_method": "keyword_match:renewable",
+      "professor_notes": "Auto-suggested: both questions ask about renewability for the same energy source. Wording differs (\"Renewable over 25 years\" vs \"Is it renewable?\") \u2014 professor should confirm the 25-year framing doesn't change the concept before approving.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-012",
+      "assignment_1_question_ids": [
+        "A1-017"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Animal (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Animal",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-013",
+      "assignment_1_question_ids": [
+        "A1-007"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Biomass (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Biomass",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-014",
+      "assignment_1_question_ids": [
+        "A1-029"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Chemical (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Chemical",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-015",
+      "assignment_1_question_ids": [
+        "A1-009"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Coal (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Coal",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-016",
+      "assignment_1_question_ids": [
+        "A1-019"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Gas (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Gas",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-017",
+      "assignment_1_question_ids": [
+        "A1-015"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Human (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Human",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-018",
+      "assignment_1_question_ids": [
+        "A1-005"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Hydro (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Hydro",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-019",
+      "assignment_1_question_ids": [
+        "A1-021"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Nuclear (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Nuclear",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-020",
+      "assignment_1_question_ids": [
+        "A1-011"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Oil (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Oil",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-021",
+      "assignment_1_question_ids": [
+        "A1-001"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Solar (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Solar",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-022",
+      "assignment_1_question_ids": [
+        "A1-003"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "Conventional \u2014 Wind (needs review)",
+      "common_concept": "conventional",
+      "energy_source": "Wind",
+      "criterion": null,
+      "mapping_type": "UNMAPPED",
+      "comparison_method": "none \u2014 no keyword match in Assignment 2 criteria",
+      "professor_notes": "No Assignment 2 criterion matched \"Conventional\" by keyword. Assignment 2 has related but not identical concepts (availability, controllability, ownership, predictability). Professor must decide manually whether this is a GROUPED_CONCEPT across several A2 criteria or NOT_COMPARABLE.",
+      "mapping_status": "NEEDS_PROFESSOR_REVIEW",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-023",
+      "assignment_1_question_ids": [
+        "A1-023",
+        "A1-024"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "No Assignment 2 counterpart \u2014 Fusion",
+      "common_concept": null,
+      "energy_source": "Fusion",
+      "criterion": null,
+      "mapping_type": "NOT_COMPARABLE",
+      "comparison_method": "energy_source_match: no match found",
+      "professor_notes": "'Fusion' appears in Assignment 1 but has no corresponding energy source column in Assignment 2.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-024",
+      "assignment_1_question_ids": [
+        "A1-025",
+        "A1-026"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "No Assignment 2 counterpart \u2014 Kinetic",
+      "common_concept": null,
+      "energy_source": "Kinetic",
+      "criterion": null,
+      "mapping_type": "NOT_COMPARABLE",
+      "comparison_method": "energy_source_match: no match found",
+      "professor_notes": "'Kinetic' appears in Assignment 1 but has no corresponding energy source column in Assignment 2.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-025",
+      "assignment_1_question_ids": [
+        "A1-027",
+        "A1-028"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "No Assignment 2 counterpart \u2014 Magnetic",
+      "common_concept": null,
+      "energy_source": "Magnetic",
+      "criterion": null,
+      "mapping_type": "NOT_COMPARABLE",
+      "comparison_method": "energy_source_match: no match found",
+      "professor_notes": "'Magnetic' appears in Assignment 1 but has no corresponding energy source column in Assignment 2.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-026",
+      "assignment_1_question_ids": [
+        "A1-013",
+        "A1-014"
+      ],
+      "assignment_2_question_ids": [],
+      "mapping_name": "No Assignment 2 counterpart \u2014 Thermal",
+      "common_concept": null,
+      "energy_source": "Thermal",
+      "criterion": null,
+      "mapping_type": "NOT_COMPARABLE",
+      "comparison_method": "energy_source_match: no match found",
+      "professor_notes": "'Thermal' appears in Assignment 1 but has no corresponding energy source column in Assignment 2.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-027",
+      "assignment_1_question_ids": [],
+      "assignment_2_question_ids": [
+        "A2-011",
+        "A2-026",
+        "A2-041",
+        "A2-056",
+        "A2-071",
+        "A2-086",
+        "A2-101",
+        "A2-116",
+        "A2-131",
+        "A2-146",
+        "A2-161",
+        "A2-176",
+        "A2-191",
+        "A2-206",
+        "A2-221",
+        "A2-236",
+        "A2-251"
+      ],
+      "mapping_name": "No Assignment 1 counterpart \u2014 Garbage",
+      "common_concept": null,
+      "energy_source": "Garbage",
+      "criterion": null,
+      "mapping_type": "NOT_COMPARABLE",
+      "comparison_method": "energy_source_match: no match found",
+      "professor_notes": "'Garbage' appears in Assignment 2 but has no corresponding energy source column in Assignment 1.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-028",
+      "assignment_1_question_ids": [],
+      "assignment_2_question_ids": [
+        "A2-005",
+        "A2-020",
+        "A2-035",
+        "A2-050",
+        "A2-065",
+        "A2-080",
+        "A2-095",
+        "A2-110",
+        "A2-125",
+        "A2-140",
+        "A2-155",
+        "A2-170",
+        "A2-185",
+        "A2-200",
+        "A2-215",
+        "A2-230",
+        "A2-245"
+      ],
+      "mapping_name": "No Assignment 1 counterpart \u2014 Geothermal",
+      "common_concept": null,
+      "energy_source": "Geothermal",
+      "criterion": null,
+      "mapping_type": "NOT_COMPARABLE",
+      "comparison_method": "energy_source_match: no match found",
+      "professor_notes": "'Geothermal' appears in Assignment 2 but has no corresponding energy source column in Assignment 1.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-029",
+      "assignment_1_question_ids": [],
+      "assignment_2_question_ids": [
+        "A2-007",
+        "A2-022",
+        "A2-037",
+        "A2-052",
+        "A2-067",
+        "A2-082",
+        "A2-097",
+        "A2-112",
+        "A2-127",
+        "A2-142",
+        "A2-157",
+        "A2-172",
+        "A2-187",
+        "A2-202",
+        "A2-217",
+        "A2-232",
+        "A2-247"
+      ],
+      "mapping_name": "No Assignment 1 counterpart \u2014 Tidal",
+      "common_concept": null,
+      "energy_source": "Tidal",
+      "criterion": null,
+      "mapping_type": "NOT_COMPARABLE",
+      "comparison_method": "energy_source_match: no match found",
+      "professor_notes": "'Tidal' appears in Assignment 2 but has no corresponding energy source column in Assignment 1.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    },
+    {
+      "id": "MAP-030",
+      "assignment_1_question_ids": [],
+      "assignment_2_question_ids": [
+        "A2-008",
+        "A2-023",
+        "A2-038",
+        "A2-053",
+        "A2-068",
+        "A2-083",
+        "A2-098",
+        "A2-113",
+        "A2-128",
+        "A2-143",
+        "A2-158",
+        "A2-173",
+        "A2-188",
+        "A2-203",
+        "A2-218",
+        "A2-233",
+        "A2-248"
+      ],
+      "mapping_name": "No Assignment 1 counterpart \u2014 Wave",
+      "common_concept": null,
+      "energy_source": "Wave",
+      "criterion": null,
+      "mapping_type": "NOT_COMPARABLE",
+      "comparison_method": "energy_source_match: no match found",
+      "professor_notes": "'Wave' appears in Assignment 2 but has no corresponding energy source column in Assignment 1.",
+      "mapping_status": "SUGGESTED",
+      "professor_approved": false
+    }
+  ]
+}

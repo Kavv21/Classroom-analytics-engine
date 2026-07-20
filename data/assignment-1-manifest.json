@@ -1,0 +1,524 @@
+{
+  "assignment": "Assignment 1",
+  "source_file": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+  "title_from_sheet": "FORMS OF ENERGY SOURCES",
+  "course_header": "AHMEDABAD UNIVERSITY - AMSOM",
+  "assignment_label": "INS 521 Class assignment 1",
+  "instructor": "Jinraj Joshipura",
+  "term": "Winter 2026",
+  "worksheets": [
+    "Sheet1"
+  ],
+  "energy_source_count": 15,
+  "criterion_count": 2,
+  "question_count": 30,
+  "energy_sources": [
+    {
+      "row": 6,
+      "index": 1,
+      "name": "Solar"
+    },
+    {
+      "row": 7,
+      "index": 2,
+      "name": "Wind"
+    },
+    {
+      "row": 8,
+      "index": 3,
+      "name": "Hydro"
+    },
+    {
+      "row": 9,
+      "index": 4,
+      "name": "Biomass"
+    },
+    {
+      "row": 10,
+      "index": 5,
+      "name": "Coal"
+    },
+    {
+      "row": 11,
+      "index": 6,
+      "name": "Oil"
+    },
+    {
+      "row": 12,
+      "index": 7,
+      "name": "Thermal"
+    },
+    {
+      "row": 13,
+      "index": 8,
+      "name": "Human"
+    },
+    {
+      "row": 14,
+      "index": 9,
+      "name": "Animal"
+    },
+    {
+      "row": 15,
+      "index": 10,
+      "name": "Gas"
+    },
+    {
+      "row": 16,
+      "index": 11,
+      "name": "Nuclear"
+    },
+    {
+      "row": 17,
+      "index": 12,
+      "name": "Fusion"
+    },
+    {
+      "row": 18,
+      "index": 13,
+      "name": "Kinetic"
+    },
+    {
+      "row": 19,
+      "index": 14,
+      "name": "Magnetic"
+    },
+    {
+      "row": 20,
+      "index": 15,
+      "name": "Chemical"
+    }
+  ],
+  "criteria": [
+    {
+      "col": "D",
+      "label": "Conventional"
+    },
+    {
+      "col": "E",
+      "label": "Renewable over 25 years"
+    }
+  ],
+  "questions": [
+    {
+      "id": "A1-001",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 6,
+      "original_column_reference": "D",
+      "energy_source": "Solar",
+      "criterion": "Conventional",
+      "question_text": "Solar \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 1
+    },
+    {
+      "id": "A1-002",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 6,
+      "original_column_reference": "E",
+      "energy_source": "Solar",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Solar \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 2
+    },
+    {
+      "id": "A1-003",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 7,
+      "original_column_reference": "D",
+      "energy_source": "Wind",
+      "criterion": "Conventional",
+      "question_text": "Wind \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 3
+    },
+    {
+      "id": "A1-004",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 7,
+      "original_column_reference": "E",
+      "energy_source": "Wind",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Wind \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 4
+    },
+    {
+      "id": "A1-005",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 8,
+      "original_column_reference": "D",
+      "energy_source": "Hydro",
+      "criterion": "Conventional",
+      "question_text": "Hydro \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 5
+    },
+    {
+      "id": "A1-006",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 8,
+      "original_column_reference": "E",
+      "energy_source": "Hydro",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Hydro \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 6
+    },
+    {
+      "id": "A1-007",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 9,
+      "original_column_reference": "D",
+      "energy_source": "Biomass",
+      "criterion": "Conventional",
+      "question_text": "Biomass \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 7
+    },
+    {
+      "id": "A1-008",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 9,
+      "original_column_reference": "E",
+      "energy_source": "Biomass",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Biomass \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 8
+    },
+    {
+      "id": "A1-009",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 10,
+      "original_column_reference": "D",
+      "energy_source": "Coal",
+      "criterion": "Conventional",
+      "question_text": "Coal \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 9
+    },
+    {
+      "id": "A1-010",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 10,
+      "original_column_reference": "E",
+      "energy_source": "Coal",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Coal \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 10
+    },
+    {
+      "id": "A1-011",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 11,
+      "original_column_reference": "D",
+      "energy_source": "Oil",
+      "criterion": "Conventional",
+      "question_text": "Oil \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 11
+    },
+    {
+      "id": "A1-012",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 11,
+      "original_column_reference": "E",
+      "energy_source": "Oil",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Oil \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 12
+    },
+    {
+      "id": "A1-013",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 12,
+      "original_column_reference": "D",
+      "energy_source": "Thermal",
+      "criterion": "Conventional",
+      "question_text": "Thermal \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 13
+    },
+    {
+      "id": "A1-014",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 12,
+      "original_column_reference": "E",
+      "energy_source": "Thermal",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Thermal \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 14
+    },
+    {
+      "id": "A1-015",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 13,
+      "original_column_reference": "D",
+      "energy_source": "Human",
+      "criterion": "Conventional",
+      "question_text": "Human \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 15
+    },
+    {
+      "id": "A1-016",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 13,
+      "original_column_reference": "E",
+      "energy_source": "Human",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Human \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 16
+    },
+    {
+      "id": "A1-017",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 14,
+      "original_column_reference": "D",
+      "energy_source": "Animal",
+      "criterion": "Conventional",
+      "question_text": "Animal \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 17
+    },
+    {
+      "id": "A1-018",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 14,
+      "original_column_reference": "E",
+      "energy_source": "Animal",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Animal \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 18
+    },
+    {
+      "id": "A1-019",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 15,
+      "original_column_reference": "D",
+      "energy_source": "Gas",
+      "criterion": "Conventional",
+      "question_text": "Gas \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 19
+    },
+    {
+      "id": "A1-020",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 15,
+      "original_column_reference": "E",
+      "energy_source": "Gas",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Gas \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 20
+    },
+    {
+      "id": "A1-021",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 16,
+      "original_column_reference": "D",
+      "energy_source": "Nuclear",
+      "criterion": "Conventional",
+      "question_text": "Nuclear \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 21
+    },
+    {
+      "id": "A1-022",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 16,
+      "original_column_reference": "E",
+      "energy_source": "Nuclear",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Nuclear \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 22
+    },
+    {
+      "id": "A1-023",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 17,
+      "original_column_reference": "D",
+      "energy_source": "Fusion",
+      "criterion": "Conventional",
+      "question_text": "Fusion \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 23
+    },
+    {
+      "id": "A1-024",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 17,
+      "original_column_reference": "E",
+      "energy_source": "Fusion",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Fusion \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 24
+    },
+    {
+      "id": "A1-025",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 18,
+      "original_column_reference": "D",
+      "energy_source": "Kinetic",
+      "criterion": "Conventional",
+      "question_text": "Kinetic \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 25
+    },
+    {
+      "id": "A1-026",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 18,
+      "original_column_reference": "E",
+      "energy_source": "Kinetic",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Kinetic \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 26
+    },
+    {
+      "id": "A1-027",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 19,
+      "original_column_reference": "D",
+      "energy_source": "Magnetic",
+      "criterion": "Conventional",
+      "question_text": "Magnetic \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 27
+    },
+    {
+      "id": "A1-028",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 19,
+      "original_column_reference": "E",
+      "energy_source": "Magnetic",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Magnetic \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 28
+    },
+    {
+      "id": "A1-029",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 20,
+      "original_column_reference": "D",
+      "energy_source": "Chemical",
+      "criterion": "Conventional",
+      "question_text": "Chemical \u2014 Conventional",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 29
+    },
+    {
+      "id": "A1-030",
+      "source_workbook": "Assignment_1_Classification_of_Energy_Sources.xlsx",
+      "source_worksheet": "Sheet1",
+      "original_row_reference": 20,
+      "original_column_reference": "E",
+      "energy_source": "Chemical",
+      "criterion": "Renewable over 25 years",
+      "question_text": "Chemical \u2014 Renewable over 25 years",
+      "response_zero_label": "No (0)",
+      "response_one_label": "Yes (1)",
+      "instruction_header_text": "Mark = 1 for YES and Zero for NO",
+      "display_order": 30
+    }
+  ]
+}

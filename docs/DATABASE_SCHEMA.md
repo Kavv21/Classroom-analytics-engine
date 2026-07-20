@@ -155,11 +155,70 @@ submitted data, approve mappings, or export class datasets.
 Professors: manage their own classes, students, and assignments; read class
 responses for their own classes; approve mappings; view analytics; export
 their own class data. `profiles_professor_class_students_select` (migration
-0005) is the policy backing "read own students" — scoped to profiles that
-are a `class_members` row in one of that professor's classes; it grants
-read only, never write.
+0005, rewritten in 0008 — see below) is the policy backing "read own
+students" — scoped to profiles that are a `class_members` row in one of
+that professor's classes; it grants read only, never write.
 
 Admins: system-level management per explicit policies (not blanket access).
+
+## RLS recursion: the classes / class_members helper functions (migration 0008)
+
+`classes` and `class_members` each had a policy that reached into the other
+table via a raw correlated subquery: `classes_member_select` queried
+`class_members`, and `class_members_professor_manage` queried `classes`.
+Both are plain table references, so evaluating either one pulls in the
+other table's RLS policies — which pulls the first table's policies back in
+— a genuine two-table cycle that existed from `0001_init.sql` onward.
+Nothing hit it reliably until `0005_class_roster_management.sql` added
+`profiles_professor_class_students_select`, which joins `class_members` and
+`classes` in one policy body, turning even a plain "read my own profile"
+query into a query that forces both sides of the cycle to be planned
+together — surfaced as Postgres error `42P17` ("infinite recursion detected
+in policy for relation class_members").
+
+The fix: three `security definer` helper functions, following the
+`current_user_role()` pattern already established in `0001_init.sql`.
+A `security definer` function executes with its owner's privileges, and
+Postgres does not apply RLS to a table's own owner — so a `classes` or
+`class_members` lookup done *inside* one of these functions never
+re-triggers that table's policies, which is what breaks the cycle. Each
+sets `search_path = public` explicitly, per the reasoning in
+`0004_fix_trigger_search_path.sql` (a `security definer` function must not
+resolve unqualified table names via a caller-controlled `search_path`).
+
+- `is_professor_of_class(p_class_id uuid) returns boolean` — replaces
+  `exists (select 1 from classes where id = ... and professor_id =
+  auth.uid())`.
+- `is_class_member(p_class_id uuid) returns boolean` — replaces
+  `exists (select 1 from class_members where class_id = ... and user_id =
+  auth.uid())`.
+- `is_professor_of_student(p_student_id uuid) returns boolean` — the
+  `class_members` ⋈ `classes` join `profiles_professor_class_students_select`
+  needs, done once inside the function so neither table's RLS re-enters
+  while `profiles`' RLS is being resolved.
+
+These are boolean, single-class helpers rather than a set-returning
+`user_class_ids()`, because every call site already checks membership for
+one `class_id` correlated to the row being filtered — a boolean short-
+circuits per row instead of materialising a set to probe with `IN (...)`.
+
+Every policy that reached `classes` or `class_members` through a raw
+correlated subquery was rewritten to call these helpers instead — not only
+the two that formed the cycle. `assignments`, `questions`,
+`assignment_attempts`, `responses`, `question_mappings`,
+`question_mapping_members`, `response_transitions`, `imports`,
+`import_rows`, and `roster_entries` all join through `classes` and/or
+`class_members` the same way; none of them formed a cycle on their own
+(each only ever reached one side of the `classes`/`class_members` pair), but
+a raw subquery anywhere in that chain re-opens the same hole the moment it
+touches both tables. Policies that never had a subquery into
+`classes`/`class_members` at all (e.g. `classes_professor_manage`, which is
+just `professor_id = auth.uid()`) are unchanged.
+
+**Rule for future policies**: never write a raw correlated subquery from
+one RLS-protected table into `classes` or `class_members` (or chain through
+a table that itself does). Use `is_professor_of_class(...)` /
+`is_class_member(...)` instead.
 
 ## Security-definer RPCs (bypass RLS deliberately, narrowly)
 

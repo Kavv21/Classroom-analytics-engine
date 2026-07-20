@@ -12,6 +12,7 @@ and DB-level constraints throughout.
 profiles
 classes
 class_members
+roster_entries
 assignments
 questions
 question_options
@@ -37,8 +38,43 @@ year_of_study, section, is_active, created_at, updated_at
 id, professor_id, name, course_name, academic_year, semester, section,
 class_code, start_date, end_date, status, created_at, updated_at
 
+`status`: `ACTIVE` | `ARCHIVED` (CHECK constraint, migration 0005). Archiving
+is a status flip, not a delete — never destroy a class with responses.
+
 ## class_members
 id, class_id, user_id, member_role, status, joined_at
+
+## roster_entries
+Pre-provisioning for Google SSO (see docs/AUTH_SSO.md,
+docs/AUTH_SSO_UPDATE.md, migration 0002). Populated by roster import
+(Phase 3) rather than writing to `profiles` directly — `profiles` rows only
+get created by `handle_new_user()` at a student's first sign-in, using
+whichever roster_entries row matches their email.
+
+id, email (globally unique), intended_role, class_id, roll_number,
+full_name, programme, year_of_study, section, provisioned, created_by,
+created_at, updated_at
+
+**`email` is globally unique**, which means one roster_entries row can only
+ever pre-provision one student for one class at a time. Roster import
+(lib/roster/validate.ts, `RosterRowClassification`) therefore branches on
+each row:
+- email unseen anywhere → insert a new `roster_entries` row (`NEW`).
+- email already has a `profiles` row (provisioned earlier, via any class)
+  → enrol directly into `class_members` instead (`EXISTING_PROFILE`);
+  never touch `roster_entries` for this email again.
+- email already pending (`provisioned = false`) for *this* class → rejected
+  as a duplicate (`DUPLICATE_ALREADY_IN_CLASS`).
+- email already pending for a *different* class → rejected
+  (`DUPLICATE_PENDING_OTHER_CLASS`) — the professor of that other class (or
+  the student's first sign-in) needs to resolve it; this deliberately does
+  not silently reassign `roster_entries.class_id`.
+
+Duplicate detection and cross-class lookups are done via the
+`check_roster_emails` RPC (migration 0005) — a professor has no RLS-granted
+read access to another class's `roster_entries`/`profiles`, so this
+security-definer function answers only the yes/no questions import needs,
+never a full row.
 
 ## assignments
 id, class_id, title, description, instructions, assignment_stage,
@@ -118,6 +154,25 @@ submitted data, approve mappings, or export class datasets.
 
 Professors: manage their own classes, students, and assignments; read class
 responses for their own classes; approve mappings; view analytics; export
-their own class data.
+their own class data. `profiles_professor_class_students_select` (migration
+0005) is the policy backing "read own students" — scoped to profiles that
+are a `class_members` row in one of that professor's classes; it grants
+read only, never write.
 
 Admins: system-level management per explicit policies (not blanket access).
+
+## Security-definer RPCs (bypass RLS deliberately, narrowly)
+
+Three functions in migration 0005 do more than a scoped RLS policy could
+express without over-widening table-level access. Each starts with an
+explicit ownership check standing in for RLS, per CLAUDE.md's "No RLS
+shortcuts" rule — see the migration file for the full reasoning:
+
+- `commit_roster_import(...)` — `security invoker` (relies on RLS, doesn't
+  bypass it); wraps the whole roster-import commit in one transaction so a
+  failure never leaves a partial import.
+- `check_roster_emails(p_class_id, p_emails)` — `security definer`; answers
+  only yes/no duplicate-detection questions for roster import, never
+  returns another class's identity or a student's other fields.
+- `set_student_active(p_class_id, p_profile_id, p_is_active)` —
+  `security definer`; writes only `profiles.is_active`, nothing else.

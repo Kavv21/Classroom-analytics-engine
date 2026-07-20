@@ -7,6 +7,71 @@
 
 export type UserRole = "ADMIN" | "PROFESSOR" | "STUDENT";
 
+export type ClassStatus = "ACTIVE" | "ARCHIVED";
+
+export interface Class {
+  id: string;
+  professorId: string;
+  name: string;
+  courseName: string | null;
+  academicYear: string | null;
+  semester: string | null;
+  section: string | null;
+  classCode: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  status: ClassStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Roster import row lifecycle. A row is classified against the DB during
+ * preview and re-classified (never trusted from the client) at commit time.
+ * See docs/DATABASE_SCHEMA.md#roster_entries for why NEW / EXISTING_PROFILE
+ * are different write paths (roster_entries.email is globally unique, so a
+ * student already provisioned — or already pending for another class —
+ * cannot get a second roster_entries row).
+ */
+export type RosterRowClassification =
+  | "NEW"
+  | "EXISTING_PROFILE"
+  | "DUPLICATE_IN_FILE"
+  | "DUPLICATE_ALREADY_IN_CLASS"
+  | "DUPLICATE_PENDING_OTHER_CLASS"
+  | "INVALID";
+
+export interface RosterRowInput {
+  rowNumber: number;
+  email: string;
+  fullName: string;
+  rollNumber: string | null;
+  programme: string | null;
+  yearOfStudy: string | null;
+  section: string | null;
+}
+
+export interface RosterRowResult {
+  rowNumber: number;
+  raw: Record<string, unknown>;
+  classification: RosterRowClassification;
+  errors: string[];
+  data: RosterRowInput | null;
+}
+
+export interface RosterImportPreview {
+  totalRows: number;
+  importableRows: RosterRowResult[];
+  rejectedRows: RosterRowResult[];
+}
+
+export interface RosterImportSummary {
+  importId: string;
+  imported: number;
+  rejected: number;
+  total: number;
+}
+
 export type AssignmentStage =
   | "PRE_INSTRUCTION"
   | "POST_INSTRUCTION"

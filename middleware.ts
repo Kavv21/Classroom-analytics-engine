@@ -47,11 +47,20 @@ export async function middleware(request: NextRequest) {
   // Session exists — but only a `profiles` row means handle_new_user()
   // actually provisioned this account. RLS (profiles_select_own) permits
   // this: id = auth.uid().
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id")
     .eq("id", user.id)
     .maybeSingle();
+
+  // A query error (e.g. missing GRANT, connection failure) is not the same
+  // thing as "no profile row" — conflating them sends fully provisioned
+  // users to /not-provisioned with no signal that anything is actually
+  // broken. Fail loudly instead of guessing.
+  if (profileError) {
+    console.error("middleware: profile lookup failed", profileError);
+    return new NextResponse("Internal error checking account status.", { status: 500 });
+  }
 
   if (!profile) {
     if (isUnprovisionedPath(pathname)) return response;

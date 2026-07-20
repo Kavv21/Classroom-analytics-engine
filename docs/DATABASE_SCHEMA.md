@@ -176,3 +176,18 @@ shortcuts" rule — see the migration file for the full reasoning:
   returns another class's identity or a student's other fields.
 - `set_student_active(p_class_id, p_profile_id, p_is_active)` —
   `security definer`; writes only `profiles.is_active`, nothing else.
+
+## Table grants (migration 0007)
+
+RLS policies filter *rows* a role may see; they do nothing without a
+table-level GRANT first — Postgres checks privileges before RLS, and a
+missing GRANT fails the whole query with `permission denied for table X`,
+not an empty result. Migrations 0001-0006 enabled RLS on every table but
+never granted base privileges to `anon`/`authenticated`/`service_role`,
+which made every table unreadable by every role (including `service_role`,
+which bypasses RLS but still needs the GRANT) until migration 0007 fixed
+it. Any new table added in a future migration needs no additional GRANT —
+0007 also sets `ALTER DEFAULT PRIVILEGES` so `authenticated`/`service_role`
+inherit access to tables created later by the same migration role — but
+this is exactly the kind of thing to double check with a manual query if a
+new table mysteriously behaves as if RLS is denying everything.

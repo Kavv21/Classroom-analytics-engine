@@ -132,6 +132,24 @@ REOPENED → RESUBMITTED
 ```
 Backend must reject any transition not in this list.
 
+Enforced by the `attempts_state_transition` trigger (migration 0010) —
+fires for every role, INSERT included (a new row may only start as
+NOT_STARTED or DRAFT). Updates that don't change `state` are bookkeeping,
+not transitions, and pass. The TS mirror is `VALID_ATTEMPT_TRANSITIONS`
+in `lib/types/domain.ts`.
+
+Unique on (assignment_id, student_id) — one attempt per student per
+assignment; `get_or_create_attempt` leans on it for idempotency.
+
+`submission_version` bumps on any submission after a previous one
+(including the REOPENED → DRAFT → SUBMITTED editing path, which the FSM
+routes through SUBMITTED rather than RESUBMITTED); `responses.version` is
+stamped to match at submit time.
+
+`assignments.allow_draft_editing = false` means a saved answer is
+write-once: blank answers can still be filled in, but changing an
+already-saved 0/1 is rejected by `save_attempt_responses`.
+
 ## responses
 id, attempt_id, assignment_id, student_id, question_id, response_value,
 is_final, first_saved_at, last_saved_at, submitted_at, version, created_at,
@@ -281,6 +299,31 @@ RLS plus an explicit ownership check for clear errors):
 - `log_audit_event(p_action, p_entity_type, p_entity_id, p_metadata)` —
   `security definer`; the only write path into `audit_logs` (which has no
   INSERT policy). Actor is always `auth.uid()`; execute revoked from anon.
+
+Migration 0010 (Phase 5) adds the student-attempt RPCs. All but the last
+are `security invoker` (RLS + an explicit ownership check for clear
+errors); EXECUTE is revoked from anon on all four:
+
+- `get_or_create_attempt(p_assignment_id)` — idempotent entry point;
+  requires the assignment OPEN and the caller a class member; creates the
+  NOT_STARTED row on first call, returns the existing one after.
+- `save_attempt_responses(p_attempt_id, p_answers)` — batched autosave.
+  Upserts on (attempt_id, question_id) so retried batches converge;
+  validates each value against {0, 1, null} and each question against the
+  attempt's assignment; rejects saves unless the attempt is
+  NOT_STARTED/DRAFT/REOPENED and the assignment is OPEN; moves state to
+  DRAFT. One transaction — a bad answer aborts the whole batch.
+- `submit_attempt(p_attempt_id)` — final submission. Locks the attempt row
+  (`for update`), so concurrent/double submits serialize; an
+  already-submitted attempt gets a clear "already submitted" error and no
+  second submission. Marks responses is_final + stamps version. Only ever
+  invoked from the student's explicit confirm button — no automatic
+  trigger exists anywhere (EXCLUDED_FEATURES.md).
+- `reopen_attempt(p_attempt_id)` — professor-only, `security definer`
+  (professors deliberately have no UPDATE policy on responses; this is the
+  one narrow write path, per the set_student_active precedent). SUBMITTED →
+  REOPENED with reopened_at/reopened_by; clears responses.is_final;
+  audit-logged. RESUBMITTED is terminal and cannot be reopened.
 
 ## Views (migration 0009)
 

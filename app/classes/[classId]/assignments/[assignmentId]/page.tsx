@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { StatusActions } from "@/components/assignments/status-actions";
 import {
+  AttemptsTable,
+  type AttemptTableRow,
+} from "@/components/assignments/attempts-table";
+import {
   QuestionManager,
   type QuestionRow,
 } from "@/components/assignments/question-manager";
@@ -73,6 +77,18 @@ export default async function AssignmentDetailPage({
     throw new Error(`Failed to load submission progress: ${progressError.message}`);
   }
 
+  const { data: attemptRows, error: attemptsError } = await supabase
+    .from("assignment_attempts")
+    .select(
+      "id, state, submitted_at, reopened_at, submission_version, profiles!assignment_attempts_student_id_fkey(full_name, email)"
+    )
+    .eq("assignment_id", assignmentId)
+    .order("submitted_at", { ascending: false, nullsFirst: false });
+
+  if (attemptsError) {
+    throw new Error(`Failed to load attempts: ${attemptsError.message}`);
+  }
+
   const { data: imports, error: importsError } = await supabase
     .from("imports")
     .select("id, source_filename, status, created_at, summary")
@@ -87,6 +103,25 @@ export default async function AssignmentDetailPage({
   const status = assignment.status as AssignmentStatus;
   const hasResponses = (responseCount ?? 0) > 0;
   const editable = status === "DRAFT" || status === "READY";
+
+  const attemptTableRows: AttemptTableRow[] = (
+    (attemptRows ?? []) as unknown as Array<{
+      id: string;
+      state: string;
+      submitted_at: string | null;
+      reopened_at: string | null;
+      submission_version: number;
+      profiles: { full_name: string | null; email: string } | null;
+    }>
+  ).map((a) => ({
+    id: a.id,
+    state: a.state,
+    submitted_at: a.submitted_at,
+    reopened_at: a.reopened_at,
+    submission_version: a.submission_version,
+    studentName: a.profiles?.full_name ?? "—",
+    studentEmail: a.profiles?.email ?? "—",
+  }));
 
   return (
     <main className="mx-auto max-w-3xl p-8">
@@ -159,6 +194,17 @@ export default async function AssignmentDetailPage({
               </div>
             ))}
           </div>
+        </>
+      )}
+
+      {(status === "OPEN" || status === "CLOSED" || attemptTableRows.length > 0) && (
+        <>
+          <h2 className="mt-8 text-lg font-semibold">Attempts</h2>
+          <AttemptsTable
+            classId={classId}
+            assignmentId={assignmentId}
+            attempts={attemptTableRows}
+          />
         </>
       )}
 

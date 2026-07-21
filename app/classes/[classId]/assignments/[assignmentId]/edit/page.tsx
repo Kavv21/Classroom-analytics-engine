@@ -45,7 +45,9 @@ export default async function EditAssignmentPage({
         <AssignmentForm
           onSubmitAction={updateAssignment.bind(null, assignmentId)}
           submitLabel="Save changes"
-          redirectOnSuccess={() => `/classes/${classId}/assignments/${assignmentId}`}
+          // updateAssignment returns the assignment's own id, so this lands
+          // back on the detail page.
+          redirectBasePath={`/classes/${classId}/assignments`}
           defaultValues={{
             title: assignment.title,
             description: assignment.description ?? "",

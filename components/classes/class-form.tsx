@@ -11,7 +11,13 @@ interface ClassFormProps {
   defaultValues?: Partial<ClassFormValues>;
   onSubmitAction: (values: ClassFormValues) => Promise<ActionResult<{ id: string }>>;
   submitLabel: string;
-  redirectOnSuccess: (id: string) => string;
+  /**
+   * Where to go after a successful submit: `${redirectBasePath}/${id}`,
+   * where id is the created/updated class's id. A serializable string (not
+   * a callback) so this prop stays legal across the server/client
+   * component boundary.
+   */
+  redirectBasePath: string;
 }
 
 const fields: Array<{ name: keyof ClassFormValues; label: string; type?: string }> = [
@@ -29,7 +35,7 @@ export function ClassForm({
   defaultValues,
   onSubmitAction,
   submitLabel,
-  redirectOnSuccess,
+  redirectBasePath,
 }: ClassFormProps) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
@@ -69,7 +75,7 @@ export function ClassForm({
       return;
     }
 
-    router.push(redirectOnSuccess(result.data.id));
+    router.push(`${redirectBasePath}/${result.data.id}`);
     router.refresh();
   }
 

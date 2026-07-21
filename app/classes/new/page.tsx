@@ -11,7 +11,7 @@ export default function NewClassPage() {
         <ClassForm
           onSubmitAction={createClass}
           submitLabel="Create class"
-          redirectOnSuccess={(id) => `/classes/${id}`}
+          redirectBasePath="/classes"
         />
       </div>
     </main>

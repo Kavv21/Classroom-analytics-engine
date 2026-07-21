@@ -14,7 +14,13 @@ interface AssignmentFormProps {
   defaultValues?: Partial<AssignmentFormValues>;
   onSubmitAction: (values: AssignmentFormValues) => Promise<AssignmentActionResult<{ id: string }>>;
   submitLabel: string;
-  redirectOnSuccess: (id: string) => string;
+  /**
+   * Where to go after a successful submit: `${redirectBasePath}/${id}`,
+   * where id is the created/updated assignment's id. A serializable string
+   * (not a callback) so Server Component pages can pass it across the
+   * client boundary.
+   */
+  redirectBasePath: string;
 }
 
 const STAGES = [
@@ -28,7 +34,7 @@ export function AssignmentForm({
   defaultValues,
   onSubmitAction,
   submitLabel,
-  redirectOnSuccess,
+  redirectBasePath,
 }: AssignmentFormProps) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
@@ -71,7 +77,7 @@ export function AssignmentForm({
       return;
     }
 
-    router.push(redirectOnSuccess(result.data.id));
+    router.push(`${redirectBasePath}/${result.data.id}`);
     router.refresh();
   }
 

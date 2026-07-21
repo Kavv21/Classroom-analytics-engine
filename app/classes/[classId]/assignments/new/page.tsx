@@ -22,7 +22,7 @@ export default async function NewAssignmentPage({
         <AssignmentForm
           onSubmitAction={createAssignment.bind(null, classId)}
           submitLabel="Create assignment"
-          redirectOnSuccess={(id) => `/classes/${classId}/assignments/${id}`}
+          redirectBasePath={`/classes/${classId}/assignments`}
         />
       </div>
     </main>

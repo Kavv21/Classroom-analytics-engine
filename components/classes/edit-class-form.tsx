@@ -16,7 +16,7 @@ export function EditClassForm({
       defaultValues={defaultValues}
       onSubmitAction={(values) => updateClass(classId, values)}
       submitLabel="Save changes"
-      redirectOnSuccess={(id) => `/classes/${id}`}
+      redirectBasePath="/classes"
     />
   );
 }

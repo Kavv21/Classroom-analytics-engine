@@ -128,18 +128,44 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  // Cascades take questions, imports, attempts, and responses with the class.
+  const failures: string[] = [];
+  const step = async (
+    label: string,
+    fn: () => PromiseLike<{ error: { message: string } | null }>
+  ) => {
+    const { error } = await fn();
+    if (error) failures.push(`${label}: ${error.message}`);
+  };
+
+  // Responses must go first: the questions_immutable_after_responses
+  // trigger (0009) blocks the questions cascade of a class delete while
+  // any response exists — hard-deleting response-bearing data is supposed
+  // to be impossible, so the cleanup removes the responses explicitly.
+  if (studentIds.length > 0) {
+    await step("responses", () => admin.from("responses").delete().in("student_id", studentIds));
+    await step("attempts", () =>
+      admin.from("assignment_attempts").delete().in("student_id", studentIds)
+    );
+  }
   for (const classId of classIds) {
-    await admin.from("classes").delete().eq("id", classId);
+    // Cascades take members, assignments, questions, and imports with it.
+    await step(`class ${classId}`, () => admin.from("classes").delete().eq("id", classId));
   }
   const actorIds = [professorId, ...studentIds].filter(Boolean);
   if (actorIds.length > 0) {
-    await admin.from("audit_logs").delete().in("actor_id", actorIds);
-    await admin.from("class_members").delete().in("user_id", actorIds);
-    await admin.from("profiles").delete().in("id", actorIds);
+    await step("audit_logs", () => admin.from("audit_logs").delete().in("actor_id", actorIds));
+    await step("class_members", () =>
+      admin.from("class_members").delete().in("user_id", actorIds)
+    );
+    await step("profiles", () => admin.from("profiles").delete().in("id", actorIds));
     for (const id of actorIds) {
-      await admin.auth.admin.deleteUser(id);
+      await step(`auth user ${id}`, () => admin.auth.admin.deleteUser(id));
     }
+  }
+
+  // Loud, not silent: leftover test data on a shared database is a bug.
+  if (failures.length > 0) {
+    throw new Error(`integration-test cleanup left data behind — ${failures.join("; ")}`);
   }
 }, 60_000);
 

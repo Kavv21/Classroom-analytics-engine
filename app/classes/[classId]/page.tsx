@@ -79,6 +79,21 @@ export default async function ClassDetailPage({
         </div>
       </div>
 
+      <div className="mt-4 flex items-center justify-between rounded border border-gray-200 p-4">
+        <div>
+          <p className="font-medium">Assignments</p>
+          <p className="text-sm text-gray-600">
+            Create, import, and publish this class&rsquo;s assignments.
+          </p>
+        </div>
+        <Link
+          href={`/classes/${classId}/assignments`}
+          className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+        >
+          Manage assignments
+        </Link>
+      </div>
+
       <h2 className="mt-8 text-lg font-semibold">Roster</h2>
       {!members || members.length === 0 ? (
         <p className="mt-2 text-sm text-gray-600">

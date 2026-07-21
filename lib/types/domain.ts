@@ -80,6 +80,41 @@ export type AssignmentStage =
 
 export type AssignmentStatus = "DRAFT" | "READY" | "OPEN" | "CLOSED" | "ARCHIVED";
 
+/**
+ * DRAFT -> READY -> OPEN -> CLOSED -> ARCHIVED, plus READY -> DRAFT
+ * (un-approve to resume editing). Enforced at the DB layer by the
+ * assignments_status_transition trigger (migration 0009) — this map exists
+ * so the UI and server actions can fail fast with a friendly message, not
+ * as the boundary itself.
+ */
+export const VALID_ASSIGNMENT_TRANSITIONS: Record<AssignmentStatus, AssignmentStatus[]> = {
+  DRAFT: ["READY"],
+  READY: ["DRAFT", "OPEN"],
+  OPEN: ["CLOSED"],
+  CLOSED: ["ARCHIVED"],
+  ARCHIVED: [],
+};
+
+export interface Assignment {
+  id: string;
+  classId: string;
+  title: string;
+  description: string | null;
+  instructions: string | null;
+  assignmentStage: AssignmentStage;
+  sequenceNumber: number;
+  openAt: string | null;
+  closeAt: string | null;
+  status: AssignmentStatus;
+  allowDraftEditing: boolean;
+  allowResubmission: boolean;
+  responseZeroLabel: string;
+  responseOneLabel: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type AttemptState =
   | "NOT_STARTED"
   | "DRAFT"

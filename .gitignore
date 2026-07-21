@@ -10,3 +10,4 @@ playwright-report/
 test-results/
 tsconfig.tsbuildinfo
 supabase/.temp/
+supabase/.branches/

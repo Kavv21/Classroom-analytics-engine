@@ -25,15 +25,22 @@ async function requireProfessorForClass(classId: string) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { supabase, authorized: false } as const;
+  if (!user) return { supabase, authorized: false, checkError: null } as const;
 
-  const { data: classRow } = await supabase
+  // Surface a failed lookup instead of treating it as "not your class" —
+  // discarding `error` here turns any DB failure into a misleading
+  // authorization message.
+  const { data: classRow, error: checkError } = await supabase
     .from("classes")
     .select("id")
     .eq("id", classId)
     .maybeSingle();
 
-  return { supabase, authorized: !!classRow } as const;
+  if (checkError) {
+    console.error("requireProfessorForClass: class lookup failed", checkError);
+  }
+
+  return { supabase, authorized: !!classRow, checkError } as const;
 }
 
 async function fetchEmailChecks(
@@ -96,7 +103,10 @@ export async function previewRosterImport(
   const file = formData.get("file");
   if (!(file instanceof File)) return { success: false, error: "No file uploaded." };
 
-  const { supabase, authorized } = await requireProfessorForClass(classId);
+  const { supabase, authorized, checkError } = await requireProfessorForClass(classId);
+  if (checkError) {
+    return { success: false, error: `Could not verify class access: ${checkError.message}` };
+  }
   if (!authorized) return { success: false, error: "Class not found, or you don't have access to it." };
 
   try {
@@ -117,7 +127,10 @@ export async function commitRosterImport(
   const file = formData.get("file");
   if (!(file instanceof File)) return { success: false, error: "No file uploaded." };
 
-  const { supabase, authorized } = await requireProfessorForClass(classId);
+  const { supabase, authorized, checkError } = await requireProfessorForClass(classId);
+  if (checkError) {
+    return { success: false, error: `Could not verify class access: ${checkError.message}` };
+  }
   if (!authorized) return { success: false, error: "Class not found, or you don't have access to it." };
 
   let results: RosterRowResult[];

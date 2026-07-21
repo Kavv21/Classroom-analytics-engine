@@ -29,15 +29,22 @@ async function requireProfessor() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { supabase, user: null, profile: null } as const;
+  if (!user) return { supabase, user: null, profile: null, profileError: null } as const;
 
-  const { data: profile } = await supabase
+  // A failed profile lookup is NOT "no profile" — during the RLS outage this
+  // exact query errored, and discarding `error` made every professor see
+  // "Only professors can create classes" instead of the real DB failure.
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, role")
     .eq("id", user.id)
     .maybeSingle();
 
-  return { supabase, user, profile } as const;
+  if (profileError) {
+    console.error("requireProfessor: profile lookup failed", profileError);
+  }
+
+  return { supabase, user, profile, profileError } as const;
 }
 
 export async function createClass(
@@ -52,7 +59,10 @@ export async function createClass(
     };
   }
 
-  const { supabase, user, profile } = await requireProfessor();
+  const { supabase, user, profile, profileError } = await requireProfessor();
+  if (profileError) {
+    return { success: false, error: `Could not verify your account: ${profileError.message}` };
+  }
   if (!user || !profile || (profile.role !== "PROFESSOR" && profile.role !== "ADMIN")) {
     return { success: false, error: "Only professors can create classes." };
   }

@@ -85,11 +85,34 @@ created_at, updated_at
 Stages: PRE_INSTRUCTION, POST_INSTRUCTION, FOLLOW_UP, OTHER
 Statuses: DRAFT, READY, OPEN, CLOSED, ARCHIVED
 
+Status transitions are enforced by the `assignments_status_transition`
+trigger (migration 0009), not just the UI:
+```
+DRAFT  → READY      (requires ≥1 active question; READY = "professor saw
+                     and approved the full question list")
+READY  → DRAFT      (un-approve, resume editing)
+READY  → OPEN       (publish)
+OPEN   → CLOSED
+CLOSED → ARCHIVED
+```
+Everything else is rejected with an exception. The TS mirror of this map is
+`VALID_ASSIGNMENT_TRANSITIONS` in `lib/types/domain.ts` (friendly errors
+only — the trigger is the boundary).
+
 ## questions
 id, assignment_id, external_question_code, original_worksheet,
 original_row_reference, original_column_reference, question_text,
 energy_source, criterion, concept, response_zero_label, response_one_label,
 display_order, is_active, raw_source_payload, created_at, updated_at
+
+**Destructive-edit blocking** (CLAUDE.md rule 6): the
+`questions_immutable_after_responses` trigger (migration 0009) fires for
+every role — including service_role, which bypasses RLS but not triggers.
+Once `assignment_has_responses(assignment_id)` is true: INSERT and DELETE
+are rejected, and UPDATE may only change `display_order` / `updated_at`
+(reordering is presentation; wording, codes, labels, classification
+fields, and `is_active` are locked). Version the assignment (duplicate)
+instead.
 
 ## assignment_attempts
 id, assignment_id, student_id, state, started_at, last_saved_at,
@@ -235,6 +258,38 @@ shortcuts" rule — see the migration file for the full reasoning:
   returns another class's identity or a student's other fields.
 - `set_student_active(p_class_id, p_profile_id, p_is_active)` —
   `security definer`; writes only `profiles.is_active`, nothing else.
+
+Migration 0009 (Phase 4) adds, following the same rules (definer functions
+pin `search_path = public` and schema-qualify; invoker functions lean on
+RLS plus an explicit ownership check for clear errors):
+
+- `assignment_has_responses(p_assignment_id)` — `security definer` boolean
+  helper used by the 0009 triggers.
+- `commit_assignment_import(p_assignment_id, p_source_filename,
+  p_source_checksum, p_source_worksheet, p_questions)` — `security
+  invoker`; all-or-nothing transactional question import into a DRAFT,
+  response-free assignment. Replaces the assignment's question set (clean
+  re-import after a rejected attempt), writes `imports`/`import_rows`
+  history, audit-logs, and raises (rolling everything back) on any bad
+  row — never a silent partial import.
+- `record_failed_assignment_import(...)` — `security invoker`; records a
+  FAILED import plus REJECTED rows as history without touching questions.
+  Called by the server action when the parser reports row-level errors.
+- `duplicate_assignment(p_assignment_id)` — `security invoker`; copies the
+  assignment + questions into a new DRAFT (`title || ' (copy)'`) in one
+  transaction.
+- `log_audit_event(p_action, p_entity_type, p_entity_id, p_metadata)` —
+  `security definer`; the only write path into `audit_logs` (which has no
+  INSERT policy). Actor is always `auth.uid()`; execute revoked from anon.
+
+## Views (migration 0009)
+
+- `assignment_submission_progress` (`security_invoker = on`) — per
+  assignment: enrolled_students plus counts by attempt state
+  (not_started/draft/submitted/reopened/resubmitted), aggregated over
+  active STUDENT `class_members` left-joined to `assignment_attempts`.
+  The querying user's own RLS applies; explicit SELECT grants to
+  authenticated/service_role.
 
 ## Table grants (migration 0007)
 

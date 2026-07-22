@@ -1,100 +1,65 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { AnalyticsNav } from "@/components/analytics/analytics-nav";
 import {
-  getAssignmentResponseSummaries,
   getClassTransitionSummary,
-  getEnergySourceTransitionSummaries,
-  getMappingTransitionSummaries,
-  type TransitionCounts,
+  getSubmissionProgress,
 } from "@/lib/analytics/queries";
+import {
+  getClassAssignments,
+  requireProfessorClassPage,
+} from "@/lib/analytics/page-data";
 
 /**
- * Phase 7 analytics — numbers only (real charts land in Phase 8). All
- * figures are descriptive statistics about opinions, never grades or
- * correctness judgements; copy stays neutral per .claude/rules/analytics.md.
- * Data is computed on read from the 0012 views, so it is always current —
- * no refresh step exists.
+ * Professor dashboard — Overview (Section 19). Headline numbers plus
+ * pointers into the deeper sections. All figures are descriptive
+ * statistics about opinions, never grades; data is computed on read from
+ * the Phase 7 views, so it is always current.
  */
 
-function pct(value: number | null): string {
+function pct(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function num(value: number | null): string {
-  if (value === null || value === undefined) return "—";
-  return value.toFixed(3);
-}
-
-function TransitionCells({ row }: { row: TransitionCounts }) {
-  return (
-    <>
-      <td className="px-3 py-2 text-right">{row.valid_paired}</td>
-      <td className="px-3 py-2 text-right">{row.s00}</td>
-      <td className="px-3 py-2 text-right">{row.s01}</td>
-      <td className="px-3 py-2 text-right">{row.s10}</td>
-      <td className="px-3 py-2 text-right">{row.s11}</td>
-      <td className="px-3 py-2 text-right">{pct(row.change_rate)}</td>
-      <td className="px-3 py-2 text-right">{pct(row.stability_rate)}</td>
-      <td className="px-3 py-2 text-right">
-        {row.net_movement_toward_1 > 0 ? `+${row.net_movement_toward_1}` : row.net_movement_toward_1}
-      </td>
-      <td className="px-3 py-2 text-right">
-        {row.pct_point_shift === null
-          ? "—"
-          : `${row.pct_point_shift > 0 ? "+" : ""}${(row.pct_point_shift * 100).toFixed(1)}pp`}
-      </td>
-      <td className="px-3 py-2 text-right text-gray-500">
-        {row.missing_a1 + row.missing_a2 + row.missing_both}
-      </td>
-    </>
-  );
-}
-
-const TRANSITION_HEADERS = (
-  <>
-    <th className="px-3 py-2 text-right font-medium">Valid pairs</th>
-    <th className="px-3 py-2 text-right font-medium">0→0</th>
-    <th className="px-3 py-2 text-right font-medium">0→1</th>
-    <th className="px-3 py-2 text-right font-medium">1→0</th>
-    <th className="px-3 py-2 text-right font-medium">1→1</th>
-    <th className="px-3 py-2 text-right font-medium">Change rate</th>
-    <th className="px-3 py-2 text-right font-medium">Stability</th>
-    <th className="px-3 py-2 text-right font-medium">Net → 1</th>
-    <th className="px-3 py-2 text-right font-medium">Shift</th>
-    <th className="px-3 py-2 text-right font-medium">Missing</th>
-  </>
-);
-
-export default async function ClassAnalyticsPage({
+export default async function AnalyticsOverviewPage({
   params,
 }: {
   params: Promise<{ classId: string }>;
 }) {
   const { classId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, classRow } = await requireProfessorClassPage(classId);
+  if (!classRow) notFound();
 
-  const { data: classRow, error: classError } = await supabase
-    .from("classes")
-    .select("id, name, professor_id")
-    .eq("id", classId)
-    .maybeSingle();
-  if (classError) {
-    throw new Error(`Could not verify access: ${classError.message}`);
-  }
-  if (!classRow || !user || classRow.professor_id !== user.id) notFound();
+  const [summary, progress, assignments] = await Promise.all([
+    getClassTransitionSummary(supabase, classId),
+    getSubmissionProgress(supabase, classId),
+    getClassAssignments(supabase, classId),
+  ]);
 
-  const [classSummary, mappingSummaries, energySummaries, assignmentSummaries] =
-    await Promise.all([
-      getClassTransitionSummary(supabase, classId),
-      getMappingTransitionSummaries(supabase, classId),
-      getEnergySourceTransitionSummaries(supabase, classId),
-      getAssignmentResponseSummaries(supabase, classId),
-    ]);
+  const assignmentTitle = (id: string) =>
+    assignments.find((a) => a.id === id)?.title ?? `${id.slice(0, 8)}…`;
+
+  const tiles = [
+    { label: "Students with transition data", value: summary?.students_considered ?? 0 },
+    { label: "Approved mappings", value: summary?.mappings_considered ?? 0 },
+    { label: "Valid response pairs", value: summary?.valid_paired ?? 0 },
+    { label: "Change rate", value: pct(summary?.change_rate) },
+    {
+      label: "Net movement toward 1 — Yes",
+      value:
+        summary === null
+          ? "—"
+          : `${summary.net_movement_toward_1 > 0 ? "+" : ""}${summary.net_movement_toward_1}`,
+    },
+    {
+      label: "Shift (percentage points)",
+      value:
+        summary?.pct_point_shift === null || summary === null
+          ? "—"
+          : `${summary.pct_point_shift > 0 ? "+" : ""}${(summary.pct_point_shift * 100).toFixed(1)}pp`,
+    },
+  ];
 
   return (
     <main className="mx-auto max-w-6xl p-8">
@@ -104,8 +69,8 @@ export default async function ClassAnalyticsPage({
           <p className="mt-1 text-sm text-gray-600">
             Descriptive statistics about opinion responses and how they moved
             between the two assignments. Nothing here is a grade or a
-            correctness judgement. Figures update live as responses arrive
-            and mappings are approved.
+            correctness judgement. Figures update live as responses arrive and
+            mappings are approved.
           </p>
         </div>
         <Link
@@ -116,88 +81,63 @@ export default async function ClassAnalyticsPage({
         </Link>
       </div>
 
-      <h2 className="mt-8 text-lg font-semibold">Class overview</h2>
-      {!classSummary ? (
-        <p className="mt-2 text-sm text-gray-600">
-          No transition data yet — transitions appear once at least one
-          mapping is{" "}
+      <AnalyticsNav classId={classId} active="overview" />
+
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        {tiles.map((tile) => (
+          <div key={tile.label} className="rounded border border-gray-200 bg-[#fcfcfb] p-3">
+            <p className="text-xs text-gray-500">{tile.label}</p>
+            <p className="mt-1 text-xl font-semibold text-gray-900">{tile.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {!summary && (
+        <p className="mt-4 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+          No transition data yet — it appears once at least one mapping is{" "}
           <Link href={`/classes/${classId}/mappings`} className="text-blue-600 underline">
             approved in the mapping studio
           </Link>{" "}
-          and students have submitted responses.
+          and students have submitted responses to both assignments.
         </p>
-      ) : (
-        <div className="mt-3 overflow-x-auto rounded border border-gray-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-600">
-              <tr>
-                <th className="px-3 py-2 font-medium">Students</th>
-                <th className="px-3 py-2 font-medium">Approved mappings</th>
-                {TRANSITION_HEADERS}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-3 py-2">{classSummary.students_considered}</td>
-                <td className="px-3 py-2">{classSummary.mappings_considered}</td>
-                <TransitionCells row={classSummary} />
-              </tr>
-            </tbody>
-          </table>
-        </div>
       )}
 
-      <h2 className="mt-8 text-lg font-semibold">Per approved mapping</h2>
-      {mappingSummaries.length === 0 ? (
-        <p className="mt-2 text-sm text-gray-600">No approved mappings yet.</p>
-      ) : (
-        <div className="mt-3 overflow-x-auto rounded border border-gray-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-600">
-              <tr>
-                <th className="px-3 py-2 font-medium">Mapping</th>
-                <th className="px-3 py-2 font-medium">Type</th>
-                {TRANSITION_HEADERS}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {mappingSummaries.map((m) => (
-                <tr key={m.mapping_id}>
-                  <td className="px-3 py-2">
-                    {m.mapping_name}{" "}
-                    <span className="text-xs text-gray-500">v{m.mapping_version}</span>
-                  </td>
-                  <td className="px-3 py-2 text-xs">{m.mapping_type}</td>
-                  <TransitionCells row={m} />
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <h2 className="mt-8 text-lg font-semibold">By energy source</h2>
-      {energySummaries.length === 0 ? (
-        <p className="mt-2 text-sm text-gray-600">
-          No energy-source data yet (mappings need an energy source set and
-          approval).
+      {summary && (summary.missing_a1 + summary.missing_a2 + summary.missing_both > 0 || summary.not_comparable > 0) && (
+        <p className="mt-4 text-xs text-gray-500">
+          Data quality: {summary.missing_a1} pairs missing the Assignment 1 answer,{" "}
+          {summary.missing_a2} missing Assignment 2, {summary.missing_both} missing both,{" "}
+          {summary.not_comparable} not comparable. These are reported separately and never
+          counted as transitions.
         </p>
+      )}
+
+      <h2 className="mt-8 text-lg font-semibold">Submission snapshot</h2>
+      {progress.length === 0 ? (
+        <p className="mt-2 text-sm text-gray-600">No assignments yet.</p>
       ) : (
         <div className="mt-3 overflow-x-auto rounded border border-gray-200">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 text-xs text-gray-600">
               <tr>
-                <th className="px-3 py-2 font-medium">Energy source</th>
-                <th className="px-3 py-2 font-medium">Mappings</th>
-                {TRANSITION_HEADERS}
+                <th scope="col" className="px-3 py-2 font-medium">Assignment</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Enrolled</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Not started</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Draft</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Submitted</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Reopened</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Resubmitted</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {energySummaries.map((e) => (
-                <tr key={e.energy_source}>
-                  <td className="px-3 py-2">{e.energy_source}</td>
-                  <td className="px-3 py-2">{e.mappings_considered}</td>
-                  <TransitionCells row={e} />
+            <tbody className="divide-y divide-gray-100 tabular-nums">
+              {progress.map((p) => (
+                <tr key={p.assignment_id}>
+                  <td className="px-3 py-2">{assignmentTitle(p.assignment_id)}</td>
+                  <td className="px-3 py-2 text-right">{p.enrolled_students}</td>
+                  <td className="px-3 py-2 text-right">{p.not_started_count}</td>
+                  <td className="px-3 py-2 text-right">{p.draft_count}</td>
+                  <td className="px-3 py-2 text-right">{p.submitted_count}</td>
+                  <td className="px-3 py-2 text-right">{p.reopened_count}</td>
+                  <td className="px-3 py-2 text-right">{p.resubmitted_count}</td>
                 </tr>
               ))}
             </tbody>
@@ -205,45 +145,20 @@ export default async function ClassAnalyticsPage({
         </div>
       )}
 
-      <h2 className="mt-8 text-lg font-semibold">Response distributions per assignment</h2>
-      {assignmentSummaries.length === 0 ? (
-        <p className="mt-2 text-sm text-gray-600">No submitted responses yet.</p>
-      ) : (
-        <div className="mt-3 overflow-x-auto rounded border border-gray-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-600">
-              <tr>
-                <th className="px-3 py-2 font-medium">Assignment</th>
-                <th className="px-3 py-2 text-right font-medium">Questions</th>
-                <th className="px-3 py-2 text-right font-medium">Respondents</th>
-                <th className="px-3 py-2 text-right font-medium">Final answers</th>
-                <th className="px-3 py-2 text-right font-medium">Avg consensus</th>
-                <th className="px-3 py-2 text-right font-medium">Avg disagreement</th>
-                <th className="px-3 py-2 text-right font-medium">Avg entropy</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {assignmentSummaries.map((a) => (
-                <tr key={a.assignment_id}>
-                  <td className="px-3 py-2 font-mono text-xs">{a.assignment_id.slice(0, 8)}…</td>
-                  <td className="px-3 py-2 text-right">{a.question_count}</td>
-                  <td className="px-3 py-2 text-right">{a.respondents}</td>
-                  <td className="px-3 py-2 text-right">{a.answered_responses}</td>
-                  <td className="px-3 py-2 text-right">{pct(a.avg_consensus)}</td>
-                  <td className="px-3 py-2 text-right">{pct(a.avg_disagreement)}</td>
-                  <td className="px-3 py-2 text-right">{num(a.avg_entropy)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <p className="mt-8 text-xs text-gray-500">
-        Change rate and net shift are different metrics: change rate counts
-        all movement in both directions; net shift is the balance of it.
-        Missing or non-comparable pairs are reported separately and never
-        counted as transitions.
+      <p className="mt-6 text-sm text-gray-600">
+        Full charts live in{" "}
+        <Link href={`/classes/${classId}/analytics/assignments`} className="text-blue-600 underline">
+          assignment analytics
+        </Link>
+        ,{" "}
+        <Link href={`/classes/${classId}/analytics/transitions`} className="text-blue-600 underline">
+          transition analytics
+        </Link>{" "}
+        and{" "}
+        <Link href={`/classes/${classId}/analytics/students`} className="text-blue-600 underline">
+          student analytics
+        </Link>
+        .
       </p>
     </main>
   );

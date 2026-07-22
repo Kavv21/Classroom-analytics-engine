@@ -232,6 +232,70 @@ export async function getCriterionResponseSummaries(
 }
 
 // ============================================================
+// Submission progress / timeline (charts 17.13, 17.14).
+// ============================================================
+
+export interface SubmissionProgressRow {
+  assignment_id: string;
+  class_id: string;
+  enrolled_students: number;
+  not_started_count: number;
+  draft_count: number;
+  submitted_count: number;
+  reopened_count: number;
+  resubmitted_count: number;
+}
+
+export interface SubmissionTimelineRow {
+  class_id: string;
+  assignment_id: string;
+  submission_date: string;
+  submissions: number;
+  cumulative_submissions: number;
+}
+
+export async function getSubmissionProgress(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<SubmissionProgressRow[]> {
+  return selectAll(supabase, "assignment_submission_progress", { class_id: classId }, "assignment_id");
+}
+
+export async function getSubmissionTimeline(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<SubmissionTimelineRow[]> {
+  return selectAll(supabase, "submission_timeline", { class_id: classId }, "submission_date");
+}
+
+// ============================================================
+// Per-pair transition rows (drill-down levels: transition cell → students
+// → student profile). Still a view read — never raw response tables.
+// ============================================================
+
+export interface ResponseTransitionLiveRow {
+  class_id: string;
+  mapping_id: string;
+  mapping_name: string;
+  mapping_version: number;
+  mapping_type: MappingType;
+  energy_source: string | null;
+  criterion: string | null;
+  student_id: string;
+  assignment_1_value: 0 | 1 | null;
+  assignment_2_value: 0 | 1 | null;
+  transition_state: "S00" | "S01" | "S10" | "S11" | null;
+  data_quality_status: "MISSING_A1" | "MISSING_A2" | "MISSING_BOTH" | "NOT_COMPARABLE" | null;
+}
+
+export async function getResponseTransitionsLive(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<ResponseTransitionLiveRow[]> {
+  return selectAll(supabase, "response_transitions_live", { class_id: classId }, "mapping_name");
+}
+
+// ============================================================
 // Section 18 exploratory fetchers. Rows come back wrapped in explicit
 // exploratory metadata — Phase 8 must carry the caveat to the UI.
 // ============================================================

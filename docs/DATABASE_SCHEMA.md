@@ -460,6 +460,10 @@ there is no valid data. TS access goes through `lib/analytics/queries.ts`.
   `question_response_summary`, `assignment_response_summary` (per-question
   averages + distinct respondents), `energy_source_response_summary` and
   `criterion_response_summary` (pooled per group within an assignment).
+- `submission_timeline` (migration 0013, Phase 8) — submissions per day
+  (UTC) and cumulative per assignment, from `assignment_attempts.submitted_at`.
+  Feeds the completion-timeline chart (17.14); same computed-on-read
+  freshness contract as everything above.
 - **Section 18 exploratory** (suffix `_exploratory` is the machine-readable
   marker; `lib/analytics/queries.ts` wraps rows in
   `{ exploratory: true, caveat }` and Phase 8 must show the caveat —

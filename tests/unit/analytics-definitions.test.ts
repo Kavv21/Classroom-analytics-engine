@@ -271,6 +271,16 @@ beforeAll(async () => {
     }
   }
 
+  // Submit every attempt (DRAFT -> SUBMITTED is a legal transition) so the
+  // Phase 8 submission views have data to report.
+  {
+    const { error: submitError } = await admin
+      .from("assignment_attempts")
+      .update({ state: "SUBMITTED", submitted_at: new Date().toISOString() })
+      .in("student_id", studentIds);
+    if (submitError) throw new Error(`marking attempts submitted failed: ${submitError.message}`);
+  }
+
   // 10 one-to-one mappings A1-00j <-> A2-00j, approved; plus one approved
   // NOT_COMPARABLE mapping (Fusion exists only in Assignment 1).
   for (let j = 1; j <= 10; j++) {
@@ -463,6 +473,39 @@ describe("Section 12 worked example through the real database views", () => {
     expect(opposite).toMatchObject({ shared_questions: 10, hamming_distance: 10 });
     expect(opposite.agreement_rate).toBe(0);
     expect(opposite.jaccard_similarity).toBe(0);
+  });
+});
+
+describe("submission views (Phase 8 charts 17.13 / 17.14)", () => {
+  it("assignment_submission_progress counts states per assignment", async () => {
+    const { data, error } = await professor.client
+      .from("assignment_submission_progress")
+      .select("*")
+      .eq("class_id", classId)
+      .order("assignment_id");
+    expect(error, error?.message).toBeNull();
+    expect(data).toHaveLength(2);
+    const a1 = data!.find((r) => r.assignment_id === a1AssignmentId)!;
+    const a2 = data!.find((r) => r.assignment_id === a2AssignmentId)!;
+    // All 11 students attempted+submitted A1; only the first 10 touched A2.
+    expect(a1).toMatchObject({ enrolled_students: 11, submitted_count: 11, not_started_count: 0 });
+    expect(a2).toMatchObject({ enrolled_students: 11, submitted_count: 10, not_started_count: 1 });
+  });
+
+  it("submission_timeline reports per-day and cumulative submissions", async () => {
+    const { data, error } = await professor.client
+      .from("submission_timeline")
+      .select("*")
+      .eq("class_id", classId)
+      .order("assignment_id");
+    expect(error, error?.message).toBeNull();
+    // Everything was submitted "today", so one row per assignment with
+    // cumulative == that day's count.
+    const a1Rows = data!.filter((r) => r.assignment_id === a1AssignmentId);
+    expect(a1Rows).toHaveLength(1);
+    expect(a1Rows[0]).toMatchObject({ submissions: 11, cumulative_submissions: 11 });
+    const a2Rows = data!.filter((r) => r.assignment_id === a2AssignmentId);
+    expect(a2Rows[0]).toMatchObject({ submissions: 10, cumulative_submissions: 10 });
   });
 });
 

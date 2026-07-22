@@ -46,6 +46,28 @@ export function adminClient(env: ReturnType<typeof loadEnv>): SupabaseClient {
   });
 }
 
+/**
+ * Retries a Supabase admin-API call through transient auth-service
+ * failures. The hosted project's GoTrue intermittently rejects rapid
+ * sequential admin calls with "invalid JWT: ... unrecognized JWT kid
+ * <nil> for algorithm ES256" — a server-side keyfunc hiccup, not a
+ * problem with our key (the same key succeeds on the surrounding calls).
+ * After the retries are exhausted the last result is returned so the
+ * caller still fails loudly.
+ */
+export async function retryTransient<T extends { error: { message: string } | null }>(
+  fn: () => PromiseLike<T>,
+  attempts = 4
+): Promise<T> {
+  let last!: T;
+  for (let i = 0; i < attempts; i++) {
+    last = await fn();
+    if (!last.error) return last;
+    await new Promise((resolve) => setTimeout(resolve, 500 * (i + 1)));
+  }
+  return last;
+}
+
 export interface TestUser {
   id: string;
   email: string;
@@ -62,11 +84,13 @@ export async function createTestUser(
   const email = `it-${role.toLowerCase()}-${randomUUID().slice(0, 8)}@integration-test.invalid`;
   const password = `It-${randomUUID()}`;
 
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
+  const { data, error } = await retryTransient(() =>
+    admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
+  );
   if (error) throw new Error(`could not create test ${role}: ${error.message}`);
   const id = data.user!.id;
 
@@ -127,7 +151,7 @@ export async function cleanupTestData(
     );
     await step("profiles", () => admin.from("profiles").delete().in("id", opts.userIds));
     for (const id of opts.userIds) {
-      await step(`auth user ${id}`, () => admin.auth.admin.deleteUser(id));
+      await step(`auth user ${id}`, () => retryTransient(() => admin.auth.admin.deleteUser(id)));
     }
   }
 

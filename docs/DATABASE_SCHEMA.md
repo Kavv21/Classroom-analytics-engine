@@ -209,6 +209,12 @@ assignment_2_value, transition_state, data_quality_status, calculated_at
 transition_state: S00, S01, S10, S11 (only when both values are binary)
 data_quality_status: MISSING_A1, MISSING_A2, MISSING_BOTH, NOT_COMPARABLE
 
+**Phase 7 note:** live analytics does NOT read this table — transitions
+are computed on read by the `response_transitions_live` view (migration
+0012, see "Analytics views" below). The table is retained as a durable
+snapshot target (exports/audit, future use); any rows written to it still
+arm the 0011 `mapping_has_dependents` immutability boundary.
+
 ## audit_logs
 Logs: login (where appropriate), class creation, roster imports, assignment
 import, assignment publication/closure, attempt reopening, mapping
@@ -404,6 +410,70 @@ EXECUTE revoked from anon on every one:
   bypasses RLS but not the view's filter. TS access goes through
   `lib/mappings/queries.ts` (`getApprovedMappings`). Verified by
   tests/integration/mapping-flow.test.ts ("ACCEPTANCE" block).
+
+## Analytics views (migration 0012) — Phase 7
+
+**DECISION: transitions and every aggregate are COMPUTED ON READ** (plain
+views), not written by a recompute job when a mapping is approved. Why:
+
+- responses keep arriving while assignments are OPEN, so any snapshot
+  taken at approval time is stale by the next student submission;
+- Phase 6 versioning flips which mapping version is live at approval
+  time, and the phase-7 definition of done requires approval changes to
+  reach aggregates with **no manual recompute step**;
+- the data volumes here (tens of students × hundreds of questions) make
+  on-read aggregation cheap.
+
+**Consequence for Phase 8: data from these views is ALWAYS fresh. There
+is no refresh trigger, no staleness window, and no cache-invalidation
+concern — charts can query on every render.** If profiling ever shows
+these views are too slow, convert them to materialised views + a refresh
+step — but that changes this contract and must be re-documented here.
+
+All views are `security_invoker = on` with explicit SELECT grants to
+authenticated/service_role. Mappings enter only via
+`approved_question_mappings` (the 0011 structural filter). Formulas are
+docs/ANALYTICS_DEFINITIONS.md verbatim; rates are NULL (never 0) when
+there is no valid data. TS access goes through `lib/analytics/queries.ts`.
+
+- `response_transitions_live` — one row per (approved mapping × active
+  student member). Only EXACT_ONE_TO_ONE / CONCEPTUAL_ONE_TO_ONE
+  mappings (whose sides are exactly one question each) can produce
+  S00–S11: ANALYTICS_DEFINITIONS.md defines T(i,j) on a single binary
+  value per side, and no collapse formula for multi-question sides is
+  documented — so ONE_TO_MANY / MANY_TO_ONE / GROUPED_CONCEPT (and
+  explicit NOT_COMPARABLE / UNMAPPED) pairs are reported as
+  `data_quality_status = NOT_COMPARABLE`, never forced into a transition
+  bucket. A final-but-blank answer (NULL response_value) counts as
+  missing (MISSING_A1 / MISSING_A2 / MISSING_BOTH).
+- Transition aggregates, one per grain, all with s00/s01/s10/s11,
+  valid_paired, missing buckets, changed/unchanged counts, change_rate,
+  stability_rate, net_movement_toward_1, pct_point_shift:
+  `mapping_transition_summary` (also carries missing_a2_from_0/1 and
+  missing_a1_to_0/1 splits for alluvial diagrams),
+  `class_transition_summary`, `student_transition_summary`,
+  `energy_source_transition_summary`, `criterion_transition_summary`
+  (the last two group by the mapping's energy_source/criterion field and
+  skip NULLs).
+- Response-distribution aggregates (consensus / disagreement / entropy
+  over final responses of active members):
+  `question_response_summary`, `assignment_response_summary` (per-question
+  averages + distinct respondents), `energy_source_response_summary` and
+  `criterion_response_summary` (pooled per group within an assignment).
+- **Section 18 exploratory** (suffix `_exploratory` is the machine-readable
+  marker; `lib/analytics/queries.ts` wraps rows in
+  `{ exploratory: true, caveat }` and Phase 8 must show the caveat —
+  similarity/association/cluster/projection output is never a grade):
+  `student_pair_similarity_exploratory` (contingency counts, Jaccard,
+  Hamming, agreement rate per student pair per assignment — also the
+  input for hierarchical clustering and the deterministic classical-MDS
+  projection in `lib/analytics/exploratory.ts`, chosen over UMAP because
+  UMAP is stochastic), `question_pair_association_exploratory` (2×2
+  contingency + Phi + mutual information per question pair within an
+  assignment), `mapping_association_exploratory` (Phi + mutual
+  information on each approved mapping's A1↔A2 table). Alluvial-diagram
+  data comes from `mapping_transition_summary` via
+  `alluvialFromTransitionCounts`.
 
 ## Table grants (migration 0007)
 

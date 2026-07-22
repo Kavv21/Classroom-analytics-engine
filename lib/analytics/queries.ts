@@ -1,0 +1,322 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { MappingType } from "@/lib/types/domain";
+import { markExploratory, type Exploratory } from "@/lib/analytics/exploratory";
+
+/**
+ * The ONLY read paths for Phase 7 analytics. Every function hits a
+ * PostgreSQL view from migration 0012 — aggregation happens in the
+ * database, never by looping over raw response rows in app code
+ * (.claude/rules/analytics.md). All views read mappings through the
+ * approved-only structural filter, and all are computed on read: results
+ * are always current with the latest responses and approvals, no refresh
+ * step exists or is needed (decision documented in
+ * docs/DATABASE_SCHEMA.md#phase-7).
+ *
+ * Every fetcher surfaces Supabase errors explicitly — never a silent
+ * empty result.
+ */
+
+export interface TransitionCounts {
+  pairs_considered: number;
+  s00: number;
+  s01: number;
+  s10: number;
+  s11: number;
+  valid_paired: number;
+  missing_a1: number;
+  missing_a2: number;
+  missing_both: number;
+  not_comparable: number;
+  changed_count: number;
+  unchanged_count: number;
+  change_rate: number | null;
+  stability_rate: number | null;
+  net_movement_toward_1: number;
+  pct_point_shift: number | null;
+}
+
+export interface MappingTransitionSummary extends TransitionCounts {
+  class_id: string;
+  mapping_id: string;
+  mapping_name: string;
+  mapping_version: number;
+  mapping_type: MappingType;
+  energy_source: string | null;
+  criterion: string | null;
+  missing_a2_from_0: number;
+  missing_a2_from_1: number;
+  missing_a1_to_0: number;
+  missing_a1_to_1: number;
+}
+
+export interface ClassTransitionSummary extends TransitionCounts {
+  class_id: string;
+  mappings_considered: number;
+  students_considered: number;
+}
+
+export interface StudentTransitionSummary extends TransitionCounts {
+  class_id: string;
+  student_id: string;
+}
+
+export interface EnergySourceTransitionSummary extends TransitionCounts {
+  class_id: string;
+  energy_source: string;
+  mappings_considered: number;
+}
+
+export interface CriterionTransitionSummary extends TransitionCounts {
+  class_id: string;
+  criterion: string;
+  mappings_considered: number;
+}
+
+export interface QuestionResponseSummary {
+  class_id: string;
+  assignment_id: string;
+  question_id: string;
+  external_question_code: string;
+  energy_source: string | null;
+  criterion: string | null;
+  concept: string | null;
+  answered: number;
+  zeros: number;
+  ones: number;
+  pct_zero: number | null;
+  pct_one: number | null;
+  consensus: number | null;
+  disagreement: number | null;
+  entropy: number | null;
+}
+
+export interface AssignmentResponseSummary {
+  class_id: string;
+  assignment_id: string;
+  question_count: number;
+  answered_responses: number;
+  respondents: number;
+  avg_consensus: number | null;
+  avg_disagreement: number | null;
+  avg_entropy: number | null;
+}
+
+export interface GroupedResponseSummary {
+  class_id: string;
+  assignment_id: string;
+  question_count: number;
+  answered: number;
+  zeros: number;
+  ones: number;
+  pct_zero: number | null;
+  pct_one: number | null;
+  consensus: number | null;
+  disagreement: number | null;
+  entropy: number | null;
+}
+
+export interface EnergySourceResponseSummary extends GroupedResponseSummary {
+  energy_source: string;
+}
+
+export interface CriterionResponseSummary extends GroupedResponseSummary {
+  criterion: string;
+}
+
+async function selectAll<T>(
+  supabase: SupabaseClient,
+  view: string,
+  filters: Record<string, string>,
+  orderBy: string
+): Promise<T[]> {
+  let query = supabase.from(view).select("*");
+  for (const [column, value] of Object.entries(filters)) {
+    query = query.eq(column, value);
+  }
+  const { data, error } = await query.order(orderBy);
+  if (error) {
+    throw new Error(`could not read ${view}: ${error.message}`);
+  }
+  return (data ?? []) as T[];
+}
+
+export async function getClassTransitionSummary(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<ClassTransitionSummary | null> {
+  const { data, error } = await supabase
+    .from("class_transition_summary")
+    .select("*")
+    .eq("class_id", classId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`could not read class_transition_summary: ${error.message}`);
+  }
+  return data as ClassTransitionSummary | null;
+}
+
+export async function getMappingTransitionSummaries(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<MappingTransitionSummary[]> {
+  return selectAll(supabase, "mapping_transition_summary", { class_id: classId }, "mapping_name");
+}
+
+export async function getStudentTransitionSummaries(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<StudentTransitionSummary[]> {
+  return selectAll(supabase, "student_transition_summary", { class_id: classId }, "student_id");
+}
+
+export async function getEnergySourceTransitionSummaries(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<EnergySourceTransitionSummary[]> {
+  return selectAll(
+    supabase,
+    "energy_source_transition_summary",
+    { class_id: classId },
+    "energy_source"
+  );
+}
+
+export async function getCriterionTransitionSummaries(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<CriterionTransitionSummary[]> {
+  return selectAll(supabase, "criterion_transition_summary", { class_id: classId }, "criterion");
+}
+
+export async function getQuestionResponseSummaries(
+  supabase: SupabaseClient,
+  assignmentId: string
+): Promise<QuestionResponseSummary[]> {
+  return selectAll(
+    supabase,
+    "question_response_summary",
+    { assignment_id: assignmentId },
+    "external_question_code"
+  );
+}
+
+export async function getAssignmentResponseSummaries(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<AssignmentResponseSummary[]> {
+  return selectAll(supabase, "assignment_response_summary", { class_id: classId }, "assignment_id");
+}
+
+export async function getEnergySourceResponseSummaries(
+  supabase: SupabaseClient,
+  assignmentId: string
+): Promise<EnergySourceResponseSummary[]> {
+  return selectAll(
+    supabase,
+    "energy_source_response_summary",
+    { assignment_id: assignmentId },
+    "energy_source"
+  );
+}
+
+export async function getCriterionResponseSummaries(
+  supabase: SupabaseClient,
+  assignmentId: string
+): Promise<CriterionResponseSummary[]> {
+  return selectAll(
+    supabase,
+    "criterion_response_summary",
+    { assignment_id: assignmentId },
+    "criterion"
+  );
+}
+
+// ============================================================
+// Section 18 exploratory fetchers. Rows come back wrapped in explicit
+// exploratory metadata — Phase 8 must carry the caveat to the UI.
+// ============================================================
+
+export interface StudentPairSimilarity {
+  class_id: string;
+  assignment_id: string;
+  student_a: string;
+  student_b: string;
+  shared_questions: number;
+  both_one: number;
+  both_zero: number;
+  a_only_one: number;
+  b_only_one: number;
+  hamming_distance: number;
+  agreement_rate: number;
+  jaccard_similarity: number | null;
+}
+
+export interface QuestionPairAssociation {
+  class_id: string;
+  assignment_id: string;
+  question_a: string;
+  question_b: string;
+  n: number;
+  n00: number;
+  n01: number;
+  n10: number;
+  n11: number;
+  phi_coefficient: number | null;
+  mutual_information_bits: number | null;
+}
+
+export interface MappingAssociation {
+  class_id: string;
+  mapping_id: string;
+  mapping_name: string;
+  mapping_version: number;
+  valid_paired: number;
+  s00: number;
+  s01: number;
+  s10: number;
+  s11: number;
+  phi_coefficient: number | null;
+  mutual_information_bits: number | null;
+}
+
+export async function getStudentPairSimilarities(
+  supabase: SupabaseClient,
+  assignmentId: string
+): Promise<Exploratory<StudentPairSimilarity[]>> {
+  return markExploratory(
+    await selectAll<StudentPairSimilarity>(
+      supabase,
+      "student_pair_similarity_exploratory",
+      { assignment_id: assignmentId },
+      "student_a"
+    )
+  );
+}
+
+export async function getQuestionPairAssociations(
+  supabase: SupabaseClient,
+  assignmentId: string
+): Promise<Exploratory<QuestionPairAssociation[]>> {
+  return markExploratory(
+    await selectAll<QuestionPairAssociation>(
+      supabase,
+      "question_pair_association_exploratory",
+      { assignment_id: assignmentId },
+      "question_a"
+    )
+  );
+}
+
+export async function getMappingAssociations(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<Exploratory<MappingAssociation[]>> {
+  return markExploratory(
+    await selectAll<MappingAssociation>(
+      supabase,
+      "mapping_association_exploratory",
+      { class_id: classId },
+      "mapping_name"
+    )
+  );
+}

@@ -52,3 +52,29 @@ Example: S01 = 30%, S10 = 27% → change rate = 57%, net shift = +3pp.
 Class, assignment, question, student, energy-source, criterion. See the
 project plan (`/plan/phase-7-analytics.md`) for the exact metric list per
 level — don't recompute from memory, copy from there.
+
+## Implementation (Phase 7, migration 0012)
+
+Everything above is implemented as PostgreSQL views computed on read
+(never app-code loops over raw responses) — see
+docs/DATABASE_SCHEMA.md "Analytics views (migration 0012)" for the view
+list and the freshness contract. The TypeScript mirrors of the formulas
+live in `lib/types/domain.ts` and are cross-checked against the SQL views
+by the worked-example test in `tests/unit/analytics-definitions.test.ts`
+so neither can drift.
+
+Two rules the implementation pins down explicitly:
+
+- T(i,j) needs exactly one binary value per side. Only the two one-to-one
+  mapping types have that shape, so only they produce S00–S11. No collapse
+  formula for multi-question sides is defined in this document — until one
+  is added here, ONE_TO_MANY / MANY_TO_ONE / GROUPED_CONCEPT pairs are
+  reported as `data_quality_status = NOT_COMPARABLE`, never guessed into a
+  transition bucket.
+- Rates over zero valid pairs are NULL (unknown), never 0.
+
+Section 18 material (Jaccard, Hamming, clustering, Phi, mutual
+information, projection, network graph, alluvial) is exploratory only:
+views carry an `_exploratory` suffix, `lib/analytics` wraps results in
+`{ exploratory: true, caveat }`, and the caveat must reach the UI —
+similarity, cluster membership, or projection position is never a grade.

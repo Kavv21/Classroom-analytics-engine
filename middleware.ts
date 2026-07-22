@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isUnauthenticatedPath, isUnprovisionedPath } from "@/lib/auth/public-paths";
+import { bucketForPath, hit, RULES } from "@/lib/rate-limit";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -69,6 +70,45 @@ export async function middleware(request: NextRequest) {
 
   if (isUnauthenticatedPath(pathname) || isUnprovisionedPath(pathname)) {
     return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // ---------------------------------------------------------------------
+  // Rate limiting. Applied only to writes (POST), only for a signed-in and
+  // provisioned user, and keyed by that user's id — never by IP, because
+  // students share a university network and an IP key would throttle a
+  // whole lecture hall for one misbehaving client.
+  //
+  // Autosave and submission are Server Actions, which POST to the page
+  // they were invoked from, so the path is what identifies them. See
+  // lib/rate-limit.ts for the limits and the storage tradeoff.
+  // ---------------------------------------------------------------------
+  if (request.method === "POST") {
+    const bucket = bucketForPath(pathname);
+    const rule = RULES[bucket];
+    const result = hit(`${user.id}:${bucket}`, rule);
+
+    response.headers.set("X-RateLimit-Limit", String(result.limit));
+    response.headers.set("X-RateLimit-Remaining", String(result.remaining));
+
+    if (!result.allowed) {
+      return new NextResponse(
+        JSON.stringify({
+          error:
+            bucket === "autosave"
+              ? "Your answers are being saved too frequently. They are safe in this browser and will sync in a moment."
+              : "Too many requests. Please wait a moment and try again.",
+        }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(result.retryAfterSeconds),
+            "X-RateLimit-Limit": String(result.limit),
+            "X-RateLimit-Remaining": "0",
+          },
+        }
+      );
+    }
   }
 
   return response;

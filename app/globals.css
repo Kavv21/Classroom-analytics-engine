@@ -19,10 +19,39 @@
 
 @layer base {
   :root {
+    /* ------------------------------------------------------------------
+       Channel form of every token the shadcn bridge needs.
+
+       WHY: Tailwind v3 cannot apply an opacity modifier (bg-primary/80,
+       bg-destructive/10, ring-ring/20 …) to a plain `var(--x)` colour —
+       it silently emits NO rule at all, which left destructive buttons
+       with no fill and primary buttons with no hover state. Opacity
+       modifiers require the `<alpha-value>` placeholder, which in turn
+       requires space-separated channels.
+
+       These channels are the SINGLE SOURCE for each colour; the familiar
+       hex-named tokens below are derived from them with rgb(), so the two
+       forms cannot drift apart. Every value is unchanged from the
+       contrast-verified palette — this is a representation change, not a
+       colour change.
+       ------------------------------------------------------------------ */
+    --surface-page-rgb: 249 249 247;
+    --surface-raised-rgb: 252 252 251;
+    --surface-sunken-rgb: 242 241 237;
+    --text-primary-rgb: 11 11 11;
+    --text-secondary-rgb: 82 81 78;
+    --text-muted-rgb: 107 105 99;
+    --text-inverse-rgb: 252 252 251;
+    --action-rgb: 26 26 23;
+    --status-critical-rgb: 208 59 59;
+    --border-hairline-rgb: 225 224 217;
+    --border-strong-rgb: 195 194 183;
+    --focus-rgb: 28 92 171;
+
     /* Surfaces */
-    --surface-page: #f9f9f7;
-    --surface-raised: #fcfcfb;
-    --surface-sunken: #f2f1ed;
+    --surface-page: rgb(var(--surface-page-rgb));
+    --surface-raised: rgb(var(--surface-raised-rgb));
+    --surface-sunken: rgb(var(--surface-sunken-rgb));
     --surface-inset: #ebeae5;
 
     /* Tinted surfaces for banners/badges */
@@ -32,18 +61,18 @@
     --surface-info: #eff3fa;
 
     /* Borders */
-    --border-hairline: #e1e0d9;
-    --border-strong: #c3c2b7;
+    --border-hairline: rgb(var(--border-hairline-rgb));
+    --border-strong: rgb(var(--border-strong-rgb));
 
     /* Text — all AA on every surface above */
-    --text-primary: #0b0b0b;    /* 19.2:1 */
-    --text-secondary: #52514e;  /* 7.7:1  */
-    --text-muted: #6b6963;      /* 5.4:1 raised, 4.9:1 sunken */
-    --text-inverse: #fcfcfb;
+    --text-primary: rgb(var(--text-primary-rgb));      /* 19.2:1 */
+    --text-secondary: rgb(var(--text-secondary-rgb));  /* 7.7:1  */
+    --text-muted: rgb(var(--text-muted-rgb));          /* 5.4:1 raised, 4.9:1 sunken */
+    --text-inverse: rgb(var(--text-inverse-rgb));
 
     /* Action — warm ink, deliberately NOT the chart blue, so a primary
        button can never be mistaken for a data series. */
-    --action: #1a1a17;
+    --action: rgb(var(--action-rgb));
     --action-hover: #000000;
 
     /* Status: fill variants are non-text; *-text variants meet AA */
@@ -51,11 +80,11 @@
     --status-good-text: #006300;      /* 7.4:1 */
     --status-warning: #fab219;
     --status-warning-text: #8a5d00;   /* 5.6:1 */
-    --status-critical: #d03b3b;
+    --status-critical: rgb(var(--status-critical-rgb));
     --status-critical-text: #a32020;  /* 7.4:1 */
     --status-info-text: #1c5cab;      /* 6.5:1 */
 
-    --focus: #1c5cab;
+    --focus: rgb(var(--focus-rgb));
 
     /* Type */
     --font-display: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
@@ -65,6 +94,76 @@
     /* Motion budget: colour/opacity/shadow only, two durations. */
     --motion-micro: 120ms;
     --motion-disclosure: 160ms;
+    /* ------------------------------------------------------------------
+       shadcn/ui theme bridge.
+
+       These hold CHANNELS ("26 26 23"), not colours, so Tailwind's
+       <alpha-value> placeholder can produce bg-primary/80 etc.
+       shadcn components are written against ITS token names. Rather than
+       accept its default neutral oklch palette, every one of its tokens
+       is aliased to the project's existing, contrast-verified values
+       above. Changing a colour here is therefore impossible without
+       changing the source token — the palette stays single-sourced.
+
+       The decisions this preserves, all deliberate:
+       - --primary is the WARM INK (#1a1a17), not a blue. Blue is
+         reserved for chart data encoding; a blue primary button sitting
+         above a blue bar would invite a false association.
+       - --muted-foreground is #6b6963, the AA-compliant muted text
+         (5.4:1 raised / 4.9:1 sunken). shadcn's default (oklch 0.556)
+         fails AA for normal text.
+       - Surfaces are the warm dataviz values, so a chart card sits on
+         the page rather than floating on a cooler white.
+       ------------------------------------------------------------------ */
+    --background: var(--surface-page-rgb);
+    --foreground: var(--text-primary-rgb);
+    --card: var(--surface-raised-rgb);
+    --card-foreground: var(--text-primary-rgb);
+    --popover: var(--surface-raised-rgb);
+    --popover-foreground: var(--text-primary-rgb);
+    --primary: var(--action-rgb);
+    --primary-foreground: var(--text-inverse-rgb);
+    --secondary: var(--surface-sunken-rgb);
+    --secondary-foreground: var(--text-primary-rgb);
+    --muted: var(--surface-sunken-rgb);
+    --muted-foreground: var(--text-muted-rgb);
+    --accent: var(--surface-sunken-rgb);
+    --accent-foreground: var(--text-primary-rgb);
+    --destructive: var(--status-critical-rgb);
+    /* shadcn v4 dropped --destructive-foreground from its own theme but
+       several community components still reference it; defining it costs
+       nothing and prevents an unstyled fallback. */
+    --destructive-foreground: var(--text-inverse-rgb);
+    --border: var(--border-hairline-rgb);
+    /* Inputs deliberately take the STRONGER border — a form field that
+       reads as a hairline is hard to find on a dense screen. */
+    --input: var(--border-strong-rgb);
+    --ring: var(--focus-rgb);
+
+    /* shadcn's chart slots. ECharts does NOT read these — the real
+       data-encoding palette is lib/charts/theme.ts and is untouched.
+       These exist only so a shadcn component that happens to reference a
+       chart slot stays visually consistent, and they mirror the first
+       five validated SERIES values rather than inventing new hues. */
+    --chart-1: 42 120 214;
+    --chart-2: 235 104 52;
+    --chart-3: 27 175 122;
+    --chart-4: 237 161 0;
+    --chart-5: 232 123 164;
+
+    /* 0.375rem = Tailwind's rounded-md, which every existing .card and
+       .btn already uses. shadcn's default 0.625rem would have made every
+       converted component visibly rounder than the ones around it. */
+    --radius: 0.375rem;
+
+    --sidebar: var(--surface-raised-rgb);
+    --sidebar-foreground: var(--text-primary-rgb);
+    --sidebar-primary: var(--action-rgb);
+    --sidebar-primary-foreground: var(--text-inverse-rgb);
+    --sidebar-accent: var(--surface-sunken-rgb);
+    --sidebar-accent-foreground: var(--text-primary-rgb);
+    --sidebar-border: var(--border-hairline-rgb);
+    --sidebar-ring: var(--focus-rgb);
   }
 
   html {
@@ -72,11 +171,13 @@
     color: var(--text-primary);
     background-color: var(--surface-page);
     -webkit-font-smoothing: antialiased;
+    @apply font-sans;
   }
 
   body {
     font-size: 0.875rem;
     line-height: 1.55;
+    @apply bg-background text-foreground;
   }
 
   /* Only these properties ever transition, and only on things you can
@@ -111,6 +212,23 @@
       animation-iteration-count: 1 !important;
       scroll-behavior: auto !important;
     }
+  }
+  /* shadcn writes a .theme block for its font slots. Point them at the
+     project's system-font stacks — the design pass deliberately uses no
+     webfont (no build-time network, no FOUT for 300 students on
+     university wifi, and the sans must stay byte-identical to the
+     dataviz chart font so chart text and UI text match). */
+  .theme {
+    --font-heading: var(--font-display);
+    --font-sans: var(--font-body);
+  }
+  /* shadcn components use a bare `border` class and expect a sensible
+     default colour. Its CLI also wrote `outline-ring/50` here, which is
+     Tailwind v4 opacity syntax that v3 cannot apply to a plain var()
+     colour — and it is redundant regardless, because the :focus-visible
+     rule above already gives a stronger, contrast-verified focus ring. */
+  * {
+    @apply border-border;
   }
 }
 

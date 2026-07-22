@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   reorderQuestions,
@@ -59,6 +60,7 @@ export function QuestionManager({
     setBusy(false);
     if (!result.success) {
       setError(result.error);
+      toast.error(result.error);
       return;
     }
     router.refresh();
@@ -81,6 +83,7 @@ export function QuestionManager({
     setBusy(false);
     if (!result.success) {
       setError(result.error);
+      toast.error(result.error);
       return;
     }
     setEditingId(null);

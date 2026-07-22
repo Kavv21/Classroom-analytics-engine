@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ChartCard, focusRing } from "@/components/analytics/chart-card";
 import { buildChartOption } from "@/lib/query-builder/chart-option";
@@ -62,7 +63,6 @@ export function QueryBuilder({
   const [result, setResult] = useState<QueryResult | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
   const [saveName, setSaveName] = useState("");
   const [saveDescription, setSaveDescription] = useState("");
   const [dashboardName, setDashboardName] = useState("");
@@ -122,49 +122,45 @@ export function QueryBuilder({
 
   function resetAll() {
     setQuery(initialQuery);
-    setNotice(null);
     setRunError(null);
   }
 
   async function handleSaveQuery() {
-    setNotice(null);
     setBusy(true);
     const r = await saveQuery(classId, saveName, query);
     setBusy(false);
     if (!r.success) {
-      setNotice(r.error);
+      toast.error(r.error);
       return;
     }
-    setNotice(`Saved query “${saveName}”.`);
+    toast.success(`Saved query “${saveName}”.`);
     setSaveName("");
     router.refresh();
   }
 
   async function handleSaveVisualisation() {
-    setNotice(null);
     setBusy(true);
     const r = await saveVisualisation(classId, saveName, saveDescription, query);
     setBusy(false);
     if (!r.success) {
-      setNotice(r.error);
+      toast.error(r.error);
       return;
     }
-    setNotice(`Saved visualisation “${saveName}”.`);
+    toast.success(`Saved visualisation “${saveName}”.`);
     setSaveName("");
     setSaveDescription("");
     router.refresh();
   }
 
   async function handleCreateDashboard() {
-    setNotice(null);
     setBusy(true);
     const r = await createDashboard(classId, dashboardName, selectedVisualisations);
     setBusy(false);
     if (!r.success) {
-      setNotice(r.error);
+      toast.error(r.error);
       return;
     }
-    setNotice(`Created dashboard “${dashboardName}”.`);
+    toast.success(`Created dashboard “${dashboardName}”.`);
     setDashboardName("");
     setSelectedVisualisations([]);
     router.refresh();
@@ -175,14 +171,13 @@ export function QueryBuilder({
     const r = await deleteSavedItem(classId, kind, id);
     setBusy(false);
     if (!r.success) {
-      setNotice(r.error);
+      toast.error(r.error);
       return;
     }
     router.refresh();
   }
 
   async function exportQuery(format: "csv" | "pdf") {
-    setNotice(null);
     setBusy(true);
     try {
       const response = await fetch(`/classes/${classId}/exports/query?format=${format}`, {
@@ -192,7 +187,7 @@ export function QueryBuilder({
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({ error: response.statusText }));
-        setNotice(`Export failed: ${payload.error ?? response.statusText}`);
+        toast.error(`Export failed: ${payload.error ?? response.statusText}`);
         return;
       }
       const blob = await response.blob();
@@ -203,7 +198,7 @@ export function QueryBuilder({
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setNotice(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBusy(false);
     }
@@ -380,7 +375,6 @@ export function QueryBuilder({
             {runError}
           </p>
         )}
-        {notice && <p className="mt-3 text-sm text-ink-secondary">{notice}</p>}
       </section>
 
       {validation.valid && result && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   createMappingVersion,
@@ -164,6 +165,7 @@ export function MappingTable({
       setBusyId(null);
       if (!result.success) {
         setError(result.error);
+        toast.error(result.error);
         return;
       }
       setPreviews((prev) => ({ ...prev, [id]: result.data }));

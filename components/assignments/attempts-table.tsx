@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { reopenAttempt } from "@/lib/attempts/actions";
 import { attemptStateLabel } from "@/lib/ui/labels";
@@ -43,8 +44,10 @@ export function AttemptsTable({ classId, assignmentId, attempts }: AttemptsTable
     setBusyId(null);
     if (!result.success) {
       setError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success("Attempt reopened. The student can submit again.");
     router.refresh();
   }
 

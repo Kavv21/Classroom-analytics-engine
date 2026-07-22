@@ -13,17 +13,10 @@ import {
 /**
  * Admin workflow.
  *
- * IMPORTANT, and stated plainly because it is a real scope gap: this
- * application has **no admin user interface**. Nothing under app/ renders
- * an admin-only screen. The only admin-specific capability that exists is
- * the `audit_logs_admin` RLS policy from migration 0001, which lets a
- * profile with role = 'ADMIN' read the audit log; every other admin
- * capability described in the original spec (user management, system
- * settings, cross-class oversight) was never built.
- *
- * These tests therefore verify the capability that genuinely exists, at
- * the data layer, and assert the absence of an admin UI rather than
- * pretending to exercise one. See docs/TESTING.md "Known gaps".
+ * These cover the admin capabilities at the DATA layer. The console
+ * screens themselves are covered by e2e/admin-console.spec.ts, added
+ * when the admin UI was built (Phase 10 had recorded its absence as a
+ * known limitation).
  */
 
 const admin = adminClient();
@@ -84,13 +77,15 @@ test("an ADMIN can read the audit log; a professor cannot", async () => {
   expect((adminRows ?? []).length).toBeGreaterThanOrEqual((profRows ?? []).length);
 });
 
-test("an admin has no dedicated UI and is not treated as a professor", async ({ page, context }) => {
+test("an admin reaches the console but is still not a professor", async ({ page, context }) => {
   await signIn(context, ADMIN_EMAIL, process.env.SEED_ADMIN_PASSWORD!);
 
-  // No /admin route exists. (Asserting content, not HTTP status: `next dev`
-  // streams notFound() with a 200 while `next start` returns a real 404.)
+  // The admin console now exists (it was a Phase 10 known limitation).
+  // /admin itself is still not a route — only its two sections are.
   await page.goto("/admin");
   await expect(page.getByText("This page could not be found")).toBeVisible();
+  await page.goto("/admin/users");
+  await expect(page.getByRole("heading", { name: /^People \(/ })).toBeVisible();
 
   // The admin is not the professor of the seeded class, so the professor
   // surfaces are correctly closed to them too.

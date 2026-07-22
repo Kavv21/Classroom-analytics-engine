@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { setStudentActive } from "@/lib/classes/actions";
 
@@ -24,8 +25,10 @@ export function StudentActiveToggle({
     setIsLoading(false);
     if (!result.success) {
       setError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success(isActive ? "Student deactivated." : "Student reactivated.");
     router.refresh();
   }
 

@@ -3,6 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SubmitAttemptButton } from "@/components/attempts/submit-attempt-button";
 import type { ResponseValue } from "@/lib/types/domain";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default async function ReviewAttemptPage({
   params,
@@ -67,22 +71,24 @@ export default async function ReviewAttemptPage({
       <p className="note mt-1">{assignment.title}</p>
 
       {assignment.status !== "OPEN" && (
-        <p role="alert" className="banner banner-warning mt-5">
-          This assignment has closed, so you can no longer submit it. Talk to
-          your professor if you still need to hand it in.
-        </p>
+        <Alert variant="destructive" className="mt-5">
+          <AlertDescription>
+            This assignment has closed, so you can no longer submit it. Talk to
+            your professor if you still need to hand it in.
+          </AlertDescription>
+        </Alert>
       )}
 
       {unanswered.length > 0 && (
-        <p className="banner banner-warning mt-5">
+        <Alert className="mt-5"><AlertDescription>
           {unanswered.length} question{unanswered.length === 1 ? " is" : "s are"} still
           unanswered ({unanswered.map((q) => q.external_question_code).join(", ")}). You
           can submit anyway — they&rsquo;ll be recorded as unanswered — or go back and
           fill them in.
-        </p>
+        </AlertDescription></Alert>
       )}
 
-      <ul className="table-frame mt-6 divide-y divide-hairline bg-surface-raised">
+      <Card className="mt-6 p-0"><CardContent className="p-0"><ul className="divide-y">
         {(questions ?? []).map((q, i) => {
           const value = values.get(q.id) ?? null;
           const label =
@@ -96,16 +102,16 @@ export default async function ReviewAttemptPage({
                 <p className="mt-0.5 text-sm">{q.question_text}</p>
               </div>
               {value === null ? (
-                <span className="badge badge-warning shrink-0">Unanswered</span>
+                <Badge variant="outline" className="shrink-0 border-transparent bg-surface-warning text-[color:var(--status-warning-text)]">Unanswered</Badge>
               ) : (
-                <span className="badge shrink-0 tabular-nums">
+                <Badge variant="outline" className="shrink-0 border-transparent bg-surface-sunken tabular-nums">
                   {value} — {label}
-                </span>
+                </Badge>
               )}
             </li>
           );
         })}
-      </ul>
+      </ul></CardContent></Card>
 
       <div className="mt-6 flex flex-wrap items-center gap-4">
         {assignment.status === "OPEN" && (
@@ -115,9 +121,9 @@ export default async function ReviewAttemptPage({
             unansweredCount={unanswered.length}
           />
         )}
-        <Link href={`/assignments/${assignmentId}`} className="btn btn-secondary">
-          Back to questions
-        </Link>
+        <Button asChild variant="outline">
+          <Link href={`/assignments/${assignmentId}`}>Back to questions</Link>
+        </Button>
       </div>
     </main>
   );

@@ -1,9 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { submitAttempt } from "@/lib/attempts/actions";
 import { clearPending } from "@/lib/attempts/local-store";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface SubmitAttemptButtonProps {
   attemptId: string;
@@ -44,6 +57,7 @@ export function SubmitAttemptButton({
         return;
       }
       setError(result.error);
+      toast.error(result.error);
       return;
     }
 
@@ -54,44 +68,44 @@ export function SubmitAttemptButton({
 
   return (
     <div className="space-y-3">
-      {!confirming ? (
-        <button type="button" onClick={() => setConfirming(true)} className="btn btn-primary">
-          Submit assignment
-        </button>
-      ) : (
-        <div className="banner banner-info">
-          <p>
-            Submit your answers now?
-            {unansweredCount > 0 && (
-              <span className="font-medium">
-                {" "}
-                {unansweredCount} question{unansweredCount === 1 ? " is" : "s are"} still
-                unanswered and will be recorded as unanswered.
-              </span>
-            )}{" "}
-            You won&rsquo;t be able to change answers unless your professor reopens the
-            attempt.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
+      {/* Still two deliberate steps: open the dialog, then confirm. The
+          dialog replaces the inline panel but not the two-click contract,
+          and nothing else in the app can reach submitAttempt. */}
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogTrigger asChild>
+          <Button>Submit assignment</Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Submit your answers now?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {unansweredCount > 0 && (
+                <span className="font-medium">
+                  {unansweredCount} question{unansweredCount === 1 ? " is" : "s are"} still
+                  unanswered and will be recorded as unanswered.{" "}
+                </span>
+              )}
+              You won&rsquo;t be able to change answers unless your professor
+              reopens the attempt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
               disabled={busy}
-              onClick={() => void doSubmit()}
-              className="btn btn-sm btn-primary"
+              onClick={(e) => {
+                // Keep the dialog open while the request is in flight so a
+                // failure is not hidden behind a closing animation.
+                e.preventDefault();
+                void doSubmit();
+              }}
             >
               {busy ? "Submitting…" : "Yes, submit now"}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setConfirming(false)}
-              className="btn btn-sm btn-secondary"
-            >
-              Keep editing
-            </button>
-          </div>
-        </div>
-      )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {error && (
         <p role="alert" className="banner banner-critical">
           We couldn&rsquo;t submit: {error} Your answers are still saved — try again.

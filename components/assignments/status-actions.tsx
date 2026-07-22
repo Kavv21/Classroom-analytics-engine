@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   duplicateAssignment,
@@ -24,7 +25,6 @@ interface StatusActionsProps {
 export function StatusActions({ assignmentId, classId, status, questionCount }: StatusActionsProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
@@ -39,7 +39,6 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
 
   async function move(to: AssignmentStatus) {
     setError(null);
-    setNotice(null);
     setBusy(true);
     const result = await transitionAssignment(assignmentId, to);
     setBusy(false);
@@ -47,13 +46,13 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
       setError(result.error);
       return;
     }
-    setNotice(DONE_MESSAGES[to] ?? null);
+    const done = DONE_MESSAGES[to];
+    if (done) toast.success(done);
     router.refresh();
   }
 
   async function duplicate() {
     setError(null);
-    setNotice(null);
     setBusy(true);
     const result = await duplicateAssignment(assignmentId);
     setBusy(false);
@@ -148,11 +147,6 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
         )}
       </div>
 
-      {notice && (
-        <p role="status" className="banner banner-good">
-          {notice}
-        </p>
-      )}
       {error && (
         <p role="alert" className="banner banner-critical">
           {error}

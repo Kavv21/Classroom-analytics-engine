@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export type AnalyticsSection =
   | "overview"
@@ -19,15 +20,24 @@ const SECTIONS: Array<{ key: AnalyticsSection; label: string; path: string }> = 
  * page from Phase 6 and is linked alongside the analytics sections. */
 export function AnalyticsNav({ classId, active }: { classId: string; active: AnalyticsSection }) {
   const base = `/classes/${classId}/analytics`;
+  // Styled as a shadcn TabsList without using the Tabs primitive: these
+  // are page navigations, not in-page panels, so they must stay real
+  // links (right-click, open-in-new-tab, and the browser's back button
+  // all have to keep working).
   const linkClass = (isActive: boolean) =>
-    `rounded px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+    cn(
+      "inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
       isActive
-        ? "bg-action text-white"
-        : "border border-strong text-ink-secondary hover:bg-surface-sunken"
-    }`;
+        ? "bg-primary text-primary-foreground"
+        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+    );
 
   return (
-    <nav aria-label="Analytics sections" className="mt-4 flex flex-wrap gap-2">
+    <nav
+      aria-label="Analytics sections"
+      className="mt-4 flex flex-wrap gap-1 rounded-lg bg-muted p-1"
+    >
       {SECTIONS.map((s) => (
         <Link
           key={s.key}

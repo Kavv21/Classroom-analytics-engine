@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default async function ClassesPage() {
   const supabase = await createClient();
@@ -19,18 +23,22 @@ export default async function ClassesPage() {
     <main className="page-standard">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="title-md">Your classes</h1>
-        <Link href="/classes/new" className="btn btn-primary">
-          Create a class
-        </Link>
+        <Button asChild>
+          <Link href="/classes/new">Create a class</Link>
+        </Button>
       </div>
 
       {!classes || classes.length === 0 ? (
-        <p className="banner mt-6">
-          You haven&rsquo;t created a class yet. Create one to import a roster
-          and set up assignments.
-        </p>
+        <Alert className="mt-6">
+          <AlertDescription>
+            You haven&rsquo;t created a class yet. Create one to import a roster
+            and set up assignments.
+          </AlertDescription>
+        </Alert>
       ) : (
-        <ul className="table-frame mt-6 divide-y divide-hairline">
+        <Card className="mt-6 overflow-hidden p-0">
+          <CardContent className="p-0">
+            <ul className="divide-y">
           {classes.map((c) => (
             <li key={c.id}>
               <Link
@@ -45,13 +53,22 @@ export default async function ClassesPage() {
                       .join(" · ")}
                   </p>
                 </div>
-                <span className={c.status === "ARCHIVED" ? "badge" : "badge badge-good"}>
+                <Badge
+                  variant="outline"
+                  className={
+                    c.status === "ARCHIVED"
+                      ? "border-transparent bg-surface-sunken text-ink-secondary"
+                      : "border-transparent bg-surface-good text-[color:var(--status-good-text)]"
+                  }
+                >
                   {c.status === "ARCHIVED" ? "Archived" : "Active"}
-                </span>
+                </Badge>
               </Link>
             </li>
           ))}
-        </ul>
+            </ul>
+          </CardContent>
+        </Card>
       )}
     </main>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { previewRosterImport, commitRosterImport } from "@/lib/roster/actions";
 import { buildRejectionReportCsv } from "@/lib/roster/validate";
@@ -29,6 +30,7 @@ export function RosterImportWizard({ classId }: { classId: string }) {
 
     if (!result.success) {
       setError(result.error);
+      toast.error(result.error);
       setPhase("idle");
       return;
     }
@@ -47,6 +49,7 @@ export function RosterImportWizard({ classId }: { classId: string }) {
 
     if (!result.success) {
       setError(result.error);
+      toast.error(result.error);
       setPhase("previewed");
       return;
     }

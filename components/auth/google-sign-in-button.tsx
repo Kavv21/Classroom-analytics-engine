@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -29,6 +30,7 @@ export function GoogleSignInButton() {
 
     if (signInError) {
       setError(signInError.message);
+      toast.error(signInError.message);
       setIsLoading(false);
     }
     // On success the browser navigates away to Google, so there is

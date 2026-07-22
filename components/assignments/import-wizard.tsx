@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   commitAssignmentImport,
@@ -40,6 +41,7 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
     if (!result.success) {
       setPreview(null);
       setError(result.error);
+      toast.error(result.error);
       return;
     }
     setPreview(result.data);
@@ -71,6 +73,7 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
 
     if (!result.success) {
       setError(result.error);
+      toast.error(result.error);
       return;
     }
     setDone(result.data.imported);

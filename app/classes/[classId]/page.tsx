@@ -4,6 +4,18 @@ import { createClient } from "@/lib/supabase/server";
 import { EditClassForm } from "@/components/classes/edit-class-form";
 import { ArchiveButton } from "@/components/classes/archive-button";
 import { StudentActiveToggle } from "@/components/classes/student-active-toggle";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface ClassMemberRow {
   id: string;
@@ -72,9 +84,9 @@ export default async function ClassDetailPage({
           <p className="mt-0.5 text-lg font-semibold tabular-nums">{pendingCount ?? 0}</p>
         </div>
         <div className="ml-auto">
-          <Link href={`/classes/${classId}/roster/import`} className="btn btn-primary">
-            Import a roster
-          </Link>
+          <Button asChild>
+            <Link href={`/classes/${classId}/roster/import`}>Import a roster</Link>
+          </Button>
         </div>
       </div>
 
@@ -108,59 +120,70 @@ export default async function ClassDetailPage({
             <p className="font-medium">{section.title}</p>
             <p className="note mt-0.5">{section.description}</p>
           </div>
-          <Link href={section.href} className="btn btn-secondary">
-            {section.cta}
-          </Link>
+          <Button asChild variant="outline">
+            <Link href={section.href}>{section.cta}</Link>
+          </Button>
         </div>
       ))}
 
       <h2 className="title-sm mt-10">Roster</h2>
       {!members || members.length === 0 ? (
-        <p className="banner mt-3">
-          No students yet. Import a roster to add them — they&rsquo;ll appear
-          here once you do.
-        </p>
+        <Alert className="mt-3">
+          <AlertDescription>
+            No students yet. Import a roster to add them — they&rsquo;ll appear
+            here once you do.
+          </AlertDescription>
+        </Alert>
       ) : (
-        <div className="table-frame mt-4">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Email</th>
-                <th scope="col">Roll number</th>
-                <th scope="col">Status</th>
-                <th scope="col">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="mt-4 p-0">
+          <CardContent className="overflow-x-auto p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Roll number</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
               {members
                 .filter((m): m is ClassMemberRow & { profiles: NonNullable<ClassMemberRow["profiles"]> } =>
                   !!m.profiles
                 )
                 .map((m) => (
-                  <tr key={m.id}>
-                    <td>{m.profiles.full_name ?? "—"}</td>
-                    <td>{m.profiles.email}</td>
-                    <td className="tabular-nums">{m.profiles.roll_number ?? "—"}</td>
-                    <td>
-                      <span className={m.profiles.is_active ? "badge badge-good" : "badge"}>
+                  <TableRow key={m.id}>
+                    <TableCell className="font-medium">{m.profiles.full_name ?? "—"}</TableCell>
+                    <TableCell className="text-ink-secondary">{m.profiles.email}</TableCell>
+                    <TableCell className="tabular-nums">{m.profiles.roll_number ?? "—"}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={
+                          m.profiles.is_active
+                            ? "border-transparent bg-surface-good text-[color:var(--status-good-text)]"
+                            : "border-transparent bg-surface-sunken text-ink-secondary"
+                        }
+                      >
                         {m.profiles.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td>
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <StudentActiveToggle
                         classId={classId}
                         profileId={m.profiles.id}
                         isActive={m.profiles.is_active}
                       />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-            </tbody>
-          </table>
-        </div>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       <h2 className="title-sm mt-10">Class details</h2>

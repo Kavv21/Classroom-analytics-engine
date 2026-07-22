@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { archiveClass, unarchiveClass } from "@/lib/classes/actions";
 import type { ClassStatus } from "@/lib/types/domain";
@@ -21,8 +22,10 @@ export function ArchiveButton({ classId, status }: { classId: string; status: Cl
     setIsLoading(false);
     if (!result.success) {
       setError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success(isArchived ? "Class restored." : "Class archived.");
     router.refresh();
   }
 

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default async function SubmissionReceiptPage({
   params,
@@ -68,7 +71,7 @@ export default async function SubmissionReceiptPage({
         <p className="mt-1 text-sm">{assignment.title}</p>
       </div>
 
-      <dl className="card-spacious mt-6 space-y-3 text-sm">
+      <Card className="mt-6"><CardContent><dl className="space-y-3 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-ink-secondary">Submitted</dt>
           <dd>{attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString() : "—"}</dd>
@@ -76,7 +79,9 @@ export default async function SubmissionReceiptPage({
         <div className="flex justify-between gap-4">
           <dt className="text-ink-secondary">Questions answered</dt>
           <dd>
-            {answered ?? 0} of {total ?? 0}
+            <Badge variant="outline" className="border-transparent bg-surface-sunken tabular-nums">
+              {answered ?? 0} of {total ?? 0}
+            </Badge>
           </dd>
         </div>
         <div className="flex justify-between gap-4">
@@ -91,7 +96,7 @@ export default async function SubmissionReceiptPage({
           <dt className="text-ink-secondary">Reference</dt>
           <dd className="mono">{attempt.id}</dd>
         </div>
-      </dl>
+      </dl></CardContent></Card>
 
       <p className="note mt-5">
         Your answers are recorded. If you need to change something, ask your
@@ -99,9 +104,9 @@ export default async function SubmissionReceiptPage({
       </p>
 
       <div className="mt-8">
-        <Link href="/assignments" className="btn btn-secondary">
-          Back to your assignments
-        </Link>
+        <Button asChild variant="outline">
+          <Link href="/assignments">Back to your assignments</Link>
+        </Button>
       </div>
     </main>
   );

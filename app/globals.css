@@ -203,6 +203,17 @@
     border-radius: 2px;
   }
 
+  /* shadcn's sidebar transitions width/left, i.e. it animates LAYOUT.
+     The motion budget for this project allows colour, opacity and shadow
+     only — never size or position — because moving chrome shifts the
+     data next to it. Disabling it also stops elements from being
+     perpetually "unstable" for anything measuring the page. */
+  [data-slot="sidebar-container"],
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-inset"] {
+    transition: none !important;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

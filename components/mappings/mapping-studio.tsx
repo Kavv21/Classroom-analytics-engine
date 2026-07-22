@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   createMapping,
@@ -261,7 +262,7 @@ export function MappingStudio({
       );
       return;
     }
-    setNotice(editingId ? "Mapping updated." : "Mapping created.");
+    toast.success(editingId ? "Mapping updated." : "Mapping created.");
     resetForm();
     router.refresh();
   }
@@ -274,9 +275,10 @@ export function MappingStudio({
     setBusy(false);
     if (!result.success) {
       setError(result.error);
+      toast.error(result.error);
       return;
     }
-    setNotice(
+    toast.success(
       `Suggestions generated: ${result.data.created} new, ` +
         `${result.data.skippedExisting} already present. Nothing is approved automatically.`
     );

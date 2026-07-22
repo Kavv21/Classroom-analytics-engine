@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { createClient } from "@/lib/supabase/server";
+import { AppShell } from "@/components/shell/app-shell";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -9,27 +11,45 @@ export const metadata: Metadata = {
 };
 
 /**
- * NOTE — the global sidebar shell is built but NOT mounted.
+ * The global sidebar shell wraps every page for a provisioned user;
+ * signed-out and not-yet-provisioned people (login, /not-provisioned) get
+ * a bare page, since there is nothing for them to navigate to.
  *
- * `components/shell/app-shell.tsx` is complete and typechecks, but
- * mounting it here made two end-to-end tests fail: the Excel export link
- * and the admin console link never became "visible, enabled and stable",
- * because something inside shadcn's SidebarProvider keeps the layout
- * shifting after paint. Disabling the sidebar's width/left transitions
- * (which violated this project's motion budget anyway, and that override
- * is kept in globals.css) did not settle it.
+ * Cost: one lightweight profile read per request. Middleware already
+ * fetches the same row, but its result cannot cross into the render tree,
+ * so this is a deliberate second read for identity. It is a single
+ * indexed primary-key lookup.
  *
- * Unmounting it makes all 21 e2e tests pass again, which is the
- * confirming experiment. A shell is polish; the export button and admin
- * navigation are functionality, so the functionality wins until the
- * instability is properly diagnosed. Mounting it is a one-line change
- * once that is fixed — see the phase report.
+ * (History: this shell was briefly left unmounted because the Excel
+ * export and admin links appeared unclickable under it. The real cause
+ * was not layout instability — it was shadcn's sidebar CSS using Tailwind
+ * v4 arbitrary-property syntax `w-(--sidebar-width)`, which Tailwind v3
+ * silently drops, leaving the sidebar with no width so it overlaid the
+ * page and intercepted pointer events. Fixed by converting that syntax to
+ * v3 `w-[var(--sidebar-width)]` across components/ui — the same v4→v3
+ * defect class already fixed twice in this project.)
  */
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let shellUser: { fullName: string | null; email: string; role: string } | null = null;
+  if (user) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name, email, role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (data) shellUser = { fullName: data.full_name, email: data.email, role: data.role };
+  }
+
   return (
     <html lang="en">
       <body>
-        <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        <TooltipProvider delayDuration={200}>
+          {shellUser ? <AppShell user={shellUser}>{children}</AppShell> : children}
+        </TooltipProvider>
         {/* Toasts announce the outcome of an action in the same words as
             the control that caused it ("Publish" -> "Published"). */}
         <Toaster position="bottom-right" richColors closeButton />

@@ -93,11 +93,14 @@ test("an admin reaches the console but is still not a professor", async ({ page,
   await page.goto(`/classes/${classRow!.id}/analytics`);
   await expect(page.getByText("This page could not be found")).toBeVisible();
 
-  // They can still sign in and reach the homepage, which names their role.
+  // They can still sign in and reach the homepage. The global shell now
+  // renders their role in the sidebar footer (it was previously absent),
+  // so "Administrator" legitimately appears more than once — scope the
+  // assertion to the sidebar's account menu rather than a bare text match.
   await page.goto("/");
-  // Exact match: the seeded full name is "Demo Administrator", so a loose
-  // match would resolve to two elements.
-  await expect(page.getByText("Administrator", { exact: true })).toBeVisible();
+  const accountButton = page.getByRole("button", { name: /Account menu for/ });
+  await expect(accountButton).toBeVisible();
+  await expect(accountButton).toContainText("Administrator");
 });
 
 test("student deactivation is a professor capability, and it works", async () => {

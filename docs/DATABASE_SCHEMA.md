@@ -215,6 +215,32 @@ are computed on read by the `response_transitions_live` view (migration
 snapshot target (exports/audit, future use); any rows written to it still
 arm the 0011 `mapping_has_dependents` immutability boundary.
 
+## saved_queries / saved_visualisations / dashboards / dashboard_items
+
+The query builder's persistence (Phase 9). `saved_queries.definition` and
+`saved_visualisations.query_definition` both hold a `QueryDefinition` JSON
+blob (`lib/query-builder/schema.ts`): dataset, measure, dimensions,
+filters, chart type. Migration 0014 adds
+`saved_visualisations.description`, `dashboard_items.saved_query_id`
+(a dashboard item now references exactly one of a saved visualisation or
+a saved query — `dashboard_items_one_reference` CHECK), and indexes on
+`(class_id, created_by)`.
+
+**RLS hardening (migration 0014).** The 0001 policies authorised on
+`created_by = auth.uid()` alone. Because a `FOR ALL` policy reuses its
+USING expression as the INSERT WITH CHECK when none is given, a professor
+could save a row whose `class_id` pointed at a class they did not own —
+making `saved_queries.class_id` an attacker-controlled value that any
+export or builder path trusting it would turn into a cross-class read.
+All four policies now state USING and WITH CHECK explicitly and require
+`class_id is null or is_professor_of_class(class_id)`.
+`dashboard_items_owner` also stopped reaching into `dashboards` with a raw
+correlated subquery — it goes through the `owns_dashboard(uuid)`
+security-definer helper, per the 0008 rule.
+
+- `owns_dashboard(p_dashboard_id uuid)` — `security definer`,
+  `search_path = public`; the only cross-table reach in these policies.
+
 ## audit_logs
 Logs: login (where appropriate), class creation, roster imports, assignment
 import, assignment publication/closure, attempt reopening, mapping

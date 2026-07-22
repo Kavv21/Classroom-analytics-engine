@@ -54,115 +54,100 @@ export default async function ClassDetailPage({
     .returns<ClassMemberRow[]>();
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{classRow.name}</h1>
+    <main className="page-standard">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="title-md">{classRow.name}</h1>
         <ArchiveButton classId={classRow.id} status={classRow.status} />
       </div>
 
-      <div className="mt-4 flex gap-6 rounded border border-gray-200 p-4 text-sm">
+      <div className="card-standard mt-5 flex flex-wrap items-center gap-8">
         <div>
-          <p className="text-gray-500">Enrolled students</p>
-          <p className="text-lg font-semibold">{memberCount ?? 0}</p>
+          <p className="note-muted">Enrolled students</p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums">{memberCount ?? 0}</p>
         </div>
         <div>
-          <p className="text-gray-500">Awaiting first sign-in</p>
-          <p className="text-lg font-semibold">{pendingCount ?? 0}</p>
+          <p className="note-muted">Awaiting first sign-in</p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums">{pendingCount ?? 0}</p>
         </div>
-        <div className="ml-auto self-center">
-          <Link
-            href={`/classes/${classId}/roster/import`}
-            className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
-          >
-            Import roster
+        <div className="ml-auto">
+          <Link href={`/classes/${classId}/roster/import`} className="btn btn-primary">
+            Import a roster
           </Link>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between rounded border border-gray-200 p-4">
-        <div>
-          <p className="font-medium">Assignments</p>
-          <p className="text-sm text-gray-600">
-            Create, import, and publish this class&rsquo;s assignments.
-          </p>
-        </div>
-        <Link
-          href={`/classes/${classId}/assignments`}
-          className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+      {[
+        {
+          title: "Assignments",
+          description: "Create, import questions, and publish this class's assignments.",
+          href: `/classes/${classId}/assignments`,
+          cta: "Manage assignments",
+        },
+        {
+          title: "Question mapping",
+          description:
+            "Declare which Assignment 1 and Assignment 2 questions are comparable, then approve them for analytics.",
+          href: `/classes/${classId}/mappings`,
+          cta: "Open mapping studio",
+        },
+        {
+          title: "Analytics",
+          description:
+            "See how opinions shifted between the two assignments. Always current — nothing to refresh.",
+          href: `/classes/${classId}/analytics`,
+          cta: "View analytics",
+        },
+      ].map((section) => (
+        <div
+          key={section.title}
+          className="card-standard mt-4 flex flex-wrap items-center justify-between gap-4"
         >
-          Manage assignments
-        </Link>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between rounded border border-gray-200 p-4">
-        <div>
-          <p className="font-medium">Question mapping</p>
-          <p className="text-sm text-gray-600">
-            Declare which Assignment 1 and Assignment 2 questions are
-            comparable, then approve mappings for analytics.
-          </p>
+          <div className="min-w-0">
+            <p className="font-medium">{section.title}</p>
+            <p className="note mt-0.5">{section.description}</p>
+          </div>
+          <Link href={section.href} className="btn btn-secondary">
+            {section.cta}
+          </Link>
         </div>
-        <Link
-          href={`/classes/${classId}/mappings`}
-          className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
-        >
-          Open mapping studio
-        </Link>
-      </div>
+      ))}
 
-      <div className="mt-4 flex items-center justify-between rounded border border-gray-200 p-4">
-        <div>
-          <p className="font-medium">Analytics</p>
-          <p className="text-sm text-gray-600">
-            Transition and response statistics for approved mappings —
-            always current, no refresh needed.
-          </p>
-        </div>
-        <Link
-          href={`/classes/${classId}/analytics`}
-          className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
-        >
-          View analytics
-        </Link>
-      </div>
-
-      <h2 className="mt-8 text-lg font-semibold">Roster</h2>
+      <h2 className="title-sm mt-10">Roster</h2>
       {!members || members.length === 0 ? (
-        <p className="mt-2 text-sm text-gray-600">
-          No students enrolled yet. Use &ldquo;Import roster&rdquo; above to add some.
+        <p className="banner mt-3">
+          No students yet. Import a roster to add them — they&rsquo;ll appear
+          here once you do.
         </p>
       ) : (
-        <div className="mt-4 overflow-x-auto rounded border border-gray-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50">
+        <div className="table-frame mt-4">
+          <table className="data-table">
+            <thead>
               <tr>
-                <th className="px-3 py-2 font-medium text-gray-600">Name</th>
-                <th className="px-3 py-2 font-medium text-gray-600">Email</th>
-                <th className="px-3 py-2 font-medium text-gray-600">Roll number</th>
-                <th className="px-3 py-2 font-medium text-gray-600">Status</th>
-                <th className="px-3 py-2 font-medium text-gray-600" />
+                <th scope="col">Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Roll number</th>
+                <th scope="col">Status</th>
+                <th scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {members
                 .filter((m): m is ClassMemberRow & { profiles: NonNullable<ClassMemberRow["profiles"]> } =>
                   !!m.profiles
                 )
                 .map((m) => (
                   <tr key={m.id}>
-                    <td className="px-3 py-2">{m.profiles.full_name ?? "—"}</td>
-                    <td className="px-3 py-2">{m.profiles.email}</td>
-                    <td className="px-3 py-2">{m.profiles.roll_number ?? "—"}</td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`rounded px-2 py-0.5 text-xs font-medium ${
-                          m.profiles.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
+                    <td>{m.profiles.full_name ?? "—"}</td>
+                    <td>{m.profiles.email}</td>
+                    <td className="tabular-nums">{m.profiles.roll_number ?? "—"}</td>
+                    <td>
+                      <span className={m.profiles.is_active ? "badge badge-good" : "badge"}>
                         {m.profiles.is_active ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-3 py-2">
+                    <td>
                       <StudentActiveToggle
                         classId={classId}
                         profileId={m.profiles.id}
@@ -176,7 +161,7 @@ export default async function ClassDetailPage({
         </div>
       )}
 
-      <h2 className="mt-8 text-lg font-semibold">Class details</h2>
+      <h2 className="title-sm mt-10">Class details</h2>
       <div className="mt-4">
         <EditClassForm
           classId={classRow.id}

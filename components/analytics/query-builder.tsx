@@ -209,9 +209,9 @@ export function QueryBuilder({
     }
   }
 
-  const controlClass = `rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 ${focusRing}`;
-  const buttonClass = `rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 ${focusRing}`;
-  const primaryClass = `rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 ${focusRing}`;
+  const controlClass = `input input-compact ${focusRing}`;
+  const buttonClass = `btn btn-secondary ${focusRing}`;
+  const primaryClass = `btn btn-sm btn-primary disabled:opacity-50 ${focusRing}`;
 
   const tableRows = result
     ? result.rows.map((r) => [...r.keys, formatCell(r.value, measure.format)])
@@ -219,12 +219,12 @@ export function QueryBuilder({
 
   return (
     <div className="mt-6 space-y-6">
-      <section aria-label="Query definition" className="rounded border border-gray-200 bg-[#fcfcfb] p-4">
-        <h2 className="font-semibold text-gray-900">Build a query</h2>
-        <p className="mt-0.5 text-xs text-gray-600">{dataset.description}</p>
+      <section aria-label="Query definition" className="card p-4">
+        <h2 className="font-semibold text-ink">Build a query</h2>
+        <p className="mt-0.5 text-xs text-ink-secondary">{dataset.description}</p>
 
         <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <label className="text-xs text-gray-600">
+          <label className="text-xs text-ink-secondary">
             <span className="mb-0.5 block">Dataset</span>
             <select
               value={query.dataset}
@@ -239,7 +239,7 @@ export function QueryBuilder({
             </select>
           </label>
 
-          <label className="text-xs text-gray-600">
+          <label className="text-xs text-ink-secondary">
             <span className="mb-0.5 block">Measure</span>
             <select
               value={query.measure}
@@ -254,7 +254,7 @@ export function QueryBuilder({
             </select>
           </label>
 
-          <label className="text-xs text-gray-600">
+          <label className="text-xs text-ink-secondary">
             <span className="mb-0.5 block">Chart type</span>
             <select
               value={query.chartType}
@@ -269,7 +269,7 @@ export function QueryBuilder({
             </select>
           </label>
 
-          <div className="text-xs text-gray-600">
+          <div className="text-xs text-ink-secondary">
             <span className="mb-0.5 block">Actions</span>
             <div className="flex gap-1.5">
               <button type="button" onClick={resetAll} className={buttonClass}>
@@ -296,12 +296,12 @@ export function QueryBuilder({
         </div>
 
         <fieldset className="mt-3">
-          <legend className="text-xs text-gray-600">Group by</legend>
+          <legend className="text-xs text-ink-secondary">Group by</legend>
           <div className="mt-1 flex flex-wrap gap-2">
             {dimensionsFor(query.dataset).map((d) => (
               <label
                 key={d.id}
-                className="flex items-center gap-1.5 rounded border border-gray-300 px-2 py-1 text-xs"
+                className="flex items-center gap-1.5 input input-compact"
               >
                 <input
                   type="checkbox"
@@ -316,14 +316,14 @@ export function QueryBuilder({
         </fieldset>
 
         <fieldset className="mt-3">
-          <legend className="text-xs text-gray-600">Filters</legend>
+          <legend className="text-xs text-ink-secondary">Filters</legend>
           <div className="mt-1 flex flex-wrap items-end gap-2">
             {dataset.dimensions
               .filter((d) => (filterOptions[d] ?? []).length > 0)
               .map((d) => {
                 const current = query.filters.find((f) => f.dimension === d)?.value ?? "";
                 return (
-                  <label key={d} className="text-xs text-gray-600">
+                  <label key={d} className="text-xs text-ink-secondary">
                     <span className="mb-0.5 block">{DIMENSIONS[d].label}</span>
                     <select
                       value={current}
@@ -364,7 +364,7 @@ export function QueryBuilder({
         {!validation.valid && (
           <div
             role="alert"
-            className="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+            className="mt-3 banner banner-warning"
           >
             <p className="font-medium">This combination can&rsquo;t be charted:</p>
             <ul className="mt-1 list-disc space-y-0.5 pl-5">
@@ -376,11 +376,11 @@ export function QueryBuilder({
         )}
 
         {runError && (
-          <p role="alert" className="mt-3 text-sm text-red-700">
+          <p role="alert" className="mt-3 text-sm text-critical-text">
             {runError}
           </p>
         )}
-        {notice && <p className="mt-3 text-sm text-gray-700">{notice}</p>}
+        {notice && <p className="mt-3 text-sm text-ink-secondary">{notice}</p>}
       </section>
 
       {validation.valid && result && (
@@ -395,10 +395,10 @@ export function QueryBuilder({
         />
       )}
 
-      <section aria-label="Save and load" className="rounded border border-gray-200 bg-[#fcfcfb] p-4">
-        <h2 className="font-semibold text-gray-900">Save</h2>
+      <section aria-label="Save and load" className="card p-4">
+        <h2 className="font-semibold text-ink">Save</h2>
         <div className="mt-2 flex flex-wrap items-end gap-2">
-          <label className="text-xs text-gray-600">
+          <label className="text-xs text-ink-secondary">
             <span className="mb-0.5 block">Name</span>
             <input
               value={saveName}
@@ -407,7 +407,7 @@ export function QueryBuilder({
               placeholder="e.g. Change rate by energy source"
             />
           </label>
-          <label className="text-xs text-gray-600">
+          <label className="text-xs text-ink-secondary">
             <span className="mb-0.5 block">Description (optional)</span>
             <input
               value={saveDescription}
@@ -435,32 +435,32 @@ export function QueryBuilder({
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
-            <h3 className="text-sm font-medium text-gray-900">Saved queries ({savedQueries.length})</h3>
+            <h3 className="text-sm font-medium text-ink">Saved queries ({savedQueries.length})</h3>
             <ul className="mt-1 space-y-1">
               {savedQueries.map((q) => (
                 <li key={q.id} className="flex items-center justify-between gap-2 text-xs">
                   <button
                     type="button"
                     onClick={() => setQuery(q.definition)}
-                    className={`text-left text-blue-700 underline-offset-2 hover:underline ${focusRing}`}
+                    className={`link text-left ${focusRing}`}
                   >
                     {q.name}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete("query", q.id)}
-                    className={`text-red-700 hover:underline ${focusRing}`}
+                    className={`text-critical-text hover:underline ${focusRing}`}
                   >
                     Delete
                   </button>
                 </li>
               ))}
-              {savedQueries.length === 0 && <li className="text-xs text-gray-500">None yet.</li>}
+              {savedQueries.length === 0 && <li className="text-xs text-ink-muted">None yet.</li>}
             </ul>
           </div>
 
           <div>
-            <h3 className="text-sm font-medium text-gray-900">
+            <h3 className="text-sm font-medium text-ink">
               Saved visualisations ({savedVisualisations.length})
             </h3>
             <ul className="mt-1 space-y-1">
@@ -480,32 +480,32 @@ export function QueryBuilder({
                     <button
                       type="button"
                       onClick={() => setQuery(v.definition)}
-                      className={`text-left text-blue-700 underline-offset-2 hover:underline ${focusRing}`}
+                      className={`link text-left ${focusRing}`}
                     >
                       {v.name}
                     </button>
-                    <span className="text-gray-500">({CHART_TYPES[v.chartType]?.label ?? v.chartType})</span>
+                    <span className="text-ink-muted">({CHART_TYPES[v.chartType]?.label ?? v.chartType})</span>
                   </label>
                   <button
                     type="button"
                     onClick={() => handleDelete("visualisation", v.id)}
-                    className={`text-red-700 hover:underline ${focusRing}`}
+                    className={`text-critical-text hover:underline ${focusRing}`}
                   >
                     Delete
                   </button>
                 </li>
               ))}
               {savedVisualisations.length === 0 && (
-                <li className="text-xs text-gray-500">None yet.</li>
+                <li className="text-xs text-ink-muted">None yet.</li>
               )}
             </ul>
           </div>
         </div>
 
         <div className="mt-4">
-          <h3 className="text-sm font-medium text-gray-900">Dashboards ({dashboards.length})</h3>
+          <h3 className="text-sm font-medium text-ink">Dashboards ({dashboards.length})</h3>
           <div className="mt-1 flex flex-wrap items-end gap-2">
-            <label className="text-xs text-gray-600">
+            <label className="text-xs text-ink-secondary">
               <span className="mb-0.5 block">New dashboard name</span>
               <input
                 value={dashboardName}
@@ -531,13 +531,13 @@ export function QueryBuilder({
                 <button
                   type="button"
                   onClick={() => handleDelete("dashboard", d.id)}
-                  className={`text-red-700 hover:underline ${focusRing}`}
+                  className={`text-critical-text hover:underline ${focusRing}`}
                 >
                   Delete
                 </button>
               </li>
             ))}
-            {dashboards.length === 0 && <li className="text-xs text-gray-500">None yet.</li>}
+            {dashboards.length === 0 && <li className="text-xs text-ink-muted">None yet.</li>}
           </ul>
         </div>
       </section>

@@ -80,7 +80,7 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
   return (
     <div className="space-y-4">
       <div>
-        <label htmlFor="import-file" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="import-file" className="block text-sm font-medium text-ink-secondary">
           Spreadsheet (.xlsx or .xls)
         </label>
         <input
@@ -93,16 +93,16 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
         />
       </div>
 
-      {busy && <p className="text-sm text-gray-600">Working…</p>}
+      {busy && <p className="text-sm text-ink-secondary">Working…</p>}
 
       {error && (
-        <p role="alert" className="whitespace-pre-wrap rounded bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="banner banner-critical whitespace-pre-wrap">
           {error}
         </p>
       )}
 
       {done !== null && (
-        <p className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">
+        <p className="banner banner-good">
           Imported {done} questions. Review them below, then approve the
           assignment when you&rsquo;re satisfied.{" "}
           <a href={`/classes/${classId}/assignments/${assignmentId}`} className="font-medium underline">
@@ -115,14 +115,14 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
         <div className="space-y-4">
           {preview.worksheets.length > 1 && (
             <div>
-              <label htmlFor="worksheet" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="worksheet" className="block text-sm font-medium text-ink-secondary">
                 Worksheet
               </label>
               <select
                 id="worksheet"
                 value={worksheet}
                 onChange={(e) => onWorksheetChange(e.target.value)}
-                className="mt-1 rounded border border-gray-300 px-3 py-2 text-sm"
+                className="mt-1 rounded border border-strong px-3 py-2 text-sm"
               >
                 {preview.worksheets.map((name) => (
                   <option key={name} value={name} disabled={preview.emptyWorksheets.includes(name)}>
@@ -134,26 +134,26 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
             </div>
           )}
 
-          <div className="flex gap-6 rounded border border-gray-200 p-4 text-sm">
+          <div className="flex gap-6 rounded border border-hairline p-4 text-sm">
             <div>
-              <p className="text-gray-500">Questions</p>
-              <p className="text-lg font-semibold">{preview.questions.length}</p>
+              <p className="text-ink-muted">Questions</p>
+              <p className="title-sm">{preview.questions.length}</p>
             </div>
             <div>
-              <p className="text-gray-500">Energy sources</p>
-              <p className="text-lg font-semibold">{preview.sources.length}</p>
+              <p className="text-ink-muted">Energy sources</p>
+              <p className="title-sm">{preview.sources.length}</p>
             </div>
             <div>
-              <p className="text-gray-500">Criteria</p>
-              <p className="text-lg font-semibold">{preview.criteria.length}</p>
+              <p className="text-ink-muted">Criteria</p>
+              <p className="title-sm">{preview.criteria.length}</p>
             </div>
             <div>
-              <p className="text-gray-500">Answer labels</p>
-              <p className="text-lg font-semibold">
+              <p className="text-ink-muted">Answer labels</p>
+              <p className="title-sm">
                 {preview.responseZeroLabel} / {preview.responseOneLabel}
               </p>
               {!preview.labelsDetected && (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-ink-muted">
                   (defaults — none detected in the sheet; editable after import)
                 </p>
               )}
@@ -161,12 +161,12 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
           </div>
 
           {preview.errors.length > 0 && (
-            <div className="rounded border border-red-200 bg-red-50 p-4">
-              <p className="text-sm font-semibold text-red-700">
+            <div className="banner banner-critical">
+              <p className="text-sm font-semibold text-critical-text">
                 {preview.errors.length} problem row(s) — nothing will be imported until these are
                 fixed in the file:
               </p>
-              <ul className="mt-2 list-inside list-disc text-sm text-red-700">
+              <ul className="mt-2 list-inside list-disc text-sm text-critical-text">
                 {preview.errors.map((e, i) => (
                   <li key={i}>
                     <span className="font-mono">{e.location}</span>: {e.message}
@@ -177,12 +177,12 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
           )}
 
           {preview.anomalies.length > 0 && (
-            <div className="rounded border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-semibold text-amber-800">
+            <div className="banner banner-warning">
+              <p className="text-sm font-semibold text-warn-text">
                 {preview.anomalies.length} pre-filled cell(s) in the answer grid (ignored on
                 import):
               </p>
-              <p className="mt-1 text-sm text-amber-800">
+              <p className="mt-1 text-sm text-warn-text">
                 {preview.anomalies
                   .slice(0, 20)
                   .map((a) => `${a.cell}=${String(a.value)}`)
@@ -192,23 +192,23 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
             </div>
           )}
 
-          <div className="overflow-x-auto rounded border border-gray-200">
+          <div className="overflow-x-auto rounded border border-hairline">
             <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-surface-sunken">
                 <tr>
-                  <th className="px-3 py-2 font-medium text-gray-600">#</th>
-                  <th className="px-3 py-2 font-medium text-gray-600">Code</th>
-                  <th className="px-3 py-2 font-medium text-gray-600">Question</th>
-                  <th className="px-3 py-2 font-medium text-gray-600">Source cell</th>
+                  <th className="px-3 py-2 font-medium text-ink-secondary">#</th>
+                  <th className="px-3 py-2 font-medium text-ink-secondary">Code</th>
+                  <th className="px-3 py-2 font-medium text-ink-secondary">Question</th>
+                  <th className="px-3 py-2 font-medium text-ink-secondary">Source cell</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-hairline">
                 {preview.questions.map((q) => (
                   <tr key={q.externalQuestionCode}>
-                    <td className="px-3 py-2 text-gray-500">{q.displayOrder}</td>
+                    <td className="px-3 py-2 text-ink-muted">{q.displayOrder}</td>
                     <td className="px-3 py-2 font-mono text-xs">{q.externalQuestionCode}</td>
                     <td className="px-3 py-2">{q.questionText}</td>
-                    <td className="px-3 py-2 font-mono text-xs text-gray-500">
+                    <td className="px-3 py-2 font-mono text-xs text-ink-muted">
                       {q.originalColumnReference}
                       {q.originalRowReference}
                     </td>
@@ -222,12 +222,12 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
             type="button"
             disabled={busy || preview.errors.length > 0}
             onClick={commit}
-            className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            className="btn btn-primary"
           >
             {busy ? "Importing…" : `Import ${preview.questions.length} questions`}
           </button>
           {preview.errors.length > 0 && (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-ink-secondary">
               Fix the problem rows in the spreadsheet and re-upload — imports are all-or-nothing.
             </p>
           )}

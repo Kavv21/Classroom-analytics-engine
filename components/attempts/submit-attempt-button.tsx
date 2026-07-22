@@ -55,16 +55,12 @@ export function SubmitAttemptButton({
   return (
     <div className="space-y-3">
       {!confirming ? (
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          className="rounded bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
-        >
+        <button type="button" onClick={() => setConfirming(true)} className="btn btn-primary">
           Submit assignment
         </button>
       ) : (
-        <div className="rounded border border-blue-200 bg-blue-50 p-4">
-          <p className="text-sm text-gray-800">
+        <div className="banner banner-info">
+          <p>
             Submit your answers now?
             {unansweredCount > 0 && (
               <span className="font-medium">
@@ -81,7 +77,7 @@ export function SubmitAttemptButton({
               type="button"
               disabled={busy}
               onClick={() => void doSubmit()}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              className="btn btn-sm btn-primary"
             >
               {busy ? "Submitting…" : "Yes, submit now"}
             </button>
@@ -89,7 +85,7 @@ export function SubmitAttemptButton({
               type="button"
               disabled={busy}
               onClick={() => setConfirming(false)}
-              className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+              className="btn btn-sm btn-secondary"
             >
               Keep editing
             </button>
@@ -97,8 +93,8 @@ export function SubmitAttemptButton({
         </div>
       )}
       {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {error}
+        <p role="alert" className="banner banner-critical">
+          We couldn&rsquo;t submit: {error} Your answers are still saved — try again.
         </p>
       )}
     </div>

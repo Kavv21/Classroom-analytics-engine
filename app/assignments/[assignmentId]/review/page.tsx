@@ -58,42 +58,43 @@ export default async function ReviewAttemptPage({
   const unanswered = (questions ?? []).filter((q) => (values.get(q.id) ?? null) === null);
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-bold">Review your answers</h1>
-      <p className="mt-1 text-sm text-gray-600">{assignment.title}</p>
+    <main className="page-standard">
+      <h1 className="title-md">Review your answers</h1>
+      <p className="note mt-1">{assignment.title}</p>
 
       {assignment.status !== "OPEN" && (
-        <p role="alert" className="mt-4 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          This assignment is no longer open — submission is not possible.
+        <p role="alert" className="banner banner-warning mt-5">
+          This assignment has closed, so you can no longer submit it. Talk to
+          your professor if you still need to hand it in.
         </p>
       )}
 
       {unanswered.length > 0 && (
-        <p className="mt-4 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          {unanswered.length} question{unanswered.length === 1 ? " is" : "s are"} unanswered:{" "}
-          {unanswered.map((q) => q.external_question_code).join(", ")}
+        <p className="banner banner-warning mt-5">
+          {unanswered.length} question{unanswered.length === 1 ? " is" : "s are"} still
+          unanswered ({unanswered.map((q) => q.external_question_code).join(", ")}). You
+          can submit anyway — they&rsquo;ll be recorded as unanswered — or go back and
+          fill them in.
         </p>
       )}
 
-      <ul className="mt-6 divide-y divide-gray-100 rounded border border-gray-200">
+      <ul className="table-frame mt-6 divide-y divide-hairline bg-surface-raised">
         {(questions ?? []).map((q, i) => {
           const value = values.get(q.id) ?? null;
           const label =
             value === 0 ? q.response_zero_label : value === 1 ? q.response_one_label : null;
           return (
             <li key={q.id} className="flex items-start justify-between gap-4 px-4 py-3">
-              <div>
-                <p className="text-sm text-gray-500">
-                  {i + 1}. <span className="font-mono text-xs">{q.external_question_code}</span>
+              <div className="min-w-0">
+                <p className="note-muted">
+                  {i + 1}. <span className="mono">{q.external_question_code}</span>
                 </p>
-                <p className="text-sm">{q.question_text}</p>
+                <p className="mt-0.5 text-sm">{q.question_text}</p>
               </div>
               {value === null ? (
-                <span className="shrink-0 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                  Unanswered
-                </span>
+                <span className="badge badge-warning shrink-0">Unanswered</span>
               ) : (
-                <span className="shrink-0 rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                <span className="badge shrink-0 tabular-nums">
                   {value} — {label}
                 </span>
               )}
@@ -102,7 +103,7 @@ export default async function ReviewAttemptPage({
         })}
       </ul>
 
-      <div className="mt-6 flex items-center gap-4">
+      <div className="mt-6 flex flex-wrap items-center gap-4">
         {assignment.status === "OPEN" && (
           <SubmitAttemptButton
             attemptId={attempt.id}
@@ -110,10 +111,7 @@ export default async function ReviewAttemptPage({
             unansweredCount={unanswered.length}
           />
         )}
-        <Link
-          href={`/assignments/${assignmentId}`}
-          className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
-        >
+        <Link href={`/assignments/${assignmentId}`} className="btn btn-secondary">
           Back to questions
         </Link>
       </div>

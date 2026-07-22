@@ -40,7 +40,7 @@ function cellText(value: string | number | null): string {
 }
 
 export const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700";
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
 
 export function ChartCard({
   title,
@@ -80,24 +80,23 @@ export function ChartCard({
     a.click();
   }
 
-  const toggleClass = (active: boolean) =>
-    `rounded px-2.5 py-1 text-xs font-medium ${focusRing} ${
-      active ? "bg-gray-900 text-white" : "border border-gray-300 text-gray-700 hover:bg-gray-50"
-    }`;
+  // Active state is driven by aria-pressed in CSS (.btn-toggle), so the
+  // visual state and the state announced to a screen reader can't diverge.
+  const toggleClass = `btn btn-toggle ${focusRing}`;
 
   return (
-    <section aria-label={title} className="rounded border border-gray-200 bg-[#fcfcfb] p-4">
+    <section aria-label={title} className="card p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900">{title}</h3>
-          {description && <p className="mt-0.5 text-xs text-gray-600">{description}</p>}
+          <h3 className="heading">{title}</h3>
+          {description && <p className="note-muted mt-0.5">{description}</p>}
         </div>
         <div className="flex shrink-0 gap-1.5" role="group" aria-label={`${title} — view and export`}>
           <button
             type="button"
             aria-pressed={view === "chart"}
             onClick={() => setView("chart")}
-            className={toggleClass(view === "chart")}
+            className={toggleClass}
           >
             Chart
           </button>
@@ -105,18 +104,18 @@ export function ChartCard({
             type="button"
             aria-pressed={view === "table"}
             onClick={() => setView("table")}
-            className={toggleClass(view === "table")}
+            className={toggleClass}
           >
             Table
           </button>
-          <button type="button" onClick={exportCsv} className={toggleClass(false)}>
+          <button type="button" onClick={exportCsv} className={toggleClass}>
             CSV
           </button>
           <button
             type="button"
             onClick={exportPng}
             disabled={view === "table"}
-            className={`${toggleClass(false)} disabled:opacity-50`}
+            className={toggleClass}
           >
             PNG
           </button>
@@ -136,25 +135,25 @@ export function ChartCard({
           />
         </div>
       ) : (
-        <div className="mt-3 max-h-96 overflow-auto rounded border border-gray-200">
+        <div className="mt-3 max-h-96 overflow-auto rounded border border-hairline">
           <table className="w-full text-left text-xs">
             <caption className="sr-only">
               {title}
               {description ? ` — ${description}` : ""}
             </caption>
-            <thead className="sticky top-0 bg-gray-50">
+            <thead className="sticky top-0 bg-surface-sunken">
               <tr>
                 {table.columns.map((column) => (
-                  <th key={column} scope="col" className="px-2 py-1.5 font-medium text-gray-600">
+                  <th key={column} scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
                     {column}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 tabular-nums">
+            <tbody className="divide-y divide-hairline tabular-nums">
               {table.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={table.columns.length} className="px-2 py-3 text-gray-500">
+                  <td colSpan={table.columns.length} className="px-2 py-3 text-ink-muted">
                     No data for the current filters.
                   </td>
                 </tr>
@@ -174,7 +173,7 @@ export function ChartCard({
         </div>
       )}
 
-      {footnote && <p className="mt-2 text-xs text-gray-500">{footnote}</p>}
+      {footnote && <p className="mt-2 text-xs text-ink-muted">{footnote}</p>}
     </section>
   );
 }

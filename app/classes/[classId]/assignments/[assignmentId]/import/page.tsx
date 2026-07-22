@@ -22,23 +22,23 @@ export default async function AssignmentImportPage({
   if (!assignment) notFound();
 
   return (
-    <main className="mx-auto max-w-3xl p-8">
-      <p className="text-sm text-gray-500">
+    <main className="page-standard">
+      <p className="text-sm text-ink-muted">
         <Link href={`/classes/${classId}/assignments/${assignmentId}`} className="hover:underline">
           {assignment.title}
         </Link>{" "}
         / Import questions
       </p>
-      <h1 className="mt-2 text-2xl font-bold">Import questions</h1>
+      <h1 className="title-md mt-2">Import questions</h1>
 
       {assignment.status !== "DRAFT" ? (
-        <p className="mt-6 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <p className="mt-6 banner banner-warning">
           Questions can only be imported while the assignment is in DRAFT (current status:{" "}
           {assignment.status}). Move it back to draft first, or duplicate it as a new version.
         </p>
       ) : (
         <>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-ink-secondary">
             Upload the assignment spreadsheet. You&rsquo;ll see every parsed question — and every
             problem — before anything is imported. Question codes will use the prefix{" "}
             <span className="font-mono">A{assignment.sequence_number}</span>. Re-importing

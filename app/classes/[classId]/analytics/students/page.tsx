@@ -27,11 +27,11 @@ export default async function StudentAnalyticsPage({
   ]);
 
   return (
-    <main className="mx-auto max-w-6xl p-8">
+    <main className="page-dense">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Student analytics — {classRow.name}</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <h1 className="title-md">Student analytics — {classRow.name}</h1>
+          <p className="mt-1 text-sm text-ink-secondary">
             Per-student opinion movement across all approved mappings. Change
             rates describe movement, not performance — there are no scores
             here.
@@ -39,7 +39,7 @@ export default async function StudentAnalyticsPage({
         </div>
         <Link
           href={`/classes/${classId}`}
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+          className="btn btn-secondary"
         >
           Back to class
         </Link>
@@ -48,9 +48,9 @@ export default async function StudentAnalyticsPage({
       <AnalyticsNav classId={classId} active="students" />
 
       {studentSummaries.length === 0 ? (
-        <p className="mt-6 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+        <p className="mt-6 rounded border border-hairline bg-surface-sunken px-3 py-2 text-sm text-ink-secondary">
           No per-student data yet — it appears once mappings are approved in the{" "}
-          <Link href={`/classes/${classId}/mappings`} className="text-blue-600 underline">
+          <Link href={`/classes/${classId}/mappings`} className="link">
             mapping studio
           </Link>
           .

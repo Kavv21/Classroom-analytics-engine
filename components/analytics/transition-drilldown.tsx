@@ -101,17 +101,17 @@ export function TransitionDrilldown({
     });
   if (drill.studentId) crumbs.push({ label: nameOf(drill.studentId), to: drill });
 
-  const rowButton = `flex w-full items-center justify-between gap-3 rounded border border-gray-200 px-3 py-2 text-left text-sm hover:bg-blue-50 ${focusRing}`;
+  const rowButton = `flex w-full items-center justify-between gap-3 rounded border border-hairline px-3 py-2 text-left text-sm hover:bg-surface-info ${focusRing}`;
 
   return (
     <section
       aria-label="Transition drill-down"
-      className="rounded border border-gray-200 bg-[#fcfcfb] p-4"
+      className="card p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-gray-900">Drill-down explorer</h3>
-          <p className="mt-0.5 text-xs text-gray-600">
+          <h3 className="font-semibold text-ink">Drill-down explorer</h3>
+          <p className="mt-0.5 text-xs text-ink-secondary">
             Energy source → criterion → mapped question → transition matrix → students → student
             profile.
           </p>
@@ -120,7 +120,7 @@ export function TransitionDrilldown({
           type="button"
           onClick={() => setDrill({})}
           disabled={!drill.source && !drill.studentId}
-          className={`rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 ${focusRing}`}
+          className={`btn btn-secondary ${focusRing}`}
         >
           Reset drill-down
         </button>
@@ -129,16 +129,16 @@ export function TransitionDrilldown({
       <nav aria-label="Drill-down breadcrumbs" className="mt-3 flex flex-wrap items-center gap-1 text-xs">
         {crumbs.map((crumb, i) => (
           <span key={i} className="flex items-center gap-1">
-            {i > 0 && <span aria-hidden="true" className="text-gray-400">/</span>}
+            {i > 0 && <span aria-hidden="true" className="text-ink-muted">/</span>}
             {i === crumbs.length - 1 ? (
-              <span aria-current="location" className="rounded bg-gray-900 px-2 py-0.5 font-medium text-white">
+              <span aria-current="location" className="rounded bg-action px-2 py-0.5 font-medium text-white">
                 {crumb.label}
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => setDrill(crumb.to)}
-                className={`rounded px-2 py-0.5 text-blue-700 underline hover:bg-blue-50 ${focusRing}`}
+                className={`rounded px-2 py-0.5 link ${focusRing}`}
               >
                 {crumb.label}
               </button>
@@ -151,36 +151,36 @@ export function TransitionDrilldown({
         {/* Level 6 — student profile */}
         {drill.studentId ? (
           <div>
-            <h4 className="font-medium text-gray-900">{nameOf(drill.studentId)}</h4>
-            <p className="mt-0.5 text-xs text-gray-600">
+            <h4 className="font-medium text-ink">{nameOf(drill.studentId)}</h4>
+            <p className="mt-0.5 text-xs text-ink-secondary">
               Every approved mapping for this student. Answers are opinions — a change is a change,
               not an improvement.{" "}
               <Link href={`/classes/${classId}/analytics/students`} className="underline">
                 Open student analytics
               </Link>
             </p>
-            <div className="mt-2 overflow-x-auto rounded border border-gray-200">
+            <div className="mt-2 overflow-x-auto rounded border border-hairline">
               <table className="w-full text-left text-xs">
                 <caption className="sr-only">Transitions for {nameOf(drill.studentId)}</caption>
-                <thead className="bg-gray-50">
+                <thead className="bg-surface-sunken">
                   <tr>
-                    <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">Mapping</th>
-                    <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">A1 answer</th>
-                    <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">A2 answer</th>
-                    <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">Transition</th>
-                    <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">Data quality</th>
+                    <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">Mapping</th>
+                    <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">A1 answer</th>
+                    <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">A2 answer</th>
+                    <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">Transition</th>
+                    <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">Data quality</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-hairline">
                   {studentRows.map((r) => (
                     <tr key={r.mapping_id}>
-                      <td className="px-2 py-1.5">{r.mapping_name} <span className="text-gray-400">v{r.mapping_version}</span></td>
+                      <td className="px-2 py-1.5">{r.mapping_name} <span className="text-ink-muted">v{r.mapping_version}</span></td>
                       <td className="px-2 py-1.5">{valueLabel(r.assignment_1_value)}</td>
                       <td className="px-2 py-1.5">{valueLabel(r.assignment_2_value)}</td>
                       <td className="px-2 py-1.5">
                         {r.transition_state ? TRANSITION_STATE_LABELS[r.transition_state] : "—"}
                       </td>
-                      <td className="px-2 py-1.5 text-gray-500">
+                      <td className="px-2 py-1.5 text-ink-muted">
                         {r.data_quality_status
                           ? QUALITY_LABELS[r.data_quality_status.toLowerCase() as keyof typeof QUALITY_LABELS]
                           : "Valid pair"}
@@ -194,7 +194,7 @@ export function TransitionDrilldown({
         ) : drill.state && mapping ? (
           /* Level 5 — students in the selected transition */
           <div>
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink">
               {TRANSITION_STATE_LABELS[drill.state]} — {stateStudents.length} student
               {stateStudents.length === 1 ? "" : "s"} on “{mapping.mapping_name}”
             </h4>
@@ -207,14 +207,14 @@ export function TransitionDrilldown({
                     onClick={() => setDrill({ ...drill, studentId: r.student_id })}
                   >
                     <span>{nameOf(r.student_id)}</span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-ink-muted">
                       {valueLabel(r.assignment_1_value)} → {valueLabel(r.assignment_2_value)} · view profile
                     </span>
                   </button>
                 </li>
               ))}
               {stateStudents.length === 0 && (
-                <li className="text-sm text-gray-500">No students in this transition.</li>
+                <li className="text-sm text-ink-muted">No students in this transition.</li>
               )}
             </ul>
           </div>
@@ -243,7 +243,7 @@ export function TransitionDrilldown({
                   onClick={() => setDrill({ source: drill.source, criterion: g.key })}
                 >
                   <span>{g.key}</span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-ink-muted">
                     {g.items.length} mapping{g.items.length === 1 ? "" : "s"} ·{" "}
                     {g.totals.valid_paired} valid pairs · change rate{" "}
                     {formatPct(
@@ -267,9 +267,9 @@ export function TransitionDrilldown({
                   onClick={() => setDrill({ ...drill, mappingId: m.mapping_id })}
                 >
                   <span>
-                    {m.mapping_name} <span className="text-gray-400">v{m.mapping_version}</span>
+                    {m.mapping_name} <span className="text-ink-muted">v{m.mapping_version}</span>
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-ink-muted">
                     {m.mapping_type} · {m.valid_paired} valid pairs · change rate{" "}
                     {formatPct(m.change_rate)}
                   </span>
@@ -288,7 +288,7 @@ export function TransitionDrilldown({
                   onClick={() => setDrill({ source: g.key })}
                 >
                   <span>{g.key}</span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-ink-muted">
                     {g.items.length} mapping{g.items.length === 1 ? "" : "s"} ·{" "}
                     {g.totals.valid_paired} valid pairs · change rate{" "}
                     {formatPct(
@@ -301,7 +301,7 @@ export function TransitionDrilldown({
               </li>
             ))}
             {sourceGroups.length === 0 && (
-              <li className="text-sm text-gray-500">No approved mappings yet.</li>
+              <li className="text-sm text-ink-muted">No approved mappings yet.</li>
             )}
           </ul>
         )}

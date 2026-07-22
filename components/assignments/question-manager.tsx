@@ -89,8 +89,8 @@ export function QuestionManager({
 
   if (ordered.length === 0) {
     return (
-      <p className="mt-2 text-sm text-gray-600">
-        No questions yet — import a spreadsheet to add them.
+      <p className="banner mt-3">
+        No questions yet. Import your spreadsheet to add them.
       </p>
     );
   }
@@ -98,68 +98,73 @@ export function QuestionManager({
   return (
     <div className="mt-4">
       {hasResponses && (
-        <p className="mb-2 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Students have already responded, so question wording and labels are
-          locked. Reordering is still allowed. To change questions, duplicate
-          the assignment as a new version.
+        <p className="banner banner-warning mb-3">
+          Students have already answered this assignment, so question wording
+          and answer labels are locked. You can still reorder questions. To
+          change the questions themselves, duplicate the assignment and edit
+          the copy.
         </p>
       )}
-      <div className="overflow-x-auto rounded border border-gray-200">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50">
+      <div className="table-frame">
+        <table className="data-table data-table--dense">
+          <thead>
             <tr>
-              <th className="px-3 py-2 font-medium text-gray-600">#</th>
-              <th className="px-3 py-2 font-medium text-gray-600">Code</th>
-              <th className="px-3 py-2 font-medium text-gray-600">Question</th>
-              <th className="px-3 py-2 font-medium text-gray-600">Answer labels</th>
-              {editable && <th className="px-3 py-2 font-medium text-gray-600" />}
+              <th scope="col">#</th>
+              <th scope="col">Code</th>
+              <th scope="col">Question</th>
+              <th scope="col">Answer labels</th>
+              {editable && (
+                <th scope="col">
+                  <span className="sr-only">Reorder</span>
+                </th>
+              )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {ordered.map((q, i) => (
               <tr key={q.id}>
-                <td className="px-3 py-2 text-gray-500">{q.display_order}</td>
-                <td className="px-3 py-2 font-mono text-xs">{q.external_question_code}</td>
-                <td className="px-3 py-2">{q.question_text}</td>
-                <td className="px-3 py-2">
+                <td className="text-ink-muted tabular-nums">{q.display_order}</td>
+                <td className="mono">{q.external_question_code}</td>
+                <td>{q.question_text}</td>
+                <td>
                   {editingId === q.id ? (
-                    <span className="flex items-center gap-2">
+                    <span className="flex flex-wrap items-center gap-2">
                       <input
                         aria-label="Label for 0"
                         value={zeroLabel}
                         onChange={(e) => setZeroLabel(e.target.value)}
-                        className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
+                        className="input input-compact w-28"
                       />
                       <input
                         aria-label="Label for 1"
                         value={oneLabel}
                         onChange={(e) => setOneLabel(e.target.value)}
-                        className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
+                        className="input input-compact w-28"
                       />
                       <button
                         type="button"
                         disabled={busy}
                         onClick={() => saveLabels(q.id)}
-                        className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-60"
+                        className="btn btn-sm btn-primary"
                       >
                         Save
                       </button>
                       <button
                         type="button"
                         onClick={() => setEditingId(null)}
-                        className="text-xs text-gray-500 hover:underline"
+                        className="btn btn-sm btn-secondary"
                       >
                         Cancel
                       </button>
                     </span>
                   ) : (
-                    <span className="text-xs text-gray-600">
+                    <span className="text-ink-secondary">
                       {q.response_zero_label} / {q.response_one_label}
                       {editable && !hasResponses && (
                         <button
                           type="button"
                           onClick={() => startLabelEdit(q)}
-                          className="ml-2 font-medium text-blue-600 hover:underline"
+                          className="link ml-2 font-medium"
                         >
                           Edit
                         </button>
@@ -168,14 +173,14 @@ export function QuestionManager({
                   )}
                 </td>
                 {editable && (
-                  <td className="px-3 py-2">
+                  <td>
                     <span className="flex gap-1">
                       <button
                         type="button"
                         aria-label={`Move question ${q.display_order} up`}
                         disabled={busy || i === 0}
                         onClick={() => swap(i, -1)}
-                        className="rounded border border-gray-300 px-2 py-0.5 text-xs disabled:opacity-40"
+                        className="btn btn-sm btn-secondary px-2"
                       >
                         ↑
                       </button>
@@ -184,7 +189,7 @@ export function QuestionManager({
                         aria-label={`Move question ${q.display_order} down`}
                         disabled={busy || i === ordered.length - 1}
                         onClick={() => swap(i, 1)}
-                        className="rounded border border-gray-300 px-2 py-0.5 text-xs disabled:opacity-40"
+                        className="btn btn-sm btn-secondary px-2"
                       >
                         ↓
                       </button>
@@ -197,7 +202,7 @@ export function QuestionManager({
         </table>
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
+        <p role="alert" className="banner banner-critical mt-2">
           {error}
         </p>
       )}

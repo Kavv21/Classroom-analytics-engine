@@ -84,7 +84,7 @@ export default async function TakeAssignmentPage({
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
+    <main className="page-dense-narrow max-w-2xl">
       <AttemptRunner
         attemptId={attempt.id}
         assignmentTitle={assignment.title}

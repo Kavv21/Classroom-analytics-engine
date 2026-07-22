@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { roleLabel } from "@/lib/ui/labels";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -21,37 +22,35 @@ export default async function HomePage() {
 
   const destination =
     profile?.role === "STUDENT"
-      ? { href: "/assignments", label: "Your assignments" }
-      : { href: "/classes", label: "Your classes" };
+      ? { href: "/assignments", label: "Go to your assignments" }
+      : { href: "/classes", label: "Go to your classes" };
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-bold">Classroom Opinion Analytics Platform</h1>
+    <main className="page-spacious">
+      <h1 className="title-lg">Classroom Opinion Analytics</h1>
+      <p className="lede mt-3">
+        Collects student opinions across two assignments and shows how they
+        shifted between them.
+      </p>
 
       {profile ? (
         <>
-          <div className="mt-6 flex items-center justify-between rounded border border-gray-200 p-4">
-            <div>
+          <div className="card-spacious mt-8 flex items-center justify-between gap-4">
+            <div className="min-w-0">
               <p className="font-medium">{profile.full_name ?? profile.email}</p>
-              <p className="text-sm text-gray-600">{profile.role}</p>
+              <p className="note-muted mt-0.5">{roleLabel(profile.role)}</p>
             </div>
             <SignOutButton />
           </div>
-          <div className="mt-4">
-            <Link
-              href={destination.href}
-              className="inline-block rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
-            >
+          <div className="mt-6">
+            <Link href={destination.href} className="btn btn-primary">
               {destination.label}
             </Link>
           </div>
         </>
       ) : (
-        <div className="mt-6">
-          <Link
-            href="/login"
-            className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
-          >
+        <div className="mt-8">
+          <Link href="/login" className="btn btn-primary">
             Sign in
           </Link>
         </div>

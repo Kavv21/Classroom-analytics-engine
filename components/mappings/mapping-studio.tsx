@@ -11,6 +11,7 @@ import { MAPPING_TYPES, sideCountError } from "@/lib/mappings/schema";
 import type { MappingType } from "@/lib/types/domain";
 import type { MappingRowLite, QuestionLite } from "@/components/mappings/types";
 import { MappingTable } from "@/components/mappings/mapping-table";
+import { mappingTypeLabel } from "@/lib/ui/labels";
 
 interface MappingStudioProps {
   classId: string;
@@ -21,15 +22,6 @@ interface MappingStudioProps {
   mappings: MappingRowLite[];
 }
 
-const MAPPING_TYPE_LABELS: Record<MappingType, string> = {
-  EXACT_ONE_TO_ONE: "Exact 1:1",
-  CONCEPTUAL_ONE_TO_ONE: "Conceptual 1:1",
-  ONE_TO_MANY: "One-to-many",
-  MANY_TO_ONE: "Many-to-one",
-  GROUPED_CONCEPT: "Grouped concept",
-  NOT_COMPARABLE: "Not comparable",
-  UNMAPPED: "Unmapped",
-};
 
 interface ColumnFilters {
   search: string;
@@ -81,13 +73,13 @@ function QuestionColumn({
   const concepts = useMemo(() => distinct(questions.map((q) => q.concept)), [questions]);
   const visible = useMemo(() => applyFilters(questions, filters), [questions, filters]);
 
-  const selectClass = "rounded border border-gray-300 px-2 py-1 text-xs";
+  const selectClass = "input input-compact";
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col rounded border border-gray-200">
-      <div className="border-b border-gray-200 bg-gray-50 p-3">
+    <div className="flex min-w-0 flex-1 flex-col rounded border border-hairline">
+      <div className="border-b border-hairline bg-surface-sunken p-3">
         <p className="font-medium">{title}</p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-ink-muted">
           {visible.length} of {questions.length} questions · {selected.size} selected
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -96,7 +88,7 @@ function QuestionColumn({
             value={filters.search}
             onChange={(e) => onFilters({ ...filters, search: e.target.value })}
             placeholder="Search wording or code…"
-            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            className="w-full input input-compact text-sm"
           />
           <select
             aria-label={`${title} energy source filter`}
@@ -141,10 +133,10 @@ function QuestionColumn({
           )}
         </div>
       </div>
-      <ul className="max-h-96 divide-y divide-gray-100 overflow-y-auto">
+      <ul className="max-h-96 divide-y divide-hairline overflow-y-auto">
         {visible.map((q) => (
           <li key={q.id}>
-            <label className="flex cursor-pointer items-start gap-2 px-3 py-2 text-sm hover:bg-blue-50">
+            <label className="flex cursor-pointer items-start gap-2 px-3 py-2 text-sm hover:bg-surface-info">
               <input
                 type="checkbox"
                 checked={selected.has(q.id)}
@@ -152,9 +144,9 @@ function QuestionColumn({
                 className="mt-1"
               />
               <span className="min-w-0">
-                <span className="font-mono text-xs text-gray-500">{q.code}</span>{" "}
+                <span className="font-mono text-xs text-ink-muted">{q.code}</span>{" "}
                 <span>{q.text}</span>
-                <span className="mt-0.5 block text-xs text-gray-500">
+                <span className="mt-0.5 block text-xs text-ink-muted">
                   {[q.energySource, q.criterion, q.concept].filter(Boolean).join(" · ")}
                 </span>
               </span>
@@ -162,7 +154,7 @@ function QuestionColumn({
           </li>
         ))}
         {visible.length === 0 && (
-          <li className="px-3 py-4 text-sm text-gray-500">No questions match these filters.</li>
+          <li className="px-3 py-4 text-sm text-ink-muted">No questions match these filters.</li>
         )}
       </ul>
     </div>
@@ -291,7 +283,7 @@ export function MappingStudio({
     router.refresh();
   }
 
-  const inputClass = "w-full rounded border border-gray-300 px-2 py-1.5 text-sm";
+  const inputClass = "w-full input input-compact.5 text-sm";
 
   return (
     <div className="mt-6 space-y-6">
@@ -316,7 +308,7 @@ export function MappingStudio({
       </div>
 
       {/* Mapping form */}
-      <div className="rounded border border-gray-200 p-4">
+      <div className="rounded border border-hairline p-4">
         <div className="flex items-center justify-between">
           <p className="font-medium">{editingId ? "Edit mapping" : "Create mapping from selection"}</p>
           <div className="flex gap-2">
@@ -324,19 +316,19 @@ export function MappingStudio({
               type="button"
               disabled={busy}
               onClick={seedSuggestions}
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-60"
+              className="btn btn-secondary disabled:opacity-60"
             >
               Generate suggestions
             </button>
             <a
               href={`/classes/${classId}/mappings/export?format=csv`}
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+              className="btn btn-secondary"
             >
               Export CSV
             </a>
             <a
               href={`/classes/${classId}/mappings/export?format=json`}
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+              className="btn btn-secondary"
             >
               Export JSON
             </a>
@@ -345,7 +337,7 @@ export function MappingStudio({
 
         <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <label className="text-sm">
-            <span className="mb-1 block text-gray-600">Mapping name *</span>
+            <span className="mb-1 block text-ink-secondary">Mapping name *</span>
             <input
               value={mappingName}
               onChange={(e) => setMappingName(e.target.value)}
@@ -354,7 +346,7 @@ export function MappingStudio({
             />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-gray-600">Mapping type *</span>
+            <span className="mb-1 block text-ink-secondary">Mapping type *</span>
             <select
               value={mappingType}
               onChange={(e) => setMappingType(e.target.value as MappingType)}
@@ -362,13 +354,13 @@ export function MappingStudio({
             >
               {MAPPING_TYPES.map((t) => (
                 <option key={t} value={t}>
-                  {MAPPING_TYPE_LABELS[t]} ({t})
+                  {mappingTypeLabel(t)}
                 </option>
               ))}
             </select>
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-gray-600">Common concept</span>
+            <span className="mb-1 block text-ink-secondary">Common concept</span>
             <input
               value={commonConcept}
               onChange={(e) => setCommonConcept(e.target.value)}
@@ -377,7 +369,7 @@ export function MappingStudio({
             />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-gray-600">Energy source</span>
+            <span className="mb-1 block text-ink-secondary">Energy source</span>
             <input
               value={energySource}
               onChange={(e) => setEnergySource(e.target.value)}
@@ -385,11 +377,11 @@ export function MappingStudio({
             />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-gray-600">Criterion</span>
+            <span className="mb-1 block text-ink-secondary">Criterion</span>
             <input value={criterion} onChange={(e) => setCriterion(e.target.value)} className={inputClass} />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-gray-600">Comparison method</span>
+            <span className="mb-1 block text-ink-secondary">Comparison method</span>
             <input
               value={comparisonMethod}
               onChange={(e) => setComparisonMethod(e.target.value)}
@@ -398,7 +390,7 @@ export function MappingStudio({
             />
           </label>
           <label className="text-sm md:col-span-2 lg:col-span-3">
-            <span className="mb-1 block text-gray-600">Notes</span>
+            <span className="mb-1 block text-ink-secondary">Notes</span>
             <textarea
               value={professorNotes}
               onChange={(e) => setProfessorNotes(e.target.value)}
@@ -408,9 +400,9 @@ export function MappingStudio({
           </label>
         </div>
 
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-ink-secondary">
           Selected: {a1Selected.size} from Assignment 1, {a2Selected.size} from Assignment 2.
-          {shapeHint && <span className="ml-1 text-amber-700">{shapeHint}</span>}
+          {shapeHint && <span className="ml-1 text-warn-text">{shapeHint}</span>}
         </p>
 
         <div className="mt-3 flex gap-2">
@@ -418,7 +410,7 @@ export function MappingStudio({
             type="button"
             disabled={busy || !!shapeHint || mappingName.trim() === ""}
             onClick={save}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            className="btn btn-primary"
           >
             {editingId ? "Save changes" : "Create mapping"}
           </button>
@@ -427,7 +419,7 @@ export function MappingStudio({
               type="button"
               disabled={busy}
               onClick={resetForm}
-              className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-60"
+              className="rounded border border-strong px-4 py-2 text-sm font-medium hover:bg-surface-sunken disabled:opacity-60"
             >
               {editingId ? "Cancel edit" : "Clear selection"}
             </button>
@@ -435,11 +427,11 @@ export function MappingStudio({
         </div>
 
         {error && (
-          <p role="alert" className="mt-2 text-sm text-red-600">
+          <p role="alert" className="mt-2 text-sm text-critical-text">
             {error}
           </p>
         )}
-        {notice && <p className="mt-2 text-sm text-green-700">{notice}</p>}
+        {notice && <p className="mt-2 text-sm text-good-text">{notice}</p>}
       </div>
 
       <MappingTable

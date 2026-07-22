@@ -24,11 +24,22 @@ interface StatusActionsProps {
 export function StatusActions({ assignmentId, classId, status, questionCount }: StatusActionsProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
+  /** What the professor just did, said back in the same words. */
+  const DONE_MESSAGES: Partial<Record<AssignmentStatus, string>> = {
+    READY: "Marked ready to publish. Students still can't see it yet.",
+    OPEN: "Published. Students can now open this assignment.",
+    CLOSED: "Closed. Students can no longer submit.",
+    ARCHIVED: "Archived.",
+    DRAFT: "Back in draft. You can edit the questions again.",
+  };
+
   async function move(to: AssignmentStatus) {
     setError(null);
+    setNotice(null);
     setBusy(true);
     const result = await transitionAssignment(assignmentId, to);
     setBusy(false);
@@ -36,11 +47,13 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
       setError(result.error);
       return;
     }
+    setNotice(DONE_MESSAGES[to] ?? null);
     router.refresh();
   }
 
   async function duplicate() {
     setError(null);
+    setNotice(null);
     setBusy(true);
     const result = await duplicateAssignment(assignmentId);
     setBusy(false);
@@ -52,22 +65,17 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
     router.refresh();
   }
 
-  const buttonClass =
-    "rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60";
-  const secondaryClass =
-    "rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-60";
-
   return (
     <div className="space-y-3">
       {status === "DRAFT" && (
-        <div className="rounded border border-gray-200 p-4">
+        <div className="card-standard">
           {questionCount === 0 ? (
-            <p className="text-sm text-gray-600">
-              Import or add questions before this assignment can be approved.
+            <p className="note">
+              Import your questions before you can mark this assignment ready.
             </p>
           ) : (
             <>
-              <label className="flex items-start gap-2 text-sm text-gray-700">
+              <label className="flex items-start gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={reviewConfirmed}
@@ -83,9 +91,9 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
                 type="button"
                 disabled={busy || !reviewConfirmed}
                 onClick={() => move("READY")}
-                className={`${buttonClass} mt-3`}
+                className="btn btn-primary mt-4"
               >
-                Approve &amp; mark ready
+                Mark ready to publish
               </button>
             </>
           )}
@@ -95,33 +103,58 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
       <div className="flex flex-wrap gap-2">
         {status === "READY" && (
           <>
-            <button type="button" disabled={busy} onClick={() => move("OPEN")} className={buttonClass}>
-              Publish (open to students)
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => move("OPEN")}
+              className="btn btn-primary"
+            >
+              Publish to students
             </button>
-            <button type="button" disabled={busy} onClick={() => move("DRAFT")} className={secondaryClass}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => move("DRAFT")}
+              className="btn btn-secondary"
+            >
               Back to draft
             </button>
           </>
         )}
         {status === "OPEN" && (
-          <button type="button" disabled={busy} onClick={() => move("CLOSED")} className={buttonClass}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => move("CLOSED")}
+            className="btn btn-primary"
+          >
             Close assignment
           </button>
         )}
         {status === "CLOSED" && (
-          <button type="button" disabled={busy} onClick={() => move("ARCHIVED")} className={secondaryClass}>
-            Archive
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => move("ARCHIVED")}
+            className="btn btn-secondary"
+          >
+            Archive assignment
           </button>
         )}
         {status !== "ARCHIVED" && (
-          <button type="button" disabled={busy} onClick={duplicate} className={secondaryClass}>
+          <button type="button" disabled={busy} onClick={duplicate} className="btn btn-secondary">
             Duplicate
           </button>
         )}
       </div>
 
+      {notice && (
+        <p role="status" className="banner banner-good">
+          {notice}
+        </p>
+      )}
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="banner banner-critical">
           {error}
         </p>
       )}

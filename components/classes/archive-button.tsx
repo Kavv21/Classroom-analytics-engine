@@ -32,12 +32,16 @@ export function ArchiveButton({ classId, status }: { classId: string; status: Cl
         type="button"
         onClick={handleClick}
         disabled={isLoading}
-        className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-60"
+        className="btn btn-sm btn-secondary"
       >
-        {isLoading ? "Saving…" : isArchived ? "Unarchive class" : "Archive class"}
+        {isLoading
+          ? "Saving…"
+          : isArchived
+            ? "Restore class"
+            : "Archive class"}
       </button>
       {error && (
-        <p role="alert" className="mt-1 text-sm text-red-600">
+        <p role="alert" className="banner banner-critical mt-2">
           {error}
         </p>
       )}

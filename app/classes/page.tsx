@@ -16,43 +16,37 @@ export default async function ClassesPage() {
     : { data: null };
 
   return (
-    <main className="mx-auto max-w-3xl p-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Your classes</h1>
-        <Link
-          href="/classes/new"
-          className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
-        >
-          New class
+    <main className="page-standard">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="title-md">Your classes</h1>
+        <Link href="/classes/new" className="btn btn-primary">
+          Create a class
         </Link>
       </div>
 
       {!classes || classes.length === 0 ? (
-        <p className="mt-6 text-gray-600">You haven&apos;t created any classes yet.</p>
+        <p className="banner mt-6">
+          You haven&rsquo;t created a class yet. Create one to import a roster
+          and set up assignments.
+        </p>
       ) : (
-        <ul className="mt-6 divide-y divide-gray-200 rounded border border-gray-200">
+        <ul className="table-frame mt-6 divide-y divide-hairline">
           {classes.map((c) => (
             <li key={c.id}>
               <Link
                 href={`/classes/${c.id}`}
-                className="flex items-center justify-between p-4 hover:bg-gray-50"
+                className="flex items-center justify-between gap-4 bg-surface-raised p-4 hover:bg-surface-sunken"
               >
-                <div>
+                <div className="min-w-0">
                   <p className="font-medium">{c.name}</p>
-                  <p className="text-sm text-gray-600">
+                  <p className="note mt-0.5">
                     {[c.course_name, c.academic_year, c.semester, c.section]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
                 </div>
-                <span
-                  className={`rounded px-2 py-0.5 text-xs font-medium ${
-                    c.status === "ARCHIVED"
-                      ? "bg-gray-100 text-gray-600"
-                      : "bg-green-100 text-green-700"
-                  }`}
-                >
-                  {c.status}
+                <span className={c.status === "ARCHIVED" ? "badge" : "badge badge-good"}>
+                  {c.status === "ARCHIVED" ? "Archived" : "Active"}
                 </span>
               </Link>
             </li>

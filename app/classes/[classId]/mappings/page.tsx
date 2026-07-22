@@ -61,12 +61,12 @@ export default async function MappingStudioPage({
 
   if (!a1 || !a2) {
     return (
-      <main className="mx-auto max-w-3xl p-8">
-        <h1 className="text-2xl font-bold">Question mapping</h1>
-        <p className="mt-4 text-sm text-gray-600">
+      <main className="page-standard">
+        <h1 className="title-md">Question mapping</h1>
+        <p className="mt-4 text-sm text-ink-secondary">
           The mapping studio needs both sequential assignments to exist first
           (sequence numbers 1 and 2).{" "}
-          <Link href={`/classes/${classId}/assignments`} className="text-blue-600 underline">
+          <Link href={`/classes/${classId}/assignments`} className="link">
             Manage assignments
           </Link>
         </p>
@@ -135,11 +135,11 @@ export default async function MappingStudioPage({
   }));
 
   return (
-    <main className="mx-auto max-w-7xl p-8">
+    <main className="page-dense">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Question mapping — {classRow.name}</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <h1 className="title-md">Question mapping — {classRow.name}</h1>
+          <p className="mt-1 text-sm text-ink-secondary">
             Declare which Assignment 1 and Assignment 2 questions are
             comparable. Nothing appears in analytics until you approve a
             mapping.
@@ -147,7 +147,7 @@ export default async function MappingStudioPage({
         </div>
         <Link
           href={`/classes/${classId}`}
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+          className="btn btn-secondary"
         >
           Back to class
         </Link>

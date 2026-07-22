@@ -200,7 +200,12 @@ export function AttemptRunner({
   const unansweredCount = ordered.length - answeredCount;
 
   if (!current) {
-    return <p className="text-sm text-gray-600">This assignment has no questions.</p>;
+    return (
+      <p className="banner">
+        This assignment doesn&rsquo;t have any questions yet. Check back once
+        your professor has added them.
+      </p>
+    );
   }
 
   const currentAnswer = answers[current.id] ?? null;
@@ -216,37 +221,36 @@ export function AttemptRunner({
           : "";
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">{assignmentTitle}</h1>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="title-sm">{assignmentTitle}</h1>
         <p
           role="status"
           aria-live="polite"
-          className={`text-sm font-medium ${
-            status === "error"
-              ? "text-red-600"
-              : status === "saved"
-                ? "text-green-700"
-                : "text-gray-600"
-          }`}
+          className="text-xs font-medium"
+          style={{
+            color:
+              status === "error"
+                ? "var(--status-critical-text)"
+                : status === "saved"
+                  ? "var(--status-good-text)"
+                  : "var(--text-muted)",
+          }}
         >
           {statusLabel}
         </p>
       </div>
 
-      {instructions && (
-        <p className="rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
-          {instructions}
-        </p>
-      )}
+      {instructions && <p className="well p-3 text-sm text-ink-secondary">{instructions}</p>}
 
       {saveError && status === "error" && (
-        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">
-          {saveError} — your answers are kept in this browser and will retry automatically.
+        <p role="alert" className="banner banner-critical">
+          We couldn&rsquo;t save just now ({saveError}). Your answers are safe in
+          this browser and we&rsquo;re retrying automatically — keep going.
         </p>
       )}
 
-      <div className="flex items-center justify-between text-sm text-gray-600">
+      <div className="flex items-center justify-between text-xs text-ink-secondary">
         <span>
           Question {index + 1} of {ordered.length}
         </span>
@@ -255,9 +259,9 @@ export function AttemptRunner({
         </span>
       </div>
 
-      <div className="rounded border border-gray-200 p-6">
-        <p className="font-mono text-xs text-gray-500">{current.externalQuestionCode}</p>
-        <p className="mt-2 text-lg">{current.questionText}</p>
+      <div className="card p-6">
+        <p className="mono text-ink-muted">{current.externalQuestionCode}</p>
+        <p className="mt-2 text-lg leading-snug">{current.questionText}</p>
 
         <div className="mt-6 grid grid-cols-2 gap-4">
           {([0, 1] as const).map((value) => {
@@ -270,15 +274,17 @@ export function AttemptRunner({
                 aria-pressed={selected}
                 disabled={locked}
                 onClick={() => selectAnswer(current.id, value)}
-                className={`rounded-lg border-2 px-6 py-6 text-center focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
-                  selected
-                    ? "border-blue-600 bg-blue-50"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
+                className="rounded-md border-2 px-6 py-6 text-center disabled:cursor-not-allowed disabled:opacity-50"
+                style={{
+                  borderColor: selected ? "var(--action)" : "var(--border-strong)",
+                  backgroundColor: selected ? "var(--surface-sunken)" : "var(--surface-raised)",
+                }}
               >
-                <span className="block text-3xl font-bold">{value}</span>
-                <span className="mt-1 block text-sm text-gray-700">{label}</span>
-                {selected && <span className="mt-1 block text-xs font-medium text-blue-700">Selected ✓</span>}
+                <span className="block text-3xl font-semibold">{value}</span>
+                <span className="mt-1 block text-sm text-ink-secondary">{label}</span>
+                <span className="mt-1 block text-xs font-medium">
+                  {selected ? "Selected ✓" : " "}
+                </span>
               </button>
             );
           })}
@@ -288,14 +294,15 @@ export function AttemptRunner({
           <button
             type="button"
             onClick={() => selectAnswer(current.id, null)}
-            className="mt-3 text-sm text-gray-500 hover:underline"
+            className="link-quiet mt-3 text-xs"
           >
-            Clear answer
+            Clear this answer
           </button>
         )}
         {locked && (
-          <p className="mt-3 text-xs text-gray-500">
-            Draft editing is disabled for this assignment — saved answers can&rsquo;t be changed.
+          <p className="note-muted mt-3">
+            This assignment doesn&rsquo;t allow changing an answer once
+            it&rsquo;s saved.
           </p>
         )}
       </div>
@@ -305,7 +312,7 @@ export function AttemptRunner({
           type="button"
           disabled={index === 0}
           onClick={() => setIndex(index - 1)}
-          className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-40"
+          className="btn btn-secondary"
         >
           ← Previous
         </button>
@@ -313,7 +320,7 @@ export function AttemptRunner({
           <button
             type="button"
             onClick={() => setIndex(index + 1)}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="btn btn-primary"
           >
             Next →
           </button>
@@ -321,53 +328,58 @@ export function AttemptRunner({
           <button
             type="button"
             onClick={() => void goToReview()}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="btn btn-primary"
           >
-            Review answers
+            Review your answers
           </button>
         )}
       </div>
 
       {navError && (
-        <p role="alert" className="text-sm text-amber-700">
+        <p role="alert" className="banner banner-warning">
           {navError}
         </p>
       )}
 
       <div>
-        <p className="text-xs font-medium text-gray-500">Jump to question</p>
-        <div className="mt-2 flex flex-wrap gap-1">
+        <p className="field-label">Jump to a question</p>
+        <div className="flex flex-wrap gap-1">
           {ordered.map((q, i) => {
             const answered = (answers[q.id] ?? null) !== null;
+            const isCurrent = i === index;
             return (
               <button
                 key={q.id}
                 type="button"
                 aria-label={`Question ${i + 1}${answered ? " (answered)" : " (unanswered)"}`}
-                aria-current={i === index ? "true" : undefined}
+                aria-current={isCurrent ? "true" : undefined}
                 onClick={() => setIndex(i)}
-                className={`h-8 w-8 rounded border text-xs font-medium ${
-                  i === index ? "ring-2 ring-blue-500" : ""
-                } ${
-                  answered
-                    ? "border-green-600 bg-green-50 text-green-800"
-                    : "border-gray-300 text-gray-600"
-                }`}
+                className="h-8 min-w-8 rounded border px-1 text-xs font-medium tabular-nums"
+                style={{
+                  borderColor: isCurrent
+                    ? "var(--action)"
+                    : answered
+                      ? "var(--border-strong)"
+                      : "var(--border-hairline)",
+                  borderWidth: isCurrent ? 2 : 1,
+                  backgroundColor: answered ? "var(--surface-sunken)" : "var(--surface-raised)",
+                  color: answered ? "var(--text-primary)" : "var(--text-muted)",
+                }}
               >
                 {answered ? `${i + 1}✓` : i + 1}
               </button>
             );
           })}
         </div>
+        <p className="note-muted mt-2">
+          A tick means you&rsquo;ve answered that question. There are no right
+          or wrong answers here.
+        </p>
       </div>
 
       <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => void goToReview()}
-          className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
-        >
-          Review &amp; submit ({answeredCount}/{ordered.length} answered)
+        <button type="button" onClick={() => void goToReview()} className="btn btn-secondary">
+          Review &amp; submit ({answeredCount} of {ordered.length} answered)
         </button>
       </div>
     </div>

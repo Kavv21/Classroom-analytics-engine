@@ -83,17 +83,17 @@ export function AssignmentForm({
 
   const fieldError = (name: keyof AssignmentFormValues) =>
     errors[name] ? (
-      <p role="alert" className="mt-1 text-sm text-red-600">
+      <p role="alert" className="mt-1 text-xs" style={{ color: "var(--status-critical-text)" }}>
         {errors[name]?.message}
       </p>
     ) : null;
 
-  const inputClass = "mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm";
+  const inputClass = "input";
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="title" className="field-label">
           Title
         </label>
         <input id="title" type="text" {...register("title")} className={inputClass} />
@@ -101,7 +101,7 @@ export function AssignmentForm({
       </div>
 
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="description" className="field-label">
           Description
         </label>
         <textarea id="description" rows={2} {...register("description")} className={inputClass} />
@@ -109,7 +109,7 @@ export function AssignmentForm({
       </div>
 
       <div>
-        <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="instructions" className="field-label">
           Instructions shown to students
         </label>
         <textarea id="instructions" rows={3} {...register("instructions")} className={inputClass} />
@@ -118,7 +118,7 @@ export function AssignmentForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="assignmentStage" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="assignmentStage" className="field-label">
             Stage
           </label>
           <select id="assignmentStage" {...register("assignmentStage")} className={inputClass}>
@@ -131,7 +131,7 @@ export function AssignmentForm({
           {fieldError("assignmentStage")}
         </div>
         <div>
-          <label htmlFor="sequenceNumber" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="sequenceNumber" className="field-label">
             Sequence number
           </label>
           <input
@@ -147,14 +147,14 @@ export function AssignmentForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="openAt" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="openAt" className="field-label">
             Opens at (optional)
           </label>
           <input id="openAt" type="datetime-local" {...register("openAt")} className={inputClass} />
           {fieldError("openAt")}
         </div>
         <div>
-          <label htmlFor="closeAt" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="closeAt" className="field-label">
             Closes at (optional)
           </label>
           <input id="closeAt" type="datetime-local" {...register("closeAt")} className={inputClass} />
@@ -164,7 +164,7 @@ export function AssignmentForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="responseZeroLabel" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="responseZeroLabel" className="field-label">
             Label for 0
           </label>
           <input
@@ -176,7 +176,7 @@ export function AssignmentForm({
           {fieldError("responseZeroLabel")}
         </div>
         <div>
-          <label htmlFor="responseOneLabel" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="responseOneLabel" className="field-label">
             Label for 1
           </label>
           <input
@@ -190,18 +190,18 @@ export function AssignmentForm({
       </div>
 
       <div className="flex gap-6">
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" {...register("allowDraftEditing")} />
           Allow draft editing
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" {...register("allowResubmission")} />
           Allow resubmission after reopening
         </label>
       </div>
 
       {formError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="banner banner-critical">
           {formError}
         </p>
       )}
@@ -209,7 +209,7 @@ export function AssignmentForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+        className="btn btn-primary"
       >
         {isSubmitting ? "Saving…" : submitLabel}
       </button>

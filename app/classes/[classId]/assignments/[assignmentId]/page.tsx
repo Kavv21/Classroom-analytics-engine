@@ -11,6 +11,7 @@ import {
   type QuestionRow,
 } from "@/components/assignments/question-manager";
 import type { AssignmentStatus } from "@/lib/types/domain";
+import { assignmentStatusLabel, assignmentStatusTone } from "@/lib/ui/labels";
 
 interface ProgressRow {
   enrolled_students: number;
@@ -124,34 +125,36 @@ export default async function AssignmentDetailPage({
   }));
 
   return (
-    <main className="mx-auto max-w-3xl p-8">
-      <p className="text-sm text-gray-500">
-        <Link href={`/classes/${classId}/assignments`} className="hover:underline">
+    <main className="page-standard">
+      <nav aria-label="Breadcrumb" className="note-muted">
+        <Link href={`/classes/${classId}/assignments`} className="link-quiet">
           Assignments
         </Link>{" "}
         / #{assignment.sequence_number}
-      </p>
-      <div className="mt-2 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{assignment.title}</h1>
-        <span className="rounded bg-gray-100 px-3 py-1 text-sm font-medium">{status}</span>
+      </nav>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="title-md">{assignment.title}</h1>
+        <span className={assignmentStatusTone(status)}>{assignmentStatusLabel(status)}</span>
       </div>
 
-      <div className="mt-2 flex gap-4 text-sm text-gray-600">
-        <span>{assignment.assignment_stage.replaceAll("_", " ").toLowerCase()}</span>
-        <span>
-          answers: {assignment.response_zero_label} / {assignment.response_one_label}
+      <div className="note mt-2 flex flex-wrap gap-x-4 gap-y-1">
+        <span className="capitalize">
+          {assignment.assignment_stage.replaceAll("_", " ").toLowerCase()}
         </span>
-        {assignment.open_at && <span>opens {new Date(assignment.open_at).toLocaleString()}</span>}
-        {assignment.close_at && <span>closes {new Date(assignment.close_at).toLocaleString()}</span>}
+        <span>
+          Answer labels: {assignment.response_zero_label} / {assignment.response_one_label}
+        </span>
+        {assignment.open_at && <span>Opens {new Date(assignment.open_at).toLocaleString()}</span>}
+        {assignment.close_at && <span>Closes {new Date(assignment.close_at).toLocaleString()}</span>}
       </div>
 
-      {assignment.description && <p className="mt-4 text-gray-700">{assignment.description}</p>}
+      {assignment.description && <p className="note mt-4">{assignment.description}</p>}
 
-      <div className="mt-6 flex gap-2">
+      <div className="mt-6 flex flex-wrap gap-2">
         {editable && (
           <Link
             href={`/classes/${classId}/assignments/${assignmentId}/edit`}
-            className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+            className="btn btn-secondary"
           >
             Edit details
           </Link>
@@ -159,14 +162,14 @@ export default async function AssignmentDetailPage({
         {status === "DRAFT" && !hasResponses && (
           <Link
             href={`/classes/${classId}/assignments/${assignmentId}/import`}
-            className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+            className="btn btn-secondary"
           >
             Import questions
           </Link>
         )}
       </div>
 
-      <h2 className="mt-8 text-lg font-semibold">Status</h2>
+      <h2 className="title-sm mt-10">Publishing</h2>
       <div className="mt-3">
         <StatusActions
           assignmentId={assignmentId}
@@ -178,19 +181,19 @@ export default async function AssignmentDetailPage({
 
       {(status === "OPEN" || status === "CLOSED" || hasResponses) && progress && (
         <>
-          <h2 className="mt-8 text-lg font-semibold">Submission progress</h2>
+          <h2 className="title-sm mt-10">Submission progress</h2>
           <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
             {[
               { label: "Enrolled", value: progress.enrolled_students },
               { label: "Not started", value: progress.not_started_count },
-              { label: "Draft", value: progress.draft_count },
+              { label: "In progress", value: progress.draft_count },
               { label: "Submitted", value: progress.submitted_count },
               { label: "Reopened", value: progress.reopened_count },
               { label: "Resubmitted", value: progress.resubmitted_count },
             ].map((item) => (
-              <div key={item.label} className="rounded border border-gray-200 p-3 text-center">
-                <p className="text-xs text-gray-500">{item.label}</p>
-                <p className="text-lg font-semibold">{item.value}</p>
+              <div key={item.label} className="card p-3 text-center">
+                <p className="note-muted">{item.label}</p>
+                <p className="mt-0.5 text-lg font-semibold tabular-nums">{item.value}</p>
               </div>
             ))}
           </div>
@@ -199,7 +202,7 @@ export default async function AssignmentDetailPage({
 
       {(status === "OPEN" || status === "CLOSED" || attemptTableRows.length > 0) && (
         <>
-          <h2 className="mt-8 text-lg font-semibold">Attempts</h2>
+          <h2 className="title-sm mt-10">Student attempts</h2>
           <AttemptsTable
             classId={classId}
             assignmentId={assignmentId}
@@ -208,9 +211,7 @@ export default async function AssignmentDetailPage({
         </>
       )}
 
-      <h2 className="mt-8 text-lg font-semibold">
-        Questions ({questions?.length ?? 0})
-      </h2>
+      <h2 className="title-sm mt-10">Questions ({questions?.length ?? 0})</h2>
       <QuestionManager
         assignmentId={assignmentId}
         questions={questions ?? []}
@@ -220,24 +221,28 @@ export default async function AssignmentDetailPage({
 
       {imports && imports.length > 0 && (
         <>
-          <h2 className="mt-8 text-lg font-semibold">Import history</h2>
-          <ul className="mt-3 divide-y divide-gray-100 rounded border border-gray-200 text-sm">
+          <h2 className="title-sm mt-10">Import history</h2>
+          <ul className="table-frame mt-3 divide-y divide-hairline bg-surface-raised text-sm">
             {imports.map((imp) => (
-              <li key={imp.id} className="flex items-center justify-between px-3 py-2">
-                <span>{imp.source_filename}</span>
-                <span className="text-gray-500">
+              <li key={imp.id} className="flex items-center justify-between gap-4 px-3 py-2">
+                <span className="min-w-0 truncate">{imp.source_filename}</span>
+                <span className="note-muted shrink-0">
                   {new Date(imp.created_at).toLocaleString()}
                 </span>
                 <span
-                  className={`rounded px-2 py-0.5 text-xs font-medium ${
+                  className={
                     imp.status === "COMPLETED"
-                      ? "bg-green-100 text-green-700"
+                      ? "badge badge-good shrink-0"
                       : imp.status === "FAILED"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-gray-100 text-gray-600"
-                  }`}
+                        ? "badge badge-critical shrink-0"
+                        : "badge shrink-0"
+                  }
                 >
-                  {imp.status}
+                  {imp.status === "COMPLETED"
+                    ? "Imported"
+                    : imp.status === "FAILED"
+                      ? "Failed"
+                      : "In progress"}
                 </span>
               </li>
             ))}

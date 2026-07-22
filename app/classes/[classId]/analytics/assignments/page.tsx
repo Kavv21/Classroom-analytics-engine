@@ -29,18 +29,18 @@ export default async function AssignmentAnalyticsPage({
   ]);
 
   return (
-    <main className="mx-auto max-w-6xl p-8">
+    <main className="page-dense">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Assignment analytics — {classRow.name}</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <h1 className="title-md">Assignment analytics — {classRow.name}</h1>
+          <p className="mt-1 text-sm text-ink-secondary">
             Response distributions, agreement, and submission progress per
             assignment. Descriptive statistics about opinions — never grades.
           </p>
         </div>
         <Link
           href={`/classes/${classId}`}
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+          className="btn btn-secondary"
         >
           Back to class
         </Link>
@@ -49,7 +49,7 @@ export default async function AssignmentAnalyticsPage({
       <AnalyticsNav classId={classId} active="assignments" />
 
       {assignments.length === 0 ? (
-        <p className="mt-6 text-sm text-gray-600">No assignments in this class yet.</p>
+        <p className="mt-6 text-sm text-ink-secondary">No assignments in this class yet.</p>
       ) : (
         <AssignmentAnalytics
           assignments={assignments.map((a) => ({

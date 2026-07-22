@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { reopenAttempt } from "@/lib/attempts/actions";
+import { attemptStateLabel } from "@/lib/ui/labels";
 
 export interface AttemptTableRow {
   id: string;
@@ -20,12 +21,12 @@ interface AttemptsTableProps {
   attempts: AttemptTableRow[];
 }
 
-const STATE_STYLES: Record<string, string> = {
-  NOT_STARTED: "bg-gray-100 text-gray-600",
-  DRAFT: "bg-blue-100 text-blue-700",
-  SUBMITTED: "bg-green-100 text-green-700",
-  REOPENED: "bg-amber-100 text-amber-800",
-  RESUBMITTED: "bg-green-100 text-green-800",
+const STATE_TONES: Record<string, string> = {
+  NOT_STARTED: "badge",
+  DRAFT: "badge badge-info",
+  SUBMITTED: "badge badge-good",
+  REOPENED: "badge badge-warning",
+  RESUBMITTED: "badge badge-good",
 };
 
 /** Professor view of per-student attempts, with the reopen action (the only
@@ -48,47 +49,51 @@ export function AttemptsTable({ classId, assignmentId, attempts }: AttemptsTable
   }
 
   if (attempts.length === 0) {
-    return <p className="mt-2 text-sm text-gray-600">No attempts yet.</p>;
+    return (
+      <p className="banner mt-3">
+        No students have opened this assignment yet.
+      </p>
+    );
   }
 
   return (
     <div className="mt-3">
-      <div className="overflow-x-auto rounded border border-gray-200">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50">
+      <div className="table-frame">
+        <table className="data-table data-table--numeric">
+          <thead>
             <tr>
-              <th className="px-3 py-2 font-medium text-gray-600">Student</th>
-              <th className="px-3 py-2 font-medium text-gray-600">State</th>
-              <th className="px-3 py-2 font-medium text-gray-600">Submitted</th>
-              <th className="px-3 py-2 font-medium text-gray-600">Version</th>
-              <th className="px-3 py-2 font-medium text-gray-600" />
+              <th scope="col">Student</th>
+              <th scope="col">Status</th>
+              <th scope="col">Submitted</th>
+              <th scope="col">Version</th>
+              <th scope="col">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {attempts.map((a) => (
               <tr key={a.id}>
-                <td className="px-3 py-2">
+                <td>
                   <p>{a.studentName}</p>
-                  <p className="text-xs text-gray-500">{a.studentEmail}</p>
+                  <p className="note-muted">{a.studentEmail}</p>
                 </td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs font-medium ${STATE_STYLES[a.state] ?? ""}`}
-                  >
-                    {a.state}
+                <td>
+                  <span className={STATE_TONES[a.state] ?? "badge"}>
+                    {attemptStateLabel(a.state)}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-gray-600">
+                <td className="text-ink-secondary">
                   {a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "—"}
                 </td>
-                <td className="px-3 py-2 text-gray-600">{a.submission_version}</td>
-                <td className="px-3 py-2">
+                <td className="text-ink-secondary">{a.submission_version}</td>
+                <td>
                   {a.state === "SUBMITTED" && (
                     <button
                       type="button"
                       disabled={busyId === a.id}
                       onClick={() => void reopen(a.id)}
-                      className="rounded border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-60"
+                      className="btn btn-sm btn-secondary"
                     >
                       {busyId === a.id ? "Reopening…" : "Reopen"}
                     </button>
@@ -100,7 +105,7 @@ export function AttemptsTable({ classId, assignmentId, attempts }: AttemptsTable
         </table>
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
+        <p role="alert" className="banner banner-critical mt-2">
           {error}
         </p>
       )}

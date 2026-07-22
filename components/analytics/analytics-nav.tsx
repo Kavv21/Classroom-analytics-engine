@@ -20,10 +20,10 @@ const SECTIONS: Array<{ key: AnalyticsSection; label: string; path: string }> = 
 export function AnalyticsNav({ classId, active }: { classId: string; active: AnalyticsSection }) {
   const base = `/classes/${classId}/analytics`;
   const linkClass = (isActive: boolean) =>
-    `rounded px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 ${
+    `rounded px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
       isActive
-        ? "bg-gray-900 text-white"
-        : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+        ? "bg-action text-white"
+        : "border border-strong text-ink-secondary hover:bg-surface-sunken"
     }`;
 
   return (

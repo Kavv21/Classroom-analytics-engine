@@ -179,7 +179,7 @@ export function StudentAnalytics({
         setPage(0);
       }}
       aria-label={`Sort by ${label}`}
-      className={`font-medium text-gray-600 underline-offset-2 hover:underline ${focusRing}`}
+      className={`font-medium text-ink-secondary underline-offset-2 hover:underline ${focusRing}`}
     >
       {label}
       {sortKey === key ? (sortDesc ? " ↓" : " ↑") : ""}
@@ -217,37 +217,37 @@ export function StudentAnalytics({
         }
       />
 
-      <section aria-label="Students" className="rounded border border-gray-200 bg-[#fcfcfb] p-4">
-        <h3 className="font-semibold text-gray-900">Students ({tableRows.length})</h3>
-        <p className="mt-0.5 text-xs text-gray-600">
+      <section aria-label="Students" className="card p-4">
+        <h3 className="font-semibold text-ink">Students ({tableRows.length})</h3>
+        <p className="mt-0.5 text-xs text-ink-secondary">
           Per-student transition summary across all approved mappings. Change describes opinion
           movement — it is not a score. Click a row for the full profile.
         </p>
-        <div className="mt-3 overflow-x-auto rounded border border-gray-200">
+        <div className="mt-3 overflow-x-auto rounded border border-hairline">
           <table className="w-full text-left text-xs">
             <caption className="sr-only">Per-student transition summaries</caption>
-            <thead className="bg-gray-50">
+            <thead className="bg-surface-sunken">
               <tr>
                 <th scope="col" className="px-2 py-1.5">{headerButton("name", "Student")}</th>
                 <th scope="col" className="px-2 py-1.5">{headerButton("valid_paired", "Valid pairs")}</th>
                 <th scope="col" className="px-2 py-1.5">{headerButton("changed_count", "Changed")}</th>
                 <th scope="col" className="px-2 py-1.5">{headerButton("change_rate", "Change rate")}</th>
-                <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">0→1 / 1→0</th>
+                <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">0→1 / 1→0</th>
                 <th scope="col" className="px-2 py-1.5">{headerButton("missing", "Missing")}</th>
-                <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">Not comparable</th>
+                <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">Not comparable</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 tabular-nums">
+            <tbody className="divide-y divide-hairline tabular-nums">
               {pageRows.map((r) => (
                 <tr
                   key={r.student_id}
-                  className={profileId === r.student_id ? "bg-blue-50" : undefined}
+                  className={profileId === r.student_id ? "bg-surface-info" : undefined}
                 >
                   <td className="px-2 py-1.5">
                     <button
                       type="button"
                       onClick={() => setProfileId(profileId === r.student_id ? null : r.student_id)}
-                      className={`text-left text-blue-700 underline-offset-2 hover:underline ${focusRing}`}
+                      className={`link text-left ${focusRing}`}
                     >
                       {r.name}
                     </button>
@@ -262,7 +262,7 @@ export function StudentAnalytics({
               ))}
               {pageRows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-2 py-3 text-gray-500">
+                  <td colSpan={7} className="px-2 py-3 text-ink-muted">
                     No students match the current filters.
                   </td>
                 </tr>
@@ -271,12 +271,12 @@ export function StudentAnalytics({
           </table>
         </div>
         {pageCount > 1 && (
-          <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+          <div className="mt-2 flex items-center gap-2 text-xs text-ink-secondary">
             <button
               type="button"
               disabled={page === 0}
               onClick={() => setPage(page - 1)}
-              className={`rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50 ${focusRing}`}
+              className={`input input-compact hover:bg-surface-sunken disabled:opacity-50 ${focusRing}`}
             >
               Previous
             </button>
@@ -287,7 +287,7 @@ export function StudentAnalytics({
               type="button"
               disabled={page >= pageCount - 1}
               onClick={() => setPage(page + 1)}
-              className={`rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50 ${focusRing}`}
+              className={`input input-compact hover:bg-surface-sunken disabled:opacity-50 ${focusRing}`}
             >
               Next
             </button>
@@ -298,12 +298,12 @@ export function StudentAnalytics({
       {profileId && profileSummary && (
         <section
           aria-label={`Profile — ${nameOf(profileId)}`}
-          className="rounded border border-gray-200 bg-[#fcfcfb] p-4"
+          className="card p-4"
         >
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="font-semibold text-gray-900">{nameOf(profileId)}</h3>
-              <p className="mt-0.5 text-xs text-gray-600">
+              <h3 className="font-semibold text-ink">{nameOf(profileId)}</h3>
+              <p className="mt-0.5 text-xs text-ink-secondary">
                 {profileSummary.valid_paired} valid pairs · change rate{" "}
                 {formatPct(profileSummary.change_rate)} · stability{" "}
                 {formatPct(profileSummary.stability_rate)} · net movement toward{" "}
@@ -314,29 +314,29 @@ export function StudentAnalytics({
             <button
               type="button"
               onClick={() => setProfileId(null)}
-              className={`rounded border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 ${focusRing}`}
+              className={`rounded border border-strong px-2.5 py-1 text-xs font-medium text-ink-secondary hover:bg-surface-sunken ${focusRing}`}
             >
               Close profile
             </button>
           </div>
-          <div className="mt-3 overflow-x-auto rounded border border-gray-200">
+          <div className="mt-3 overflow-x-auto rounded border border-hairline">
             <table className="w-full text-left text-xs">
               <caption className="sr-only">All transitions for {nameOf(profileId)}</caption>
-              <thead className="bg-gray-50">
+              <thead className="bg-surface-sunken">
                 <tr>
-                  <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">Mapping</th>
-                  <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">Energy source</th>
-                  <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">A1 answer</th>
-                  <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">A2 answer</th>
-                  <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">Transition</th>
-                  <th scope="col" className="px-2 py-1.5 font-medium text-gray-600">Data quality</th>
+                  <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">Mapping</th>
+                  <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">Energy source</th>
+                  <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">A1 answer</th>
+                  <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">A2 answer</th>
+                  <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">Transition</th>
+                  <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">Data quality</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-hairline">
                 {profileRows.map((r) => (
                   <tr key={r.mapping_id}>
                     <td className="px-2 py-1.5">
-                      {r.mapping_name} <span className="text-gray-400">v{r.mapping_version}</span>
+                      {r.mapping_name} <span className="text-ink-muted">v{r.mapping_version}</span>
                     </td>
                     <td className="px-2 py-1.5">{r.energy_source ?? "—"}</td>
                     <td className="px-2 py-1.5">{valueLabel(r.assignment_1_value)}</td>
@@ -344,7 +344,7 @@ export function StudentAnalytics({
                     <td className="px-2 py-1.5">
                       {r.transition_state ? TRANSITION_STATE_LABELS[r.transition_state] : "—"}
                     </td>
-                    <td className="px-2 py-1.5 text-gray-500">
+                    <td className="px-2 py-1.5 text-ink-muted">
                       {r.data_quality_status
                         ? QUALITY_LABELS[r.data_quality_status.toLowerCase() as keyof typeof QUALITY_LABELS]
                         : "Valid pair"}

@@ -37,17 +37,12 @@ export function GoogleSignInButton() {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={handleSignIn}
-        disabled={isLoading}
-        className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-      >
-        {isLoading ? "Redirecting…" : "Sign in with Google"}
+      <button type="button" onClick={handleSignIn} disabled={isLoading} className="btn btn-primary">
+        {isLoading ? "Taking you to Google…" : "Sign in with Google"}
       </button>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
-          {error}
+        <p role="alert" className="banner banner-critical mt-3">
+          We couldn&rsquo;t start the sign-in: {error} Please try again.
         </p>
       )}
     </div>

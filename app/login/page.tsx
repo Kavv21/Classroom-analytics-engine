@@ -2,12 +2,13 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 export default function LoginPage() {
   return (
-    <main className="mx-auto max-w-md p-8">
-      <h1 className="text-2xl font-bold">Sign in</h1>
-      <p className="mt-2 text-gray-600">
-        Sign in with your university Google account to continue.
+    <main className="page-spacious">
+      <h1 className="title-lg">Sign in</h1>
+      <p className="lede mt-3">
+        Use your university Google account. If you&rsquo;re a student, your
+        professor adds you to a class roster before your first sign-in.
       </p>
-      <div className="mt-6">
+      <div className="mt-8">
         <GoogleSignInButton />
       </div>
     </main>

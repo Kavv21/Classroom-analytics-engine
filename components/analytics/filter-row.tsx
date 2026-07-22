@@ -22,12 +22,12 @@ export function FilterSelect({
   allLabel: string;
 }) {
   return (
-    <label className="text-xs text-gray-600">
+    <label className="text-xs text-ink-secondary">
       <span className="mb-0.5 block">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 ${focusRing}`}
+        className={`input input-compact ${focusRing}`}
       >
         <option value="">{allLabel}</option>
         {options.map((o) => (
@@ -52,14 +52,14 @@ export function FilterSearch({
   placeholder: string;
 }) {
   return (
-    <label className="text-xs text-gray-600">
+    <label className="text-xs text-ink-secondary">
       <span className="mb-0.5 block">{label}</span>
       <input
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 ${focusRing}`}
+        className={`input input-compact ${focusRing}`}
       />
     </label>
   );
@@ -71,7 +71,7 @@ export function ResetFiltersButton({ onReset, disabled }: { onReset: () => void;
       type="button"
       onClick={onReset}
       disabled={disabled}
-      className={`self-end rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 ${focusRing}`}
+      className={`self-end btn btn-secondary ${focusRing}`}
     >
       Reset filters
     </button>

@@ -125,11 +125,11 @@ export default async function VisualisationBuilderPage({
   };
 
   return (
-    <main className="mx-auto max-w-6xl p-8">
+    <main className="page-dense">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Visualisation builder — {classRow.name}</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <h1 className="title-md">Visualisation builder — {classRow.name}</h1>
+          <p className="mt-1 text-sm text-ink-secondary">
             Compose your own view of the class data, preview it, save it, and
             export it. Every figure here is a descriptive statistic about
             opinions — never a grade or a correctness judgement.
@@ -138,13 +138,13 @@ export default async function VisualisationBuilderPage({
         <div className="flex gap-2">
           <a
             href={`/classes/${classId}/exports/workbook`}
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+            className="btn btn-sm btn-primary"
           >
             Export full workbook (Excel)
           </a>
           <Link
             href={`/classes/${classId}`}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+            className="btn btn-secondary"
           >
             Back to class
           </Link>

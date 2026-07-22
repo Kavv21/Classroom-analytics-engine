@@ -20,15 +20,15 @@ export default async function RosterImportPage({
   if (!classRow) notFound();
 
   return (
-    <main className="mx-auto max-w-4xl p-8">
-      <p className="text-sm text-gray-500">
+    <main className="page-dense-narrow max-w-4xl">
+      <p className="text-sm text-ink-muted">
         <Link href={`/classes/${classId}`} className="hover:underline">
           {classRow.name}
         </Link>{" "}
         / Import roster
       </p>
-      <h1 className="mt-1 text-2xl font-bold">Import roster</h1>
-      <p className="mt-2 text-sm text-gray-600">
+      <h1 className="title-md mt-1">Import roster</h1>
+      <p className="mt-2 text-sm text-ink-secondary">
         Upload a CSV or Excel file with columns for email, full name, roll number, programme, year
         of study, and section. You&apos;ll see a preview — including any duplicates or validation
         errors — before anything is imported.

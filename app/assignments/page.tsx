@@ -13,11 +13,12 @@ interface AssignmentRow {
   classes: { name: string } | null;
 }
 
+/** Student-facing wording: what state *their* work is in. */
 const STATE_LABELS: Record<AttemptState, string> = {
   NOT_STARTED: "Not started",
   DRAFT: "In progress",
   SUBMITTED: "Submitted",
-  REOPENED: "Reopened — needs resubmission",
+  REOPENED: "Reopened — submit again when you're ready",
   RESUBMITTED: "Resubmitted",
 };
 
@@ -57,11 +58,14 @@ export default async function StudentAssignmentsPage() {
   );
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-bold">Your assignments</h1>
+    <main className="page-standard">
+      <h1 className="title-md">Your assignments</h1>
 
       {!assignments || assignments.length === 0 ? (
-        <p className="mt-6 text-gray-600">No assignments are available right now.</p>
+        <p className="banner mt-6">
+          Nothing to do right now. Assignments appear here once your professor
+          opens them.
+        </p>
       ) : (
         <ul className="mt-6 space-y-3">
           {assignments.map((a) => {
@@ -74,28 +78,32 @@ export default async function StudentAssignmentsPage() {
                 ? `/assignments/${a.id}`
                 : null;
             return (
-              <li key={a.id} className="rounded border border-gray-200 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
+              <li key={a.id} className="card-standard">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="min-w-0">
                     <p className="font-medium">{a.title}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="note mt-0.5">
                       {a.classes?.name}
                       {a.close_at && open && (
                         <> · closes {new Date(a.close_at).toLocaleString()}</>
                       )}
                       {!open && <> · closed</>}
                     </p>
-                    <p className="mt-1 text-xs text-gray-500">{STATE_LABELS[state]}</p>
+                    <p className="note-muted mt-1">{STATE_LABELS[state]}</p>
                   </div>
                   {href ? (
                     <Link
                       href={href}
-                      className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                      className={`btn ${finished ? "btn-secondary" : "btn-primary"}`}
                     >
-                      {finished ? "View receipt" : state === "NOT_STARTED" ? "Start" : "Continue"}
+                      {finished
+                        ? "View receipt"
+                        : state === "NOT_STARTED"
+                          ? "Start"
+                          : "Continue"}
                     </Link>
                   ) : (
-                    <span className="text-sm text-gray-400">Closed</span>
+                    <span className="badge">Closed</span>
                   )}
                 </div>
               </li>

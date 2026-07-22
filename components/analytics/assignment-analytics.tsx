@@ -209,7 +209,7 @@ export function AssignmentAnalytics({
 
   // ---- 17.13 submission status ----------------------------------------
   const assignmentTitle = (id: string) =>
-    assignments.find((a) => a.id === id)?.title ?? id.slice(0, 8);
+    assignments.find((a) => a.id === id)?.title ?? "Untitled assignment";
 
   const STATUS_SERIES: Array<{ key: keyof SubmissionProgressRow; label: string; color: string }> = [
     { key: "not_started_count", label: "Not started", color: QUALITY_COLORS.MISSING_BOTH },
@@ -292,7 +292,7 @@ export function AssignmentAnalytics({
   return (
     <div className="mt-6 space-y-6">
       <FilterRow>
-        <label className="text-xs text-gray-600">
+        <label className="text-xs text-ink-secondary">
           <span className="mb-0.5 block">Assignment</span>
           <select
             value={assignmentId}
@@ -300,7 +300,7 @@ export function AssignmentAnalytics({
               setAssignmentId(e.target.value);
               resetFilters();
             }}
-            className="rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+            className="input input-compact focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             {assignments.map((a) => (
               <option key={a.id} value={a.id}>
@@ -358,7 +358,7 @@ export function AssignmentAnalytics({
         }}
       >
         {selected && (
-          <p className="mt-2 rounded bg-blue-50 px-3 py-2 text-xs text-gray-700">
+          <p className="mt-2 rounded bg-surface-info px-3 py-2 text-xs text-ink-secondary">
             <strong>{selected.external_question_code}</strong>
             {" — "}
             {[selected.energy_source, selected.criterion].filter(Boolean).join(" · ")}: {selected.answered}{" "}
@@ -424,10 +424,10 @@ export function AssignmentAnalytics({
               type="button"
               aria-pressed={consensusOrder === order}
               onClick={() => setConsensusOrder(order)}
-              className={`rounded px-2.5 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 ${
+              className={`rounded px-2.5 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
                 consensusOrder === order
-                  ? "bg-gray-900 text-white"
-                  : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  ? "bg-action text-white"
+                  : "border border-strong text-ink-secondary hover:bg-surface-sunken"
               }`}
             >
               {order === "highest" ? "Highest consensus" : "Lowest consensus"}

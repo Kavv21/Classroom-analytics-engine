@@ -485,7 +485,7 @@ export function TransitionAnalytics({
       </FilterRow>
 
       {notComparableMappings > 0 && (
-        <p className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+        <p className="rounded border border-hairline bg-surface-sunken px-3 py-2 text-xs text-ink-secondary">
           {notComparableMappings} of {filtered.length} filtered mapping
           {notComparableMappings === 1 ? "" : "s"} have no valid one-to-one pairs
           (multi-question or explicitly not-comparable). They appear as
@@ -531,7 +531,7 @@ export function TransitionAnalytics({
         onSelectState={(state) => setMatrixState(matrixState === state ? null : state)}
       >
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-          <label className="text-gray-600">
+          <label className="text-ink-secondary">
             Mapping:{" "}
             <select
               value={selectedMappingId}
@@ -539,7 +539,7 @@ export function TransitionAnalytics({
                 setSelectedMappingId(e.target.value);
                 setMatrixState(null);
               }}
-              className="rounded border border-gray-300 px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+              className="input input-compact focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             >
               <option value="">All filtered mappings</option>
               {comparable.map((m) => (
@@ -550,7 +550,7 @@ export function TransitionAnalytics({
             </select>
           </label>
           {matrixState && (
-            <span className="text-gray-600">
+            <span className="text-ink-secondary">
               {TRANSITION_STATE_LABELS[matrixState]}: {matrixStudents.length} student
               {matrixStudents.length === 1 ? "" : "s"} —{" "}
               {matrixStudents.slice(0, 12).map((s) => s.name).join(", ")}

@@ -33,14 +33,14 @@ export default async function EditAssignmentPage({
   if (!assignment) notFound();
 
   return (
-    <main className="mx-auto max-w-xl p-8">
-      <p className="text-sm text-gray-500">
+    <main className="page-standard max-w-xl">
+      <p className="text-sm text-ink-muted">
         <Link href={`/classes/${classId}/assignments/${assignmentId}`} className="hover:underline">
           {assignment.title}
         </Link>{" "}
         / Edit
       </p>
-      <h1 className="mt-2 text-2xl font-bold">Edit assignment</h1>
+      <h1 className="title-md mt-2">Edit assignment</h1>
       <div className="mt-6">
         <AssignmentForm
           onSubmitAction={updateAssignment.bind(null, assignmentId)}

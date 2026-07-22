@@ -1,15 +1,20 @@
+/**
+ * Loading state. Deliberately static — no pulse or shimmer. This is a
+ * repeat-use tool; an animated skeleton on every navigation becomes
+ * noise, and the motion budget reserves animation for things the
+ * professor is interacting with.
+ */
 export default function AnalyticsLoading() {
   return (
-    <main className="mx-auto max-w-6xl p-8">
-      <div className="h-8 w-72 animate-pulse rounded bg-gray-200" />
-      <div className="mt-2 h-4 w-96 animate-pulse rounded bg-gray-100" />
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="mt-8">
-          <div className="h-6 w-48 animate-pulse rounded bg-gray-200" />
-          <div className="mt-3 h-24 animate-pulse rounded border border-gray-200 bg-gray-50" />
-        </div>
-      ))}
-      <p className="mt-6 text-sm text-gray-500">Computing analytics…</p>
+    <main className="page-dense">
+      <p role="status" aria-live="polite" className="note">
+        Loading analytics…
+      </p>
+      <div className="mt-6 space-y-6" aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="card h-28" />
+        ))}
+      </div>
     </main>
   );
 }

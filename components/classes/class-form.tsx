@@ -83,17 +83,24 @@ export function ClassForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       {fields.map(({ name, label, type }) => (
         <div key={name}>
-          <label htmlFor={name} className="block text-sm font-medium text-gray-700">
+          <label htmlFor={name} className="field-label">
             {label}
           </label>
           <input
             id={name}
             type={type ?? "text"}
+            aria-invalid={errors[name] ? "true" : undefined}
+            aria-describedby={errors[name] ? `${name}-error` : undefined}
             {...register(name)}
-            className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            className={`input ${errors[name] ? "input-error" : ""}`}
           />
           {errors[name] && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
+            <p
+              id={`${name}-error`}
+              role="alert"
+              className="mt-1 text-xs"
+              style={{ color: "var(--status-critical-text)" }}
+            >
               {errors[name]?.message}
             </p>
           )}
@@ -101,16 +108,12 @@ export function ClassForm({
       ))}
 
       {formError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="banner banner-critical">
           {formError}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-      >
+      <button type="submit" disabled={isSubmitting} className="btn btn-primary">
         {isSubmitting ? "Saving…" : submitLabel}
       </button>
     </form>

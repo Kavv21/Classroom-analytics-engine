@@ -52,48 +52,53 @@ export default async function SubmissionReceiptPage({
     .eq("is_active", true);
   if (totalError) throw new Error(`Failed to load questions: ${totalError.message}`);
 
+  const resubmitted = attempt.state === "RESUBMITTED";
+
   return (
-    <main className="mx-auto max-w-xl p-8">
-      <div className="rounded border border-green-200 bg-green-50 p-6 text-center">
-        <p className="text-3xl">✓</p>
-        <h1 className="mt-2 text-xl font-bold text-green-900">
-          {attempt.state === "RESUBMITTED" ? "Resubmitted" : "Submitted"}
+    <main className="page-spacious">
+      <div className="banner banner-good text-center">
+        <p aria-hidden="true" className="text-2xl leading-none">
+          ✓
+        </p>
+        <h1 className="title-md mt-2" style={{ color: "var(--status-good-text)" }}>
+          {resubmitted ? "Resubmitted" : "Submitted"}
         </h1>
-        <p className="mt-1 text-sm text-green-800">{assignment.title}</p>
+        <p className="mt-1 text-sm">{assignment.title}</p>
       </div>
 
-      <dl className="mt-6 space-y-2 rounded border border-gray-200 p-4 text-sm">
-        <div className="flex justify-between">
-          <dt className="text-gray-500">Submitted at</dt>
+      <dl className="card-spacious mt-6 space-y-3 text-sm">
+        <div className="flex justify-between gap-4">
+          <dt className="text-ink-secondary">Submitted</dt>
           <dd>{attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString() : "—"}</dd>
         </div>
-        <div className="flex justify-between">
-          <dt className="text-gray-500">Questions answered</dt>
+        <div className="flex justify-between gap-4">
+          <dt className="text-ink-secondary">Questions answered</dt>
           <dd>
             {answered ?? 0} of {total ?? 0}
           </dd>
         </div>
-        <div className="flex justify-between">
-          <dt className="text-gray-500">Submission version</dt>
-          <dd>{attempt.submission_version}</dd>
+        <div className="flex justify-between gap-4">
+          <dt className="text-ink-secondary">Submission</dt>
+          <dd>
+            {attempt.submission_version === 1
+              ? "First submission"
+              : `Version ${attempt.submission_version}`}
+          </dd>
         </div>
-        <div className="flex justify-between">
-          <dt className="text-gray-500">Receipt reference</dt>
-          <dd className="font-mono text-xs">{attempt.id}</dd>
+        <div className="flex justify-between gap-4">
+          <dt className="text-ink-secondary">Reference</dt>
+          <dd className="mono">{attempt.id}</dd>
         </div>
       </dl>
 
-      <p className="mt-4 text-sm text-gray-600">
-        Your answers are recorded. If anything needs changing, ask your professor to reopen
-        the attempt.
+      <p className="note mt-5">
+        Your answers are recorded. If you need to change something, ask your
+        professor to reopen this assignment for you.
       </p>
 
-      <div className="mt-6">
-        <Link
-          href="/assignments"
-          className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
-        >
-          Back to assignments
+      <div className="mt-8">
+        <Link href="/assignments" className="btn btn-secondary">
+          Back to your assignments
         </Link>
       </div>
     </main>

@@ -9,17 +9,8 @@ import {
   setMappingApproval,
   type MappingPreview,
 } from "@/lib/mappings/actions";
-import type { MappingStatus } from "@/lib/types/domain";
 import type { MappingRowLite, QuestionLite } from "@/components/mappings/types";
-
-const STATUS_STYLES: Record<MappingStatus, string> = {
-  DRAFT: "bg-gray-100 text-gray-700",
-  SUGGESTED: "bg-blue-100 text-blue-700",
-  NEEDS_PROFESSOR_REVIEW: "bg-amber-100 text-amber-800",
-  APPROVED: "bg-green-100 text-green-700",
-  REJECTED: "bg-red-100 text-red-700",
-  SUPERSEDED: "bg-gray-100 text-gray-500",
-};
+import { mappingStatusLabel, mappingStatusTone, mappingTypeLabel } from "@/lib/ui/labels";
 
 function codesFor(ids: string[], questionsById: Record<string, QuestionLite>): string {
   if (ids.length === 0) return "—";
@@ -37,8 +28,8 @@ function PreviewPanel({
 }) {
   const code = (id: string) => questionsById[id]?.code ?? id.slice(0, 8);
   return (
-    <div className="space-y-3 bg-gray-50 p-3 text-sm">
-      <p className="text-gray-600">
+    <div className="space-y-3 bg-surface-sunken p-3 text-sm">
+      <p className="text-ink-secondary">
         Preview of what this mapping <em>would</em> show once approved —
         counts of matched final responses from {preview.enrolledStudents}{" "}
         enrolled student{preview.enrolledStudents === 1 ? "" : "s"}. Nothing
@@ -49,7 +40,7 @@ function PreviewPanel({
         <div className="overflow-x-auto">
           <table className="text-xs">
             <thead>
-              <tr className="text-left text-gray-500">
+              <tr className="text-left text-ink-muted">
                 <th className="pr-4 font-medium">Question</th>
                 <th className="pr-4 font-medium">Side</th>
                 <th className="pr-4 font-medium">Answered</th>
@@ -76,7 +67,7 @@ function PreviewPanel({
         <div className="overflow-x-auto">
           <table className="text-xs">
             <thead>
-              <tr className="text-left text-gray-500">
+              <tr className="text-left text-ink-muted">
                 <th className="pr-4 font-medium">A1 × A2 pair</th>
                 <th className="pr-4 font-medium">Paired</th>
                 <th className="pr-4 font-medium">0/0</th>
@@ -106,13 +97,13 @@ function PreviewPanel({
               ))}
             </tbody>
           </table>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-ink-muted">
             Pair columns read “A1 value / A2 value”. Missing responses stay
             in their own columns — they are never counted as a pair.
           </p>
         </div>
       ) : (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-ink-muted">
           No cross-assignment pairs to preview (one side of this mapping has
           no questions).
         </p>
@@ -181,11 +172,11 @@ export function MappingTable({
   }
 
   const actionClass =
-    "rounded border border-gray-300 px-2 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50";
+    "btn btn-sm btn-secondary";
 
   if (mappings.length === 0) {
     return (
-      <div className="rounded border border-gray-200 p-6 text-sm text-gray-600">
+      <div className="rounded border border-hairline p-6 text-sm text-ink-secondary">
         No mappings yet. Select questions above and create one, or use
         “Generate suggestions” to seed the deterministic matches.
       </div>
@@ -193,22 +184,22 @@ export function MappingTable({
   }
 
   return (
-    <div className="rounded border border-gray-200">
-      <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
+    <div className="rounded border border-hairline">
+      <div className="border-b border-hairline bg-surface-sunken px-4 py-3">
         <p className="font-medium">Mappings ({mappings.length})</p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-ink-muted">
           Only approved mappings are visible to analytics. Approved mappings
           can&rsquo;t be edited — create a new version instead.
         </p>
       </div>
       {error && (
-        <p role="alert" className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700">
+        <p role="alert" className="banner banner-critical rounded-none border-x-0 border-t-0">
           {error}
         </p>
       )}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-xs text-gray-600">
+          <thead className="bg-surface-sunken text-xs text-ink-secondary">
             <tr>
               <th className="px-3 py-2 font-medium">Name</th>
               <th className="px-3 py-2 font-medium">Type</th>
@@ -218,22 +209,22 @@ export function MappingTable({
               <th className="px-3 py-2 font-medium">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-hairline">
             {mappings.map((m) => {
               const busy = busyId === m.id;
               const superseded = m.mappingStatus === "SUPERSEDED" || m.supersededById !== null;
               const editable = !m.professorApproved && !superseded;
               return (
                 <Fragment key={m.id}>
-                  <tr className={superseded ? "text-gray-400" : ""}>
+                  <tr className={superseded ? "text-ink-muted" : ""}>
                     <td className="px-3 py-2">
                       <span className="font-medium">{m.mappingName}</span>{" "}
-                      <span className="text-xs text-gray-500">v{m.version}</span>
+                      <span className="text-xs text-ink-muted">v{m.version}</span>
                       {m.commonConcept && (
-                        <span className="block text-xs text-gray-500">{m.commonConcept}</span>
+                        <span className="block text-xs text-ink-muted">{m.commonConcept}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs">{m.mappingType}</td>
+                    <td className="px-3 py-2 text-xs">{mappingTypeLabel(m.mappingType)}</td>
                     <td className="px-3 py-2 font-mono text-xs">
                       {codesFor(m.a1QuestionIds, questionsById)}
                     </td>
@@ -242,9 +233,9 @@ export function MappingTable({
                     </td>
                     <td className="px-3 py-2">
                       <span
-                        className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[m.mappingStatus]}`}
+                        className={mappingStatusTone(m.mappingStatus)}
                       >
-                        {m.mappingStatus}
+                        {mappingStatusLabel(m.mappingStatus)}
                       </span>
                     </td>
                     <td className="px-3 py-2">
@@ -302,7 +293,7 @@ export function MappingTable({
                             type="button"
                             disabled={busy}
                             onClick={() => run(m.id, () => deleteMapping(m.id))}
-                            className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            className="btn btn-sm btn-danger"
                           >
                             Delete
                           </button>
@@ -330,12 +321,12 @@ export function MappingTable({
                   )}
                   {openHistoryId === m.id && (
                     <tr>
-                      <td colSpan={6} className="bg-gray-50 px-4 py-3 text-xs text-gray-600">
-                        <p className="font-medium text-gray-700">Revision history</p>
+                      <td colSpan={6} className="bg-surface-sunken px-4 py-3 text-xs text-ink-secondary">
+                        <p className="font-medium text-ink-secondary">Revision history</p>
                         <ul className="mt-1 space-y-1">
                           {historyChain(m).map((v) => (
                             <li key={v.id}>
-                              v{v.version} — {v.mappingStatus}
+                              v{v.version} — {mappingStatusLabel(v.mappingStatus)}
                               {v.professorApproved ? " (live in analytics)" : ""} · last updated{" "}
                               {new Date(v.updatedAt).toLocaleString()}
                             </li>

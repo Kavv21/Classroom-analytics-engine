@@ -13,12 +13,12 @@ const CLASSIFICATION_LABEL: Record<RosterRowClassification, string> = {
 };
 
 const CLASSIFICATION_STYLE: Record<RosterRowClassification, string> = {
-  NEW: "bg-green-100 text-green-700",
-  EXISTING_PROFILE: "bg-blue-100 text-blue-700",
-  DUPLICATE_IN_FILE: "bg-amber-100 text-amber-700",
-  DUPLICATE_ALREADY_IN_CLASS: "bg-amber-100 text-amber-700",
-  DUPLICATE_PENDING_OTHER_CLASS: "bg-amber-100 text-amber-700",
-  INVALID: "bg-red-100 text-red-700",
+  NEW: "badge badge-good",
+  EXISTING_PROFILE: "badge badge-info",
+  DUPLICATE_IN_FILE: "badge badge-warning",
+  DUPLICATE_ALREADY_IN_CLASS: "badge badge-warning",
+  DUPLICATE_PENDING_OTHER_CLASS: "badge badge-warning",
+  INVALID: "badge badge-critical",
 };
 
 const columnHelper = createColumnHelper<RosterRowResult>();
@@ -51,24 +51,24 @@ export function RosterPreviewTable({ rows }: { rows: RosterRowResult[] }) {
   const table = useReactTable({ data: rows, columns, getCoreRowModel: getCoreRowModel() });
 
   if (rows.length === 0) {
-    return <p className="text-sm text-gray-500">No rows.</p>;
+    return <p className="text-sm text-ink-muted">No rows.</p>;
   }
 
   return (
-    <div className="overflow-x-auto rounded border border-gray-200">
+    <div className="overflow-x-auto rounded border border-hairline">
       <table className="w-full text-left text-sm">
-        <thead className="bg-gray-50">
+        <thead className="bg-surface-sunken">
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
-                <th key={header.id} className="px-3 py-2 font-medium text-gray-600">
+                <th key={header.id} className="px-3 py-2 font-medium text-ink-secondary">
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </th>
               ))}
             </tr>
           ))}
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-hairline">
           {table.getRowModel().rows.map((row) => (
             <tr key={row.id}>
               {row.getVisibleCells().map((cell) => (

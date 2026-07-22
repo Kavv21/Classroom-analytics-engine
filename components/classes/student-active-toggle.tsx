@@ -35,14 +35,12 @@ export function StudentActiveToggle({
         type="button"
         onClick={handleClick}
         disabled={isLoading}
-        className={`rounded px-2 py-1 text-xs font-medium disabled:opacity-60 ${
-          isActive ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-green-100 text-green-700 hover:bg-green-200"
-        }`}
+        className="btn btn-sm btn-secondary"
       >
         {isLoading ? "Saving…" : isActive ? "Deactivate" : "Activate"}
       </button>
       {error && (
-        <p role="alert" className="mt-1 text-xs text-red-600">
+        <p role="alert" className="mt-1 text-xs" style={{ color: "var(--status-critical-text)" }}>
           {error}
         </p>
       )}

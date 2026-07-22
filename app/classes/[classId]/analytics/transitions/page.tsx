@@ -27,18 +27,18 @@ export default async function TransitionAnalyticsPage({
   ]);
 
   return (
-    <main className="mx-auto max-w-6xl p-8">
+    <main className="page-dense">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Transition analytics — {classRow.name}</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <h1 className="title-md">Transition analytics — {classRow.name}</h1>
+          <p className="mt-1 text-sm text-ink-secondary">
             How opinions moved between the two assignments, per approved
             mapping. A change is a change — neither direction is better.
           </p>
         </div>
         <Link
           href={`/classes/${classId}`}
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+          className="btn btn-secondary"
         >
           Back to class
         </Link>
@@ -47,9 +47,9 @@ export default async function TransitionAnalyticsPage({
       <AnalyticsNav classId={classId} active="transitions" />
 
       {mappingSummaries.length === 0 ? (
-        <p className="mt-6 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+        <p className="mt-6 rounded border border-hairline bg-surface-sunken px-3 py-2 text-sm text-ink-secondary">
           No approved mappings yet — approve mappings in the{" "}
-          <Link href={`/classes/${classId}/mappings`} className="text-blue-600 underline">
+          <Link href={`/classes/${classId}/mappings`} className="link">
             mapping studio
           </Link>{" "}
           to see transitions.

@@ -10,6 +10,8 @@ import {
   type PendingMap,
 } from "@/lib/attempts/local-store";
 import type { ResponseValue } from "@/lib/types/domain";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
 export interface TakingQuestion {
   id: string;
@@ -250,19 +252,36 @@ export function AttemptRunner({
         </p>
       )}
 
-      <div className="flex items-center justify-between text-xs text-ink-secondary">
-        <span>
-          Question {index + 1} of {ordered.length}
-        </span>
-        <span>
-          Answered {answeredCount} · Unanswered {unansweredCount}
-        </span>
+      <div>
+        <div className="flex items-center justify-between text-xs text-ink-secondary">
+          <span>
+            Question {index + 1} of {ordered.length}
+          </span>
+          <span>
+            Answered {answeredCount} · Unanswered {unansweredCount}
+          </span>
+        </div>
+        {/* Progress mirrors the counts above rather than replacing them —
+            the numbers stay the accessible source of truth. */}
+        <Progress
+          value={ordered.length === 0 ? 0 : (answeredCount / ordered.length) * 100}
+          aria-label={`${answeredCount} of ${ordered.length} questions answered`}
+          className="mt-2 h-1.5"
+        />
       </div>
 
-      <div className="card p-6">
+      <Card className="p-6">
         <p className="mono text-ink-muted">{current.externalQuestionCode}</p>
         <p className="mt-2 text-lg leading-snug">{current.questionText}</p>
 
+        {/* Two explicit toggle buttons rather than a shadcn ToggleGroup.
+            Radix's ToggleGroup type="single" renders RADIO semantics
+            (radiogroup/radio), which changes the keyboard contract from
+            "tab to each option" to "arrow between options" and broke the
+            attempt-runner tests that assert the button role. Kept as
+            aria-pressed toggle buttons — the tested, shipped behaviour.
+            See the phase report; switching is a deliberate a11y decision,
+            not a component swap. */}
         <div className="mt-6 grid grid-cols-2 gap-4">
           {([0, 1] as const).map((value) => {
             const label = value === 0 ? current.responseZeroLabel : current.responseOneLabel;
@@ -283,7 +302,7 @@ export function AttemptRunner({
                 <span className="block text-3xl font-semibold">{value}</span>
                 <span className="mt-1 block text-sm text-ink-secondary">{label}</span>
                 <span className="mt-1 block text-xs font-medium">
-                  {selected ? "Selected ✓" : " "}
+                  {selected ? "Selected ✓" : " "}
                 </span>
               </button>
             );
@@ -305,7 +324,7 @@ export function AttemptRunner({
             it&rsquo;s saved.
           </p>
         )}
-      </div>
+      </Card>
 
       <div className="flex items-center justify-between">
         <button

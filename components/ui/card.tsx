@@ -33,12 +33,27 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * PROJECT CUSTOMISATION — two deliberate changes from stock shadcn:
+ *
+ * 1. Renders a real heading element, not a <div>. Screen-reader users
+ *    navigate by heading; a card whose title is a div is invisible to
+ *    that. The level is settable because a card's correct level depends
+ *    on where it sits in the page outline.
+ * 2. Drops `font-heading` (the display serif). The design system limits
+ *    serif to page/section titles at 18px and above; a card title is
+ *    16px, so it takes the sans like every other sub-heading.
+ */
+function CardTitle({
+  className,
+  as: Comp = "h3",
+  ...props
+}: React.ComponentProps<"h3"> & { as?: "h1" | "h2" | "h3" | "h4" }) {
   return (
-    <div
+    <Comp
       data-slot="card-title"
       className={cn(
-        "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",
+        "text-base leading-snug font-semibold group-data-[size=sm]/card:text-sm",
         className
       )}
       {...props}

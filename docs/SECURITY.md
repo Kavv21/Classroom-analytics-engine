@@ -93,10 +93,82 @@ appears in `lib/supabase/admin.ts`, the seed script, and tests — never in
 a page, action, or client bundle. Demo credentials come from `SEED_*`
 environment variables and are never committed.
 
-## Known security limitations
+## Rate limiting
 
-- **No rate limiting** on server actions or route handlers. Supabase
-  applies its own auth rate limits; the application adds none.
+Implemented in `middleware.ts` + `lib/rate-limit.ts`. Applies to **POST
+requests only**, for a signed-in and provisioned user, and is **keyed by
+user id — never by IP**. Students share a university network, so an
+IP-keyed limit would throttle an entire lecture hall because one
+person's browser misbehaved.
+
+Autosave and submission are Next.js **Server Actions**, which POST to the
+page they were invoked from rather than to a dedicated endpoint. The path
+is therefore what identifies them; the `Next-Action` header carries only
+a build-specific hash and is not stable enough to key on.
+
+| Bucket | Path | Limit | Why |
+|---|---|---|---|
+| `autosave` | `/assignments/{id}` | 120 / min | Client debounces at 800 ms and batches every pending answer into one call, so even a student answering as fast as they can read stays well under 75/min. 120 leaves ~2× headroom for rapid clicking plus the offline retry queue flushing on reconnect, while still cutting off a runaway loop. |
+| `submit` | `/assignments/{id}/review` | 20 / min | A student submits once, occasionally twice after a professor reopens. The database already rejects a second submission with `ALREADY_SUBMITTED`; this only stops a hot loop. |
+| `general` | everything else | 300 / min | Professor writes — importing a roster legitimately fires several in a row. |
+
+Exceeding a limit returns **429** with `Retry-After` and a message in the
+interface's own voice (the autosave message says answers are safe in the
+browser and will sync, because they are). Every response carries
+`X-RateLimit-Limit` and `X-RateLimit-Remaining`.
+
+**Storage choice and its tradeoff.** Counters live in a module-level Map,
+which on Vercel means one counter set per serverless/edge isolate.
+
+- *For*: no new infrastructure, and — critically — **no network
+  round-trip on the very requests being protected**. A Redis lookup in
+  middleware would add latency to every autosave, which is the opposite
+  of the goal. It reliably stops the realistic failure mode: a client
+  stuck in a retry loop, or one student's tab multiplying requests.
+- *Against*: it is **not a global guarantee**. Vercel may run several
+  isolates, each with its own counters, so a determined attacker
+  spreading requests across isolates gets a higher effective limit.
+  Counters also reset on cold start.
+
+This is sized for *accident*, not *abuse*. If a global guarantee is
+needed, swap `hit()` for an Upstash/Vercel KV implementation — the
+interface is deliberately narrow so that is a one-file change.
+
+Covered by 12 unit tests in `tests/unit/rate-limit.test.ts`, including
+that one user cannot throttle another and that autosave cannot exhaust
+the submit budget.
+
+## Administrator console
+
+Added after Phase 10, which recorded "no admin UI" as a known limitation.
+
+`/admin/users` and `/admin/audit` are guarded by `app/admin/layout.tsx`,
+which returns a 404 for anyone whose profile role is not `ADMIN`. RLS
+remains the real boundary — `profiles_admin_all` and `audit_logs_admin`
+(migration 0001) plus `class_members_admin_select` and
+`classes_admin_select` (migration 0016).
+
+Capabilities: change a role, activate/deactivate an account, and
+pre-authorise a professor or administrator by email. Accounts cannot be
+created from here — they only exist after a Google sign-in — so an
+invitation writes a `roster_entries` row carrying the intended role,
+which `handle_new_user()` consumes at first sign-in.
+
+Two self-lockout guards: an admin cannot remove their own admin role, and
+cannot deactivate their own account. Every action is audit-logged through
+`log_audit_event()`, so the actor is always `auth.uid()` and cannot be
+forged.
+
+**Hardening fixed in migration 0016.** `current_user_role()` was created
+in 0001 as `SECURITY DEFINER` **without `set search_path`** and
+referencing `profiles` unqualified. Migration 0004 fixed exactly this
+class of bug for the trigger functions but did not revisit this one — and
+it is the authorisation source for *every* admin policy in the database.
+Not known to be exploitable (Supabase sets a safe `search_path` for the
+authenticated role), but it is now pinned and schema-qualified, and a
+companion `is_admin()` helper follows the same rules.
+
+## Known security limitations
 - **No CSRF token** beyond Next.js server actions' built-in origin check.
 - **No admin UI**, so admin capabilities described in the original spec
   (user management, system settings) are unimplemented rather than

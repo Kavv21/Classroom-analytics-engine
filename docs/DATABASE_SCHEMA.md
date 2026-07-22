@@ -161,16 +161,46 @@ CHECK (response_value IN (0, 1) OR response_value IS NULL)
 Unique constraint on (attempt_id, question_id) — no duplicate responses.
 
 ## question_mappings
-id, assignment_1_question_ids[], assignment_2_question_ids[], mapping_name,
-common_concept, energy_source, criterion, mapping_type, comparison_method,
-professor_notes, mapping_status, professor_approved, created_at, updated_at
+id, class_id, assignment_1_question_ids[], assignment_2_question_ids[],
+mapping_name, common_concept, energy_source, criterion, mapping_type,
+comparison_method, professor_notes, mapping_status, professor_approved,
+version, previous_version_id, superseded_by_id, created_by, created_at,
+updated_at
 
 Mapping types: EXACT_ONE_TO_ONE, CONCEPTUAL_ONE_TO_ONE, ONE_TO_MANY,
 MANY_TO_ONE, GROUPED_CONCEPT, NOT_COMPARABLE, UNMAPPED
 
+`mapping_status` (CHECK, migration 0011): DRAFT | SUGGESTED |
+NEEDS_PROFESSOR_REVIEW | APPROVED | REJECTED | SUPERSEDED. A second CHECK
+keeps the flag and label coherent: `professor_approved = true` requires
+`mapping_status = 'APPROVED'`.
+
+**Versioning** (migration 0011): a version chain is a linked list —
+`previous_version_id` points back, `superseded_by_id` points forward.
+`create_mapping_version` copies content + members into a fresh DRAFT
+(version + 1) and stamps `superseded_by_id` on the old tip, which freezes
+it against re-approval and against forking a second version. The old
+version stays approved/live until the new one is approved;
+`set_mapping_approval(new, true)` then retires every earlier version
+(professor_approved = false, SUPERSEDED).
+
+**Destructive-edit blocking** (same category as the questions trigger):
+`question_mappings_immutable_when_load_bearing` +
+`mapping_members_immutable_when_load_bearing` (migration 0011) fire for
+every role, service_role included. Once a mapping is `professor_approved`
+OR referenced by `response_transitions` (`mapping_has_dependents()`
+security-definer helper), DELETE is rejected and UPDATE may only change
+the lifecycle fields (professor_notes, mapping_status, professor_approved,
+superseded_by_id, updated_at); member rows are frozen entirely. Version
+the mapping instead.
+
 ## question_mapping_members
 Junction table supporting one-to-many / many-to-one:
 id, mapping_id, assignment_id, question_id, mapping_side, weight, created_at
+
+Unique on (mapping_id, question_id) — migration 0011. `mapping_side` 1 is
+the class's sequence_number-1 assignment, side 2 is sequence 2; sides are
+derived server-side in the RPCs, never trusted from the client.
 
 ## response_transitions
 id, class_id, student_id, mapping_id, assignment_1_value,
@@ -325,6 +355,35 @@ errors); EXECUTE is revoked from anon on all four:
   REOPENED with reopened_at/reopened_by; clears responses.is_final;
   audit-logged. RESUBMITTED is terminal and cannot be reopened.
 
+Migration 0011 (Phase 6) adds the mapping-studio RPCs. All are `security
+invoker` (RLS + `is_professor_of_class` ownership check for clear errors);
+EXECUTE revoked from anon on every one:
+
+- `validate_mapping_questions(p_class_id, p_a1_question_ids,
+  p_a2_question_ids, p_mapping_type)` — shared validation: every id must
+  belong to the class's sequence-1/-2 assignment respectively, and the
+  side counts must fit the mapping type (1:1 types need exactly 1+1,
+  ONE_TO_MANY 1+2..., MANY_TO_ONE 2...+1, GROUPED_CONCEPT ≥1 each side;
+  NOT_COMPARABLE/UNMAPPED may be one-sided).
+- `create_question_mapping(...)` — insert mapping + member rows in one
+  transaction. New mappings may only start as
+  DRAFT/SUGGESTED/NEEDS_PROFESSOR_REVIEW — there is no auto-approval path.
+- `update_question_mapping(...)` — full edit (fields + members) of a
+  non-load-bearing, non-superseded mapping; editing a REJECTED mapping
+  moves it back to DRAFT.
+- `set_mapping_approval(p_mapping_id, p_approve)` — approve (rejecting
+  supersession-tips only) or reject; approving retires every earlier
+  version in the chain. Audit-logged (MAPPING_APPROVED/MAPPING_REJECTED).
+- `create_mapping_version(p_mapping_id)` — see versioning above.
+- `preview_mapping_pairs(p_mapping_id)` — the pre-approval analytics
+  preview, aggregated in the database: per-question respondent counts and
+  per-(A1×A2)-pair combination counts (pair00/01/10/11 + missing buckets)
+  over final responses of active student members. Deliberately neutral
+  vocabulary — S00-S11 transition states belong to approved-mapping
+  analytics (Phase 7), never to previews.
+- `mapping_has_dependents(p_mapping_id)` — `security definer` boolean
+  helper for the 0011 triggers (does response_transitions reference it).
+
 ## Views (migration 0009)
 
 - `assignment_submission_progress` (`security_invoker = on`) — per
@@ -333,6 +392,18 @@ errors); EXECUTE is revoked from anon on all four:
   active STUDENT `class_members` left-joined to `assignment_attempts`.
   The querying user's own RLS applies; explicit SELECT grants to
   authenticated/service_role.
+
+## Views (migration 0011) — the approved-only mapping surface
+
+- `approved_question_mappings` / `approved_question_mapping_members`
+  (`security_invoker = on`) — the ONLY relations downstream features
+  (transition engine, analytics, dashboards) may read mappings from.
+  `professor_approved = true and mapping_status = 'APPROVED'` is baked
+  into the view definition, so an unapproved mapping is structurally
+  invisible no matter who queries — including service_role, which
+  bypasses RLS but not the view's filter. TS access goes through
+  `lib/mappings/queries.ts` (`getApprovedMappings`). Verified by
+  tests/integration/mapping-flow.test.ts ("ACCEPTANCE" block).
 
 ## Table grants (migration 0007)
 

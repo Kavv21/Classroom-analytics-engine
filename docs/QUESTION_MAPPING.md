@@ -40,8 +40,33 @@ Deterministic only — exact normalised text match, energy-source match,
 criterion match, keyword overlap, configurable string similarity.
 No paid LLM. Suggestions are never auto-approved.
 
+Implementation (Phase 6): `lib/mappings/suggest.ts`. Seeding
+(`seedMappingSuggestions` in `lib/mappings/actions.ts`) replays
+`data/question-mapping-template.json` — the matching already validated
+against the real spreadsheets (11 renewable-concept pairs across the
+common energy sources, NOT_COMPARABLE groups for the 4 sources unique to
+each assignment, needs-review entries for the Conventional criterion) —
+against the class's real `questions` rows by external code, then adds any
+extra matches from the generic engine. An unresolvable template code
+fails the whole seed loudly. Re-running is idempotent (existing question
+sets / names are skipped).
+
+## Versioning
+
+An approved mapping — or one that `response_transitions` already
+references — can never be destructively edited or deleted; the 0011
+triggers enforce this for every role (same pattern as the Phase 4
+question-immutability trigger). `create_mapping_version` copies it into a
+fresh DRAFT (version + 1); the old version stays live in analytics until
+the new one is approved, at which point it flips to SUPERSEDED and drops
+out of the approved views. See docs/DATABASE_SCHEMA.md#question_mappings.
+
 ## Hard rule
 
 No mapped comparison appears anywhere in production analytics until
 `professor_approved = true`. This is enforced at the query layer, not just
-hidden in the UI.
+hidden in the UI: downstream code reads mappings only through the
+`approved_question_mappings` / `approved_question_mapping_members` views
+(migration 0011), which bake the approved filter into the relation itself
+— even service_role cannot see an unapproved mapping through them.
+Covered by the ACCEPTANCE block in tests/integration/mapping-flow.test.ts.

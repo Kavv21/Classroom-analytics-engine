@@ -143,6 +143,14 @@ export type MappingType =
   | "NOT_COMPARABLE"
   | "UNMAPPED";
 
+export type MappingStatus =
+  | "DRAFT"
+  | "SUGGESTED"
+  | "NEEDS_PROFESSOR_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "SUPERSEDED";
+
 export type TransitionState = "S00" | "S01" | "S10" | "S11";
 
 export type DataQualityStatus =
@@ -170,6 +178,7 @@ export interface Question {
 
 export interface QuestionMapping {
   id: string;
+  classId: string;
   assignment1QuestionIds: string[];
   assignment2QuestionIds: string[];
   mappingName: string;
@@ -179,8 +188,13 @@ export interface QuestionMapping {
   mappingType: MappingType;
   comparisonMethod: string | null;
   professorNotes: string | null;
-  mappingStatus: string;
+  mappingStatus: MappingStatus;
   professorApproved: boolean;
+  version: number;
+  previousVersionId: string | null;
+  supersededById: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ResponseTransition {

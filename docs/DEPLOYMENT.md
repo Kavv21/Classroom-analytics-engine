@@ -3,6 +3,26 @@
 This assumes Vercel (frontend/API) + Supabase (database/auth), per the
 required stack. Written for a real client engagement, not a demo.
 
+> **Status note (end of Phase 10).** Sections 1–8 below were written
+> during planning and still hold. Section 0 and Section 9 were added
+> afterwards to record what the build actually produced and what load
+> testing could and could not establish from a developer machine. Where
+> the two disagree, the later sections win.
+
+## 0. What exists now
+
+- **15 migrations** (`supabase/migrations/0001`–`0015`), forward-only.
+  `0015` is indexes only and had not been pushed to any hosted project at
+  the time of writing — apply it deliberately.
+- **Seed script** (`npm run db:seed`) refuses any non-local Supabase URL
+  unless `SEED_ALLOW_REMOTE=true`. It is for staging/demo only; production
+  gets real accounts, never seed data.
+- **Load-test tooling** (`load-tests/`) likewise refuses non-local targets.
+- Google OAuth is the only sign-in path in the UI. Password auth exists in
+  the database but no screen uses it.
+- There is **no admin UI**. Creating the first admin and professor is a
+  manual database/dashboard step (see §7.5).
+
 ## 1. Environments — never share one Supabase project across dev/prod
 
 Create **two** Supabase projects, not one:
@@ -89,14 +109,64 @@ production:
 3. Set all production environment variables in Vercel.
 4. Deploy to Vercel Production (`vercel --prod` or via git push to the
    production branch, depending on your Vercel git integration setup).
-5. Create the real admin account and the real professor account by hand
-   (not from seed data) — see `docs/USER_GUIDE_PROFESSOR.md` for the
-   professor-facing steps.
+5. **Create the real admin and professor accounts by hand.** There is no
+   admin UI and no self-signup, so this is a deliberate manual step:
+   a. Have the person sign in once with Google — this fails at
+      `/not-provisioned`, but creates their `auth.users` row.
+   b. In the Supabase dashboard, insert their `profiles` row with the
+      correct `role` (`ADMIN` or `PROFESSOR`), or update the row if
+      `handle_new_user()` created one as `STUDENT`.
+   c. They sign in again and now have access.
+   See `docs/USER_GUIDE_PROFESSOR.md` for what they do next.
 6. Smoke-test the actual production URL end to end: log in as the real
    professor, create a real class, publish a test assignment, submit a
    test response as a throwaway student account, confirm it appears in
    analytics, then delete the test data.
 7. Only then share the URL with the professor for real classroom use.
+
+## 9. Capacity — what load testing did and did not establish
+
+Full numbers in `docs/TESTING.md`. Summary:
+
+- **Autosave, the dominant real-world load, is clean to 400 concurrent
+  virtual users** on the local stack (1 failure in 35,472 requests,
+  p95 187 ms). This is the operation 300 students generate continuously.
+- **`submit_attempt` resolved 99%** under a deliberate 300-user
+  simultaneous spike with zero ramp.
+- Every high-concurrency failure traced to the **local** Postgres running
+  `max_connections = 100` in one container on a laptop. Below ~150
+  concurrent, all five scenarios were 0% failure.
+
+**What this does not tell you.** Local capacity is not production
+capacity, and the load test's login scenario used the password grant,
+which production does not use (production is Google OAuth). Before real
+classroom use:
+
+1. Re-run `load-tests/scenarios.js` against the **staging** Supabase
+   project at 400 VUs and compare. This is the only way to size the real
+   thing.
+2. Confirm the project uses Supabase's connection pooler (Supavisor) for
+   the application's connection string, not a direct Postgres connection.
+   Pool exhaustion was the binding constraint in every local failure and
+   will be the first thing to bite in production.
+3. Check the pool size available on your Supabase plan against the peak
+   concurrent student count, and raise the plan if 300 simultaneous
+   submissions are expected.
+4. Run `ANALYZE` (or confirm autovacuum has) after the first bulk import
+   and after the first assignment closes. Stale planner statistics were
+   measurably worse than missing indexes — a fresh bulk load ran a core
+   analytics view 5× slower until statistics caught up.
+
+## 9.5 Performance notes carried into production
+
+- Analytics views are computed on read, so there is nothing to refresh
+  and no staleness — but they are also not cached. If the professor
+  reloads analytics constantly on a large class, that is real query load.
+- The four analytics routes ship ~456 kB of first-load JS (ECharts). On a
+  slow connection the first visit is noticeably heavier than other pages.
+  Deferring ECharts is a known, unimplemented optimisation.
+- Page-level reads were parallelised in Phase 10; each remaining
+  sequential await is a genuine data dependency.
 
 ## 8. Ongoing
 

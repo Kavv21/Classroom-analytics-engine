@@ -20,23 +20,42 @@ export default async function TakeAssignmentPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  // Stage 1 — profile and assignment depend only on user.id / route param,
+  // so they share one round-trip instead of two. The questions list depends
+  // only on the assignment id too, and it is the largest read on this page
+  // (255 rows for Assignment 2), so it starts here rather than waiting for
+  // the attempt to be created.
+  const [
+    { data: profile, error: profileError },
+    { data: assignment, error: assignmentError },
+    { data: questions, error: questionsError },
+  ] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("assignments")
+      .select("id, title, instructions, status, allow_draft_editing")
+      .eq("id", assignmentId)
+      .maybeSingle(),
+    supabase
+      .from("questions")
+      .select(
+        "id, external_question_code, question_text, response_zero_label, response_one_label, display_order"
+      )
+      .eq("assignment_id", assignmentId)
+      .eq("is_active", true)
+      .order("display_order", { ascending: true }),
+  ]);
+
   if (profileError) throw new Error(`Failed to load your profile: ${profileError.message}`);
   if (profile?.role !== "STUDENT") redirect("/classes");
-
-  const { data: assignment, error: assignmentError } = await supabase
-    .from("assignments")
-    .select("id, title, instructions, status, allow_draft_editing")
-    .eq("id", assignmentId)
-    .maybeSingle();
   if (assignmentError) throw new Error(`Failed to load assignment: ${assignmentError.message}`);
   if (!assignment) notFound();
   if (assignment.status !== "OPEN") redirect(`/assignments/${assignmentId}/receipt`);
+  if (questionsError) throw new Error(`Failed to load questions: ${questionsError.message}`);
 
+  // Stage 2 — the attempt must not be created until the assignment is known
+  // to be OPEN, and saved answers are keyed by the attempt id, so these two
+  // stay sequential by necessity.
   const { data: attemptData, error: attemptError } = await supabase.rpc(
     "get_or_create_attempt",
     { p_assignment_id: assignmentId }
@@ -46,16 +65,6 @@ export default async function TakeAssignmentPage({
   if (attempt.state === "SUBMITTED" || attempt.state === "RESUBMITTED") {
     redirect(`/assignments/${assignmentId}/receipt`);
   }
-
-  const { data: questions, error: questionsError } = await supabase
-    .from("questions")
-    .select(
-      "id, external_question_code, question_text, response_zero_label, response_one_label, display_order"
-    )
-    .eq("assignment_id", assignmentId)
-    .eq("is_active", true)
-    .order("display_order", { ascending: true });
-  if (questionsError) throw new Error(`Failed to load questions: ${questionsError.message}`);
 
   const { data: responses, error: responsesError } = await supabase
     .from("responses")

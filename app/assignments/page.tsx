@@ -29,28 +29,26 @@ export default async function StudentAssignmentsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  // RLS scopes the assignment list to the student's own classes, so all
+  // three reads are independent and batch into one round-trip.
+  const [
+    { data: profile, error: profileError },
+    { data: assignments, error },
+    { data: attempts, error: attemptsError },
+  ] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("assignments")
+      .select("id, title, assignment_stage, status, open_at, close_at, classes(name)")
+      .order("status", { ascending: true })
+      .order("close_at", { ascending: true, nullsFirst: false })
+      .returns<AssignmentRow[]>(),
+    supabase.from("assignment_attempts").select("assignment_id, state").eq("student_id", user.id),
+  ]);
+
   if (profileError) throw new Error(`Failed to load your profile: ${profileError.message}`);
   if (profile?.role !== "STUDENT") redirect("/classes");
-
-  // RLS (assignments_student_select) already scopes this to OPEN/CLOSED
-  // assignments in the student's classes.
-  const { data: assignments, error } = await supabase
-    .from("assignments")
-    .select("id, title, assignment_stage, status, open_at, close_at, classes(name)")
-    .order("status", { ascending: true })
-    .order("close_at", { ascending: true, nullsFirst: false })
-    .returns<AssignmentRow[]>();
   if (error) throw new Error(`Failed to load assignments: ${error.message}`);
-
-  const { data: attempts, error: attemptsError } = await supabase
-    .from("assignment_attempts")
-    .select("assignment_id, state")
-    .eq("student_id", user.id);
   if (attemptsError) throw new Error(`Failed to load attempts: ${attemptsError.message}`);
 
   const attemptByAssignment = new Map<string, AttemptState>(

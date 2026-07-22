@@ -16,34 +16,38 @@ export default async function ReviewAttemptPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: assignment, error: assignmentError } = await supabase
-    .from("assignments")
-    .select("id, title, status")
-    .eq("id", assignmentId)
-    .maybeSingle();
+  // Assignment, attempt, and questions all key off the route param and the
+  // signed-in user, so they batch. Only the saved answers need the attempt
+  // id, so they remain a second stage.
+  const [
+    { data: assignment, error: assignmentError },
+    { data: attempt, error: attemptError },
+    { data: questions, error: questionsError },
+  ] = await Promise.all([
+    supabase.from("assignments").select("id, title, status").eq("id", assignmentId).maybeSingle(),
+    supabase
+      .from("assignment_attempts")
+      .select("id, state")
+      .eq("assignment_id", assignmentId)
+      .eq("student_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("questions")
+      .select(
+        "id, external_question_code, question_text, response_zero_label, response_one_label, display_order"
+      )
+      .eq("assignment_id", assignmentId)
+      .eq("is_active", true)
+      .order("display_order", { ascending: true }),
+  ]);
+
   if (assignmentError) throw new Error(`Failed to load assignment: ${assignmentError.message}`);
   if (!assignment) notFound();
-
-  const { data: attempt, error: attemptError } = await supabase
-    .from("assignment_attempts")
-    .select("id, state")
-    .eq("assignment_id", assignmentId)
-    .eq("student_id", user.id)
-    .maybeSingle();
   if (attemptError) throw new Error(`Failed to load your attempt: ${attemptError.message}`);
   if (!attempt) redirect(`/assignments/${assignmentId}`);
   if (attempt.state === "SUBMITTED" || attempt.state === "RESUBMITTED") {
     redirect(`/assignments/${assignmentId}/receipt`);
   }
-
-  const { data: questions, error: questionsError } = await supabase
-    .from("questions")
-    .select(
-      "id, external_question_code, question_text, response_zero_label, response_one_label, display_order"
-    )
-    .eq("assignment_id", assignmentId)
-    .eq("is_active", true)
-    .order("display_order", { ascending: true });
   if (questionsError) throw new Error(`Failed to load questions: ${questionsError.message}`);
 
   const { data: responses, error: responsesError } = await supabase

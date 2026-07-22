@@ -25,33 +25,35 @@ export default async function ClassDetailPage({
   const { classId } = await params;
   const supabase = await createClient();
 
-  const { data: classRow } = await supabase
-    .from("classes")
-    .select(
-      "id, name, course_name, academic_year, semester, section, class_code, start_date, end_date, status"
-    )
-    .eq("id", classId)
-    .maybeSingle();
+  // All four reads depend only on classId — one parallel batch, not four
+  // sequential round-trips.
+  const [{ data: classRow }, { count: memberCount }, { count: pendingCount }, { data: members }] =
+    await Promise.all([
+      supabase
+        .from("classes")
+        .select(
+          "id, name, course_name, academic_year, semester, section, class_code, start_date, end_date, status"
+        )
+        .eq("id", classId)
+        .maybeSingle(),
+      supabase
+        .from("class_members")
+        .select("id", { count: "exact", head: true })
+        .eq("class_id", classId),
+      supabase
+        .from("roster_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("class_id", classId)
+        .eq("provisioned", false),
+      supabase
+        .from("class_members")
+        .select("id, status, profiles(id, full_name, email, roll_number, is_active)")
+        .eq("class_id", classId)
+        .order("joined_at", { ascending: true })
+        .returns<ClassMemberRow[]>(),
+    ]);
 
   if (!classRow) notFound();
-
-  const { count: memberCount } = await supabase
-    .from("class_members")
-    .select("id", { count: "exact", head: true })
-    .eq("class_id", classId);
-
-  const { count: pendingCount } = await supabase
-    .from("roster_entries")
-    .select("id", { count: "exact", head: true })
-    .eq("class_id", classId)
-    .eq("provisioned", false);
-
-  const { data: members } = await supabase
-    .from("class_members")
-    .select("id, status, profiles(id, full_name, email, roll_number, is_active)")
-    .eq("class_id", classId)
-    .order("joined_at", { ascending: true })
-    .returns<ClassMemberRow[]>();
 
   return (
     <main className="page-standard">

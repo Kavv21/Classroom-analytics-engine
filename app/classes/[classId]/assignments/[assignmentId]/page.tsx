@@ -30,73 +30,77 @@ export default async function AssignmentDetailPage({
   const { classId, assignmentId } = await params;
   const supabase = await createClient();
 
-  const { data: assignment, error: assignmentError } = await supabase
-    .from("assignments")
-    .select(
-      "id, class_id, title, description, instructions, assignment_stage, sequence_number, open_at, close_at, status, allow_draft_editing, allow_resubmission, response_zero_label, response_one_label"
-    )
-    .eq("id", assignmentId)
-    .eq("class_id", classId)
-    .maybeSingle();
+  // Every one of these depends only on the route params, so they run as a
+  // single parallel batch rather than six sequential round-trips. Against
+  // hosted Supabase (~60ms RTT) that is the difference between ~360ms and
+  // ~60ms of network wait before this page can render.
+  const [
+    { data: assignment, error: assignmentError },
+    { data: questions, error: questionsError },
+    { count: responseCount, error: responseError },
+    { data: progress, error: progressError },
+    { data: attemptRows, error: attemptsError },
+    { data: imports, error: importsError },
+  ] = await Promise.all([
+    supabase
+      .from("assignments")
+      .select(
+        "id, class_id, title, description, instructions, assignment_stage, sequence_number, open_at, close_at, status, allow_draft_editing, allow_resubmission, response_zero_label, response_one_label"
+      )
+      .eq("id", assignmentId)
+      .eq("class_id", classId)
+      .maybeSingle(),
+    supabase
+      .from("questions")
+      .select(
+        "id, external_question_code, question_text, energy_source, criterion, response_zero_label, response_one_label, display_order"
+      )
+      .eq("assignment_id", assignmentId)
+      .order("display_order", { ascending: true })
+      .returns<QuestionRow[]>(),
+    supabase
+      .from("responses")
+      .select("id", { count: "exact", head: true })
+      .eq("assignment_id", assignmentId),
+    supabase
+      .from("assignment_submission_progress")
+      .select(
+        "enrolled_students, draft_count, submitted_count, reopened_count, resubmitted_count, not_started_count"
+      )
+      .eq("assignment_id", assignmentId)
+      .maybeSingle<ProgressRow>(),
+    supabase
+      .from("assignment_attempts")
+      .select(
+        "id, state, submitted_at, reopened_at, submission_version, profiles!assignment_attempts_student_id_fkey(full_name, email)"
+      )
+      .eq("assignment_id", assignmentId)
+      .order("submitted_at", { ascending: false, nullsFirst: false }),
+    supabase
+      .from("imports")
+      .select("id, source_filename, status, created_at, summary")
+      .eq("assignment_id", assignmentId)
+      .order("created_at", { ascending: false })
+      .limit(10),
+  ]);
 
+  // Errors are still surfaced individually so a failure names its own query.
   if (assignmentError) {
     throw new Error(`Failed to load assignment: ${assignmentError.message}`);
   }
   if (!assignment) notFound();
-
-  const { data: questions, error: questionsError } = await supabase
-    .from("questions")
-    .select(
-      "id, external_question_code, question_text, energy_source, criterion, response_zero_label, response_one_label, display_order"
-    )
-    .eq("assignment_id", assignmentId)
-    .order("display_order", { ascending: true })
-    .returns<QuestionRow[]>();
-
   if (questionsError) {
     throw new Error(`Failed to load questions: ${questionsError.message}`);
   }
-
-  const { count: responseCount, error: responseError } = await supabase
-    .from("responses")
-    .select("id", { count: "exact", head: true })
-    .eq("assignment_id", assignmentId);
-
   if (responseError) {
     throw new Error(`Failed to check responses: ${responseError.message}`);
   }
-
-  const { data: progress, error: progressError } = await supabase
-    .from("assignment_submission_progress")
-    .select(
-      "enrolled_students, draft_count, submitted_count, reopened_count, resubmitted_count, not_started_count"
-    )
-    .eq("assignment_id", assignmentId)
-    .maybeSingle<ProgressRow>();
-
   if (progressError) {
     throw new Error(`Failed to load submission progress: ${progressError.message}`);
   }
-
-  const { data: attemptRows, error: attemptsError } = await supabase
-    .from("assignment_attempts")
-    .select(
-      "id, state, submitted_at, reopened_at, submission_version, profiles!assignment_attempts_student_id_fkey(full_name, email)"
-    )
-    .eq("assignment_id", assignmentId)
-    .order("submitted_at", { ascending: false, nullsFirst: false });
-
   if (attemptsError) {
     throw new Error(`Failed to load attempts: ${attemptsError.message}`);
   }
-
-  const { data: imports, error: importsError } = await supabase
-    .from("imports")
-    .select("id, source_filename, status, created_at, summary")
-    .eq("assignment_id", assignmentId)
-    .order("created_at", { ascending: false })
-    .limit(10);
-
   if (importsError) {
     throw new Error(`Failed to load import history: ${importsError.message}`);
   }

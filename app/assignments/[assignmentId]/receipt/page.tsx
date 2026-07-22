@@ -14,22 +14,30 @@ export default async function SubmissionReceiptPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: assignment, error: assignmentError } = await supabase
-    .from("assignments")
-    .select("id, title, status")
-    .eq("id", assignmentId)
-    .maybeSingle();
+  const [
+    { data: assignment, error: assignmentError },
+    { data: attempt, error: attemptError },
+    { count: total, error: totalError },
+  ] = await Promise.all([
+    supabase.from("assignments").select("id, title, status").eq("id", assignmentId).maybeSingle(),
+    supabase
+      .from("assignment_attempts")
+      .select("id, state, submitted_at, submission_version, reopened_at")
+      .eq("assignment_id", assignmentId)
+      .eq("student_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .eq("assignment_id", assignmentId)
+      .eq("is_active", true),
+  ]);
+
   if (assignmentError) throw new Error(`Failed to load assignment: ${assignmentError.message}`);
   if (!assignment) notFound();
-
-  const { data: attempt, error: attemptError } = await supabase
-    .from("assignment_attempts")
-    .select("id, state, submitted_at, submission_version, reopened_at")
-    .eq("assignment_id", assignmentId)
-    .eq("student_id", user.id)
-    .maybeSingle();
   if (attemptError) throw new Error(`Failed to load your attempt: ${attemptError.message}`);
   if (!attempt) redirect("/assignments");
+  if (totalError) throw new Error(`Failed to load questions: ${totalError.message}`);
 
   if (attempt.state !== "SUBMITTED" && attempt.state !== "RESUBMITTED") {
     // Not submitted (e.g. reopened, or still drafting): the receipt doesn't
@@ -38,19 +46,13 @@ export default async function SubmissionReceiptPage({
     redirect("/assignments");
   }
 
+  // Only this one needs the attempt id, so it is the single second stage.
   const { count: answered, error: answeredError } = await supabase
     .from("responses")
     .select("id", { count: "exact", head: true })
     .eq("attempt_id", attempt.id)
     .not("response_value", "is", null);
   if (answeredError) throw new Error(`Failed to load answers: ${answeredError.message}`);
-
-  const { count: total, error: totalError } = await supabase
-    .from("questions")
-    .select("id", { count: "exact", head: true })
-    .eq("assignment_id", assignmentId)
-    .eq("is_active", true);
-  if (totalError) throw new Error(`Failed to load questions: ${totalError.message}`);
 
   const resubmitted = attempt.state === "RESUBMITTED";
 

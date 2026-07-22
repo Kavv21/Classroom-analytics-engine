@@ -12,5 +12,10 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    // Vitest owns tests/**; Playwright owns e2e/**. Without this, vitest's
+    // default include picks up e2e/*.spec.ts and fails to collect them
+    // because they import @playwright/test.
+    include: ["tests/**/*.{test,spec}.{ts,tsx}"],
+    exclude: ["node_modules/**", "e2e/**", ".next/**"],
   },
 });

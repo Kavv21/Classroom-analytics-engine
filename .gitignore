@@ -11,3 +11,6 @@ test-results/
 tsconfig.tsbuildinfo
 supabase/.temp/
 supabase/.branches/
+load-tests/.users.json
+test-results/
+playwright-report/

@@ -11,7 +11,39 @@ import {
   type MappingPreview,
 } from "@/lib/mappings/actions";
 import type { MappingRowLite, QuestionLite } from "@/components/mappings/types";
-import { mappingStatusLabel, mappingStatusTone, mappingTypeLabel } from "@/lib/ui/labels";
+import { mappingStatusLabel, mappingTypeLabel } from "@/lib/ui/labels";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+const STATUS_TONE: Record<string, string> = {
+  APPROVED: "border-transparent bg-surface-good text-[color:var(--status-good-text)]",
+  NEEDS_PROFESSOR_REVIEW:
+    "border-transparent bg-surface-warning text-[color:var(--status-warning-text)]",
+  REJECTED: "border-transparent bg-surface-critical text-[color:var(--status-critical-text)]",
+  SUGGESTED: "border-transparent bg-surface-info text-[color:var(--status-info-text)]",
+  DRAFT: "border-transparent bg-surface-sunken text-ink-secondary",
+  SUPERSEDED: "border-transparent bg-surface-sunken text-ink-muted",
+};
 
 function codesFor(ids: string[], questionsById: Record<string, QuestionLite>): string {
   if (ids.length === 0) return "—";
@@ -124,7 +156,6 @@ export function MappingTable({
 }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [previews, setPreviews] = useState<Record<string, MappingPreview>>({});
   const [openPreviewId, setOpenPreviewId] = useState<string | null>(null);
   const [openHistoryId, setOpenHistoryId] = useState<string | null>(null);
@@ -142,12 +173,11 @@ export function MappingTable({
   }
 
   async function run(id: string, fn: () => Promise<{ success: boolean; error?: string }>) {
-    setError(null);
     setBusyId(id);
     const result = await fn();
     setBusyId(null);
     if (!result.success) {
-      setError(result.error ?? "Something went wrong.");
+      toast.error(result.error ?? "Something went wrong.");
       return;
     }
     router.refresh();
@@ -158,13 +188,11 @@ export function MappingTable({
       setOpenPreviewId(null);
       return;
     }
-    setError(null);
     if (!previews[id]) {
       setBusyId(id);
       const result = await previewMapping(id);
       setBusyId(null);
       if (!result.success) {
-        setError(result.error);
         toast.error(result.error);
         return;
       }
@@ -173,158 +201,151 @@ export function MappingTable({
     setOpenPreviewId(id);
   }
 
-  const actionClass =
-    "btn btn-sm btn-secondary";
-
   if (mappings.length === 0) {
     return (
-      <div className="rounded border border-hairline p-6 text-sm text-ink-secondary">
-        No mappings yet. Select questions above and create one, or use
-        “Generate suggestions” to seed the deterministic matches.
-      </div>
+      <Card>
+        <CardContent className="pt-6 text-sm text-muted-foreground">
+          No mappings yet. Select questions above and create one, or use
+          “Generate suggestions” to seed the deterministic matches.
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="rounded border border-hairline">
-      <div className="border-b border-hairline bg-surface-sunken px-4 py-3">
-        <p className="font-medium">Mappings ({mappings.length})</p>
-        <p className="text-xs text-ink-muted">
+    <Card className="p-0">
+      <CardHeader className="border-b p-4">
+        <CardTitle>Mappings ({mappings.length})</CardTitle>
+        <CardDescription>
           Only approved mappings are visible to analytics. Approved mappings
           can&rsquo;t be edited — create a new version instead.
-        </p>
-      </div>
-      {error && (
-        <p role="alert" className="banner banner-critical rounded-none border-x-0 border-t-0">
-          {error}
-        </p>
-      )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-surface-sunken text-xs text-ink-secondary">
-            <tr>
-              <th className="px-3 py-2 font-medium">Name</th>
-              <th className="px-3 py-2 font-medium">Type</th>
-              <th className="px-3 py-2 font-medium">A1 questions</th>
-              <th className="px-3 py-2 font-medium">A2 questions</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-hairline">
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="overflow-x-auto p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>A1 questions</TableHead>
+              <TableHead>A2 questions</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {mappings.map((m) => {
               const busy = busyId === m.id;
               const superseded = m.mappingStatus === "SUPERSEDED" || m.supersededById !== null;
               const editable = !m.professorApproved && !superseded;
               return (
                 <Fragment key={m.id}>
-                  <tr className={superseded ? "text-ink-muted" : ""}>
-                    <td className="px-3 py-2">
+                  <TableRow className={superseded ? "text-ink-muted" : ""}>
+                    <TableCell>
                       <span className="font-medium">{m.mappingName}</span>{" "}
                       <span className="text-xs text-ink-muted">v{m.version}</span>
                       {m.commonConcept && (
                         <span className="block text-xs text-ink-muted">{m.commonConcept}</span>
                       )}
-                    </td>
-                    <td className="px-3 py-2 text-xs">{mappingTypeLabel(m.mappingType)}</td>
-                    <td className="px-3 py-2 font-mono text-xs">
+                    </TableCell>
+                    <TableCell className="text-xs">{mappingTypeLabel(m.mappingType)}</TableCell>
+                    <TableCell className="font-mono text-xs">
                       {codesFor(m.a1QuestionIds, questionsById)}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
                       {codesFor(m.a2QuestionIds, questionsById)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={mappingStatusTone(m.mappingStatus)}
-                      >
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={STATUS_TONE[m.mappingStatus] ?? ""}>
                         {mappingStatusLabel(m.mappingStatus)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => togglePreview(m.id)}
-                          className={actionClass}
-                        >
+                        <Button size="sm" variant="outline" disabled={busy} onClick={() => togglePreview(m.id)}>
                           {openPreviewId === m.id ? "Hide preview" : "Preview"}
-                        </button>
+                        </Button>
                         {!m.professorApproved && !superseded && (
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
                             disabled={busy}
                             onClick={() => run(m.id, () => setMappingApproval(m.id, true))}
-                            className="rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
                           >
                             Approve
-                          </button>
+                          </Button>
                         )}
                         {m.mappingStatus !== "REJECTED" && !superseded && (
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
+                            variant="outline"
                             disabled={busy}
                             onClick={() => run(m.id, () => setMappingApproval(m.id, false))}
-                            className={actionClass}
                           >
                             Reject
-                          </button>
+                          </Button>
                         )}
                         {!superseded && (
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
+                            variant="outline"
                             disabled={busy}
                             onClick={() => run(m.id, () => createMappingVersion(m.id))}
-                            className={actionClass}
                           >
                             New version
-                          </button>
+                          </Button>
                         )}
                         {editable && (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => onEdit(m)}
-                            className={actionClass}
-                          >
+                          <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(m)}>
                             Edit
-                          </button>
+                          </Button>
                         )}
                         {editable && (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => run(m.id, () => deleteMapping(m.id))}
-                            className="btn btn-sm btn-danger"
-                          >
-                            Delete
-                          </button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="sm" variant="destructive" disabled={busy}>
+                                Delete
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete “{m.mappingName}”?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This mapping is not approved and nothing depends on it, so it can
+                                  be removed. This can&rsquo;t be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => run(m.id, () => deleteMapping(m.id))}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         )}
                         {(m.version > 1 || m.supersededById) && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setOpenHistoryId(openHistoryId === m.id ? null : m.id)
-                            }
-                            className={actionClass}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setOpenHistoryId(openHistoryId === m.id ? null : m.id)}
                           >
                             History
-                          </button>
+                          </Button>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                   {openPreviewId === m.id && previews[m.id] && (
-                    <tr>
-                      <td colSpan={6} className="p-0">
+                    <TableRow>
+                      <TableCell colSpan={6} className="p-0">
                         <PreviewPanel preview={previews[m.id]!} questionsById={questionsById} />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
                   {openHistoryId === m.id && (
-                    <tr>
-                      <td colSpan={6} className="bg-surface-sunken px-4 py-3 text-xs text-ink-secondary">
-                        <p className="font-medium text-ink-secondary">Revision history</p>
+                    <TableRow>
+                      <TableCell colSpan={6} className="bg-muted px-4 py-3 text-xs text-muted-foreground">
+                        <p className="font-medium text-foreground">Revision history</p>
                         <ul className="mt-1 space-y-1">
                           {historyChain(m).map((v) => (
                             <li key={v.id}>
@@ -334,15 +355,15 @@ export function MappingTable({
                             </li>
                           ))}
                         </ul>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
                 </Fragment>
               );
             })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

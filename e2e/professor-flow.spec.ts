@@ -155,10 +155,11 @@ test("query builder rejects an incompatible chart combination with a clear messa
   const { classId } = await seededClass(admin);
   await page.goto(`/classes/${classId}/analytics/builder`);
 
-  await page.getByLabel("Chart type").selectOption("SANKEY");
+  // Chart type is now a shadcn Select (a combobox), not a native <select>,
+  // so it is opened and its option chosen rather than selectOption()'d.
+  await page.getByLabel("Chart type").click();
+  await page.getByRole("option", { name: "Sankey (answer flows)" }).click();
   // Default grouping is Mapping, not Transition state — invalid for a Sankey.
-  // The page carries more than one role="alert" region, so scope to the
-  // validation banner specifically rather than matching them all.
   const banner = page.getByRole("alert").filter({ hasText: "can’t be charted" });
   await expect(banner).toContainText("Sankey");
   await expect(banner).toContainText("Transition state");

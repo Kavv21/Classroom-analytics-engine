@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnalyticsNav } from "@/components/analytics/analytics-nav";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { StudentAnalytics } from "@/components/analytics/student-analytics";
 import {
   getResponseTransitionsLive,
@@ -37,24 +39,19 @@ export default async function StudentAnalyticsPage({
             here.
           </p>
         </div>
-        <Link
-          href={`/classes/${classId}`}
-          className="btn btn-secondary"
-        >
-          Back to class
-        </Link>
+        <Button asChild variant="outline">
+          <Link href={`/classes/${classId}`}>Back to class</Link>
+        </Button>
       </div>
 
       <AnalyticsNav classId={classId} active="students" />
 
       {studentSummaries.length === 0 ? (
-        <p className="mt-6 rounded border border-hairline bg-surface-sunken px-3 py-2 text-sm text-ink-secondary">
-          No per-student data yet — it appears once mappings are approved in the{" "}
+        <Alert className="mt-6"><AlertDescription>No per-student data yet — it appears once mappings are approved in the{" "}
           <Link href={`/classes/${classId}/mappings`} className="link">
             mapping studio
           </Link>
-          .
-        </p>
+          .</AlertDescription></Alert>
       ) : (
         <StudentAnalytics
           studentSummaries={studentSummaries}

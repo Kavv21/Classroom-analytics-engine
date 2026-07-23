@@ -1,10 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnalyticsNav } from "@/components/analytics/analytics-nav";
+import { Button } from "@/components/ui/button";
 import {
   getClassTransitionSummary,
   getSubmissionProgress,
 } from "@/lib/analytics/queries";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   getClassAssignments,
   requireProfessorClassPage,
@@ -73,22 +83,21 @@ export default async function AnalyticsOverviewPage({
             mappings are approved.
           </p>
         </div>
-        <Link
-          href={`/classes/${classId}`}
-          className="btn btn-secondary"
-        >
-          Back to class
-        </Link>
+        <Button asChild variant="outline">
+          <Link href={`/classes/${classId}`}>Back to class</Link>
+        </Button>
       </div>
 
       <AnalyticsNav classId={classId} active="overview" />
 
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         {tiles.map((tile) => (
-          <div key={tile.label} className="card p-3">
-            <p className="text-xs text-ink-muted">{tile.label}</p>
-            <p className="mt-1 text-xl font-semibold text-ink">{tile.value}</p>
-          </div>
+          <Card key={tile.label} className="p-0">
+            <CardContent className="p-3">
+              <p className="text-xs text-muted-foreground">{tile.label}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">{tile.value}</p>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
@@ -115,33 +124,33 @@ export default async function AnalyticsOverviewPage({
       {progress.length === 0 ? (
         <p className="mt-2 text-sm text-ink-secondary">No assignments yet.</p>
       ) : (
-        <div className="mt-3 overflow-x-auto rounded border border-hairline">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-surface-sunken text-xs text-ink-secondary">
-              <tr>
-                <th scope="col" className="px-3 py-2 font-medium">Assignment</th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">Enrolled</th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">Not started</th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">Draft</th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">Submitted</th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">Reopened</th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">Resubmitted</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-hairline tabular-nums">
+        <div className="mt-3 overflow-x-auto rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Assignment</TableHead>
+                <TableHead className="text-right">Enrolled</TableHead>
+                <TableHead className="text-right">Not started</TableHead>
+                <TableHead className="text-right">Draft</TableHead>
+                <TableHead className="text-right">Submitted</TableHead>
+                <TableHead className="text-right">Reopened</TableHead>
+                <TableHead className="text-right">Resubmitted</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="tabular-nums">
               {progress.map((p) => (
-                <tr key={p.assignment_id}>
-                  <td className="px-3 py-2">{assignmentTitle(p.assignment_id)}</td>
-                  <td className="px-3 py-2 text-right">{p.enrolled_students}</td>
-                  <td className="px-3 py-2 text-right">{p.not_started_count}</td>
-                  <td className="px-3 py-2 text-right">{p.draft_count}</td>
-                  <td className="px-3 py-2 text-right">{p.submitted_count}</td>
-                  <td className="px-3 py-2 text-right">{p.reopened_count}</td>
-                  <td className="px-3 py-2 text-right">{p.resubmitted_count}</td>
-                </tr>
+                <TableRow key={p.assignment_id}>
+                  <TableCell>{assignmentTitle(p.assignment_id)}</TableCell>
+                  <TableCell className="text-right">{p.enrolled_students}</TableCell>
+                  <TableCell className="text-right">{p.not_started_count}</TableCell>
+                  <TableCell className="text-right">{p.draft_count}</TableCell>
+                  <TableCell className="text-right">{p.submitted_count}</TableCell>
+                  <TableCell className="text-right">{p.reopened_count}</TableCell>
+                  <TableCell className="text-right">{p.resubmitted_count}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

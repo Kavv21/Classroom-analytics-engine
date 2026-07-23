@@ -13,32 +13,6 @@ import type { MappingType } from "@/lib/types/domain";
 import type { MappingRowLite, QuestionLite } from "@/components/mappings/types";
 import { MappingTable } from "@/components/mappings/mapping-table";
 import { mappingTypeLabel } from "@/lib/ui/labels";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 
 interface MappingStudioProps {
   classId: string;
@@ -80,16 +54,6 @@ function applyFilters(questions: QuestionLite[], f: ColumnFilters): QuestionLite
   });
 }
 
-/**
- * One side of the split screen: a searchable, keyboard-navigable question
- * picker built on shadcn's Command. Command's own text filtering is turned
- * off (shouldFilter={false}) because the energy-source / criterion /
- * concept dropdowns already narrow the list; Command's input drives only
- * the free-text search, exactly as the previous <input type="search"> did.
- * Multi-select is preserved via a Checkbox in each row, and the "0 — No" /
- * "1 — Yes" nature of the data is untouched (this picker chooses
- * questions, not answers).
- */
 function QuestionColumn({
   title,
   questions,
@@ -110,99 +74,90 @@ function QuestionColumn({
   const concepts = useMemo(() => distinct(questions.map((q) => q.concept)), [questions]);
   const visible = useMemo(() => applyFilters(questions, filters), [questions, filters]);
 
-  // "" is not a valid Radix Select item value, so the "all" option uses a
-  // sentinel that maps back to an empty filter.
-  const ALL = "__all__";
+  const selectClass = "input input-compact";
 
   return (
-    <div className="flex h-full min-w-0 flex-col">
-      <div className="border-b bg-muted p-3">
+    <div className="flex min-w-0 flex-1 flex-col rounded border border-hairline">
+      <div className="border-b border-hairline bg-surface-sunken p-3">
         <p className="font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-muted">
           {visible.length} of {questions.length} questions · {selected.size} selected
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
-          <Select
-            value={filters.energySource || ALL}
-            onValueChange={(v) => onFilters({ ...filters, energySource: v === ALL ? "" : v })}
+          <input
+            type="search"
+            value={filters.search}
+            onChange={(e) => onFilters({ ...filters, search: e.target.value })}
+            placeholder="Search wording or code…"
+            className="w-full input input-compact text-sm"
+          />
+          <select
+            aria-label={`${title} energy source filter`}
+            value={filters.energySource}
+            onChange={(e) => onFilters({ ...filters, energySource: e.target.value })}
+            className={selectClass}
           >
-            <SelectTrigger className="h-8 text-xs" aria-label={`${title} energy source filter`}>
-              <SelectValue placeholder="All energy sources" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All energy sources</SelectItem>
-              {sources.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={filters.criterion || ALL}
-            onValueChange={(v) => onFilters({ ...filters, criterion: v === ALL ? "" : v })}
+            <option value="">All energy sources</option>
+            {sources.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label={`${title} criterion filter`}
+            value={filters.criterion}
+            onChange={(e) => onFilters({ ...filters, criterion: e.target.value })}
+            className={selectClass}
           >
-            <SelectTrigger className="h-8 text-xs" aria-label={`${title} criterion filter`}>
-              <SelectValue placeholder="All criteria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All criteria</SelectItem>
-              {criteria.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <option value="">All criteria</option>
+            {criteria.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
           {concepts.length > 0 && (
-            <Select
-              value={filters.concept || ALL}
-              onValueChange={(v) => onFilters({ ...filters, concept: v === ALL ? "" : v })}
+            <select
+              aria-label={`${title} concept filter`}
+              value={filters.concept}
+              onChange={(e) => onFilters({ ...filters, concept: e.target.value })}
+              className={selectClass}
             >
-              <SelectTrigger className="h-8 text-xs" aria-label={`${title} concept filter`}>
-                <SelectValue placeholder="All concepts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>All concepts</SelectItem>
-                {concepts.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <option value="">All concepts</option>
+              {concepts.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           )}
         </div>
       </div>
-      <Command shouldFilter={false} className="rounded-none border-0">
-        <CommandInput
-          value={filters.search}
-          onValueChange={(v) => onFilters({ ...filters, search: v })}
-          placeholder="Search wording or code…"
-        />
-        <CommandList className="max-h-96">
-          <CommandEmpty>No questions match these filters.</CommandEmpty>
-          <CommandGroup>
-            {visible.map((q) => (
-              <CommandItem
-                key={q.id}
-                value={`${q.code} ${q.text}`}
-                onSelect={() => onToggle(q.id)}
-                className="items-start gap-2"
-              >
-                <Checkbox checked={selected.has(q.id)} className="mt-1" tabIndex={-1} />
-                <span className="min-w-0">
-                  <span className="font-mono text-xs text-muted-foreground">{q.code}</span>{" "}
-                  <span>{q.text}</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {[q.energySource, q.criterion, q.concept].filter(Boolean).join(" · ")}
-                  </span>
+      <ul className="max-h-96 divide-y divide-hairline overflow-y-auto">
+        {visible.map((q) => (
+          <li key={q.id}>
+            <label className="flex cursor-pointer items-start gap-2 px-3 py-2 text-sm hover:bg-surface-info">
+              <input
+                type="checkbox"
+                checked={selected.has(q.id)}
+                onChange={() => onToggle(q.id)}
+                className="mt-1"
+              />
+              <span className="min-w-0">
+                <span className="font-mono text-xs text-ink-muted">{q.code}</span>{" "}
+                <span>{q.text}</span>
+                <span className="mt-0.5 block text-xs text-ink-muted">
+                  {[q.energySource, q.criterion, q.concept].filter(Boolean).join(" · ")}
                 </span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </Command>
+              </span>
+            </label>
+          </li>
+        ))}
+        {visible.length === 0 && (
+          <li className="px-3 py-4 text-sm text-ink-muted">No questions match these filters.</li>
+        )}
+      </ul>
     </div>
   );
 }
@@ -232,6 +187,8 @@ export function MappingStudio({
   const [professorNotes, setProfessorNotes] = useState("");
 
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const questionsById = useMemo(() => {
     const map: Record<string, QuestionLite> = {};
@@ -273,10 +230,14 @@ export function MappingStudio({
     setProfessorNotes(mapping.professorNotes ?? "");
     setA1Selected(new Set(mapping.a1QuestionIds));
     setA2Selected(new Set(mapping.a2QuestionIds));
+    setError(null);
+    setNotice(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function save() {
+    setError(null);
+    setNotice(null);
     setBusy(true);
     const values = {
       mappingName,
@@ -294,7 +255,7 @@ export function MappingStudio({
       : await createMapping(classId, values);
     setBusy(false);
     if (!result.success) {
-      toast.error(
+      setError(
         result.fieldErrors
           ? `${result.error} ${Object.values(result.fieldErrors).flat().join(" ")}`
           : result.error
@@ -307,10 +268,13 @@ export function MappingStudio({
   }
 
   async function seedSuggestions() {
+    setError(null);
+    setNotice(null);
     setBusy(true);
     const result = await seedMappingSuggestions(classId);
     setBusy(false);
     if (!result.success) {
+      setError(result.error);
       toast.error(result.error);
       return;
     }
@@ -321,164 +285,156 @@ export function MappingStudio({
     router.refresh();
   }
 
+  const inputClass = "w-full input input-compact.5 text-sm";
+
   return (
     <div className="mt-6 space-y-6">
-      {/* Split screen: A1 left, A2 right — genuinely resizable so a
-          professor can widen whichever side they are reading. Collapses to
-          stacked panels below lg. */}
-      <ResizablePanelGroup
-        orientation="horizontal"
-        className="hidden min-h-[28rem] rounded-md border lg:flex"
-      >
-        <ResizablePanel defaultSize={50} minSize={25}>
-          <QuestionColumn
-            title={`Assignment 1 — ${a1Title}`}
-            questions={a1Questions}
-            filters={a1Filters}
-            onFilters={setA1Filters}
-            selected={a1Selected}
-            onToggle={(id) => toggle(1, id)}
-          />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={50} minSize={25}>
-          <QuestionColumn
-            title={`Assignment 2 — ${a2Title}`}
-            questions={a2Questions}
-            filters={a2Filters}
-            onFilters={setA2Filters}
-            selected={a2Selected}
-            onToggle={(id) => toggle(2, id)}
-          />
-        </ResizablePanel>
-      </ResizablePanelGroup>
-
-      {/* Stacked, non-resizable fallback on narrow screens. */}
-      <div className="flex flex-col gap-4 lg:hidden">
-        <div className="rounded-md border">
-          <QuestionColumn
-            title={`Assignment 1 — ${a1Title}`}
-            questions={a1Questions}
-            filters={a1Filters}
-            onFilters={setA1Filters}
-            selected={a1Selected}
-            onToggle={(id) => toggle(1, id)}
-          />
-        </div>
-        <div className="rounded-md border">
-          <QuestionColumn
-            title={`Assignment 2 — ${a2Title}`}
-            questions={a2Questions}
-            filters={a2Filters}
-            onFilters={setA2Filters}
-            selected={a2Selected}
-            onToggle={(id) => toggle(2, id)}
-          />
-        </div>
+      {/* Split screen: A1 left, A2 right */}
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <QuestionColumn
+          title={`Assignment 1 — ${a1Title}`}
+          questions={a1Questions}
+          filters={a1Filters}
+          onFilters={setA1Filters}
+          selected={a1Selected}
+          onToggle={(id) => toggle(1, id)}
+        />
+        <QuestionColumn
+          title={`Assignment 2 — ${a2Title}`}
+          questions={a2Questions}
+          filters={a2Filters}
+          onFilters={setA2Filters}
+          selected={a2Selected}
+          onToggle={(id) => toggle(2, id)}
+        />
       </div>
 
       {/* Mapping form */}
-      <Card>
-        <CardContent className="pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="rounded border border-hairline p-4">
+        <div className="flex items-center justify-between">
           <p className="font-medium">{editingId ? "Edit mapping" : "Create mapping from selection"}</p>
           <div className="flex gap-2">
-            <Button variant="outline" disabled={busy} onClick={seedSuggestions}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={seedSuggestions}
+              className="btn btn-secondary disabled:opacity-60"
+            >
               Generate suggestions
-            </Button>
-            <Button asChild variant="outline">
-              <a href={`/classes/${classId}/mappings/export?format=csv`}>Export CSV</a>
-            </Button>
-            <Button asChild variant="outline">
-              <a href={`/classes/${classId}/mappings/export?format=json`}>Export JSON</a>
-            </Button>
+            </button>
+            <a
+              href={`/classes/${classId}/mappings/export?format=csv`}
+              className="btn btn-secondary"
+            >
+              Export CSV
+            </a>
+            <a
+              href={`/classes/${classId}/mappings/export?format=json`}
+              className="btn btn-secondary"
+            >
+              Export JSON
+            </a>
           </div>
         </div>
 
         <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="mapping-name">Mapping name *</Label>
-            <Input
-              id="mapping-name"
+          <label className="text-sm">
+            <span className="mb-1 block text-ink-secondary">Mapping name *</span>
+            <input
               value={mappingName}
               onChange={(e) => setMappingName(e.target.value)}
+              className={inputClass}
               placeholder="e.g. Renewable — Solar"
             />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="mapping-type">Mapping type *</Label>
-            <Select value={mappingType} onValueChange={(v) => setMappingType(v as MappingType)}>
-              <SelectTrigger id="mapping-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MAPPING_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {mappingTypeLabel(t)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="common-concept">Common concept</Label>
-            <Input
-              id="common-concept"
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-ink-secondary">Mapping type *</span>
+            <select
+              value={mappingType}
+              onChange={(e) => setMappingType(e.target.value as MappingType)}
+              className={inputClass}
+            >
+              {MAPPING_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {mappingTypeLabel(t)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-ink-secondary">Common concept</span>
+            <input
               value={commonConcept}
               onChange={(e) => setCommonConcept(e.target.value)}
+              className={inputClass}
               placeholder="e.g. renewable"
             />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="mapping-energy">Energy source</Label>
-            <Input id="mapping-energy" value={energySource} onChange={(e) => setEnergySource(e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="mapping-criterion">Criterion</Label>
-            <Input id="mapping-criterion" value={criterion} onChange={(e) => setCriterion(e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="mapping-method">Comparison method</Label>
-            <Input
-              id="mapping-method"
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-ink-secondary">Energy source</span>
+            <input
+              value={energySource}
+              onChange={(e) => setEnergySource(e.target.value)}
+              className={inputClass}
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-ink-secondary">Criterion</span>
+            <input value={criterion} onChange={(e) => setCriterion(e.target.value)} className={inputClass} />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-ink-secondary">Comparison method</span>
+            <input
               value={comparisonMethod}
               onChange={(e) => setComparisonMethod(e.target.value)}
+              className={inputClass}
               placeholder="e.g. keyword_match:renewable"
             />
-          </div>
-          <div className="grid gap-1.5 md:col-span-2 lg:col-span-3">
-            <Label htmlFor="mapping-notes">Notes</Label>
-            <Textarea
-              id="mapping-notes"
+          </label>
+          <label className="text-sm md:col-span-2 lg:col-span-3">
+            <span className="mb-1 block text-ink-secondary">Notes</span>
+            <textarea
               value={professorNotes}
               onChange={(e) => setProfessorNotes(e.target.value)}
               rows={2}
+              className={inputClass}
             />
-          </div>
+          </label>
         </div>
 
-        <p className="mt-3 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-ink-secondary">
           Selected: {a1Selected.size} from Assignment 1, {a2Selected.size} from Assignment 2.
-          {shapeHint && (
-            <span className="ml-1 text-[color:var(--status-warning-text)]">{shapeHint}</span>
-          )}
+          {shapeHint && <span className="ml-1 text-warn-text">{shapeHint}</span>}
         </p>
 
         <div className="mt-3 flex gap-2">
-          <Button
+          <button
+            type="button"
             disabled={busy || !!shapeHint || mappingName.trim() === ""}
             onClick={save}
+            className="btn btn-primary"
           >
             {editingId ? "Save changes" : "Create mapping"}
-          </Button>
+          </button>
           {(editingId || a1Selected.size > 0 || a2Selected.size > 0) && (
-            <Button variant="outline" disabled={busy} onClick={resetForm}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={resetForm}
+              className="rounded border border-strong px-4 py-2 text-sm font-medium hover:bg-surface-sunken disabled:opacity-60"
+            >
               {editingId ? "Cancel edit" : "Clear selection"}
-            </Button>
+            </button>
           )}
         </div>
-        </CardContent>
-      </Card>
+
+        {error && (
+          <p role="alert" className="mt-2 text-sm text-critical-text">
+            {error}
+          </p>
+        )}
+        {notice && <p className="mt-2 text-sm text-good-text">{notice}</p>}
+      </div>
 
       <MappingTable
         mappings={mappings}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnalyticsNav } from "@/components/analytics/analytics-nav";
+import { Button } from "@/components/ui/button";
 import { AssignmentAnalytics } from "@/components/analytics/assignment-analytics";
 import {
   getQuestionResponseSummaries,
@@ -38,12 +39,9 @@ export default async function AssignmentAnalyticsPage({
             assignment. Descriptive statistics about opinions — never grades.
           </p>
         </div>
-        <Link
-          href={`/classes/${classId}`}
-          className="btn btn-secondary"
-        >
-          Back to class
-        </Link>
+        <Button asChild variant="outline">
+          <Link href={`/classes/${classId}`}>Back to class</Link>
+        </Button>
       </div>
 
       <AnalyticsNav classId={classId} active="assignments" />

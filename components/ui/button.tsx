@@ -60,6 +60,12 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
+      // Default to type="button". A bare <button> defaults to
+      // type="submit", which inside any ancestor <form> hijacks the click
+      // into a form submission (page reload) instead of the onClick
+      // handler — every action button here is a plain action, not a
+      // submit. An explicit type in props still wins via the spread below.
+      type={asChild ? undefined : "button"}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

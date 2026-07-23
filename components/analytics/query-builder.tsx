@@ -32,6 +32,19 @@ import {
 } from "@/lib/query-builder/actions";
 import type { QueryResult } from "@/lib/query-builder/execute";
 import { formatPct } from "@/lib/charts/theme";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface QueryBuilderProps {
   classId: string;
@@ -204,9 +217,6 @@ export function QueryBuilder({
     }
   }
 
-  const controlClass = `input input-compact ${focusRing}`;
-  const buttonClass = `btn btn-secondary ${focusRing}`;
-  const primaryClass = `btn btn-sm btn-primary disabled:opacity-50 ${focusRing}`;
 
   const tableRows = result
     ? result.rows.map((r) => [...r.keys, formatCell(r.value, measure.format)])
@@ -214,78 +224,87 @@ export function QueryBuilder({
 
   return (
     <div className="mt-6 space-y-6">
-      <section aria-label="Query definition" className="card p-4">
+      <Card aria-label="Query definition"><CardContent className="pt-6">
         <h2 className="font-semibold text-ink">Build a query</h2>
         <p className="mt-0.5 text-xs text-ink-secondary">{dataset.description}</p>
 
         <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <label className="text-xs text-ink-secondary">
-            <span className="mb-0.5 block">Dataset</span>
-            <select
-              value={query.dataset}
-              onChange={(e) => changeDataset(e.target.value as DatasetId)}
-              className={`w-full ${controlClass}`}
-            >
-              {datasetList().map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="grid gap-1.5">
+            <Label htmlFor="qb-dataset">Dataset</Label>
+            <Select value={query.dataset} onValueChange={(v) => changeDataset(v as DatasetId)}>
+              <SelectTrigger id="qb-dataset">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {datasetList().map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <label className="text-xs text-ink-secondary">
-            <span className="mb-0.5 block">Measure</span>
-            <select
+          <div className="grid gap-1.5">
+            <Label htmlFor="qb-measure">Measure</Label>
+            <Select
               value={query.measure}
-              onChange={(e) => setQuery({ ...query, measure: e.target.value as MeasureId })}
-              className={`w-full ${controlClass}`}
+              onValueChange={(v) => setQuery({ ...query, measure: v as MeasureId })}
             >
-              {measuresFor(query.dataset).map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger id="qb-measure">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {measuresFor(query.dataset).map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <label className="text-xs text-ink-secondary">
-            <span className="mb-0.5 block">Chart type</span>
-            <select
+          <div className="grid gap-1.5">
+            <Label htmlFor="qb-charttype">Chart type</Label>
+            <Select
               value={query.chartType}
-              onChange={(e) => setQuery({ ...query, chartType: e.target.value as ChartTypeId })}
-              className={`w-full ${controlClass}`}
+              onValueChange={(v) => setQuery({ ...query, chartType: v as ChartTypeId })}
             >
-              {Object.values(CHART_TYPES).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger id="qb-charttype">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(CHART_TYPES).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <div className="text-xs text-ink-secondary">
-            <span className="mb-0.5 block">Actions</span>
+          <div className="grid gap-1.5">
+            <Label>Actions</Label>
             <div className="flex gap-1.5">
-              <button type="button" onClick={resetAll} className={buttonClass}>
+              <Button size="sm" variant="outline" onClick={resetAll}>
                 Reset
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => exportQuery("csv")}
                 disabled={!validation.valid || busy}
-                className={buttonClass}
               >
                 CSV
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => exportQuery("pdf")}
                 disabled={!validation.valid || busy}
-                className={buttonClass}
               >
                 PDF
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -296,13 +315,11 @@ export function QueryBuilder({
             {dimensionsFor(query.dataset).map((d) => (
               <label
                 key={d.id}
-                className="flex items-center gap-1.5 input input-compact"
+                className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={query.dimensions.includes(d.id)}
-                  onChange={() => toggleDimension(d.id)}
-                  className={focusRing}
+                  onCheckedChange={() => toggleDimension(d.id)}
                 />
                 {d.label}
               </label>
@@ -320,62 +337,60 @@ export function QueryBuilder({
                 return (
                   <label key={d} className="text-xs text-ink-secondary">
                     <span className="mb-0.5 block">{DIMENSIONS[d].label}</span>
-                    <select
-                      value={current}
-                      onChange={(e) => {
-                        const value = e.target.value;
+                    <Select
+                      value={current || "__all__"}
+                      onValueChange={(value) => {
                         setQuery((q) => ({
                           ...q,
                           filters:
-                            value === ""
+                            value === "__all__"
                               ? q.filters.filter((f) => f.dimension !== d)
                               : [...q.filters.filter((f) => f.dimension !== d), { dimension: d, value }],
                         }));
                       }}
-                      className={controlClass}
                     >
-                      <option value="">All</option>
-                      {(filterOptions[d] ?? []).map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">All</SelectItem>
+                        {(filterOptions[d] ?? []).map((v) => (
+                          <SelectItem key={v} value={v}>
+                            {v}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </label>
                 );
               })}
             {query.filters.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setQuery({ ...query, filters: [] })}
-                className={buttonClass}
-              >
+              <Button size="sm" variant="outline" onClick={() => setQuery({ ...query, filters: [] })}>
                 Clear filters
-              </button>
+              </Button>
             )}
           </div>
         </fieldset>
 
         {!validation.valid && (
-          <div
-            role="alert"
-            className="mt-3 banner banner-warning"
-          >
-            <p className="font-medium">This combination can&rsquo;t be charted:</p>
-            <ul className="mt-1 list-disc space-y-0.5 pl-5">
-              {validation.issues.map((issue, i) => (
-                <li key={i}>{issue.message}</li>
-              ))}
-            </ul>
-          </div>
+          <Alert className="mt-3">
+            <AlertTitle>This combination can&rsquo;t be charted</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc space-y-0.5 pl-5">
+                {validation.issues.map((issue, i) => (
+                  <li key={i}>{issue.message}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
         )}
 
         {runError && (
-          <p role="alert" className="mt-3 text-sm text-critical-text">
+          <p role="alert" className="mt-3 text-sm text-[color:var(--status-critical-text)]">
             {runError}
           </p>
         )}
-      </section>
+      </CardContent></Card>
 
       {validation.valid && result && (
         <ChartCard
@@ -389,47 +404,44 @@ export function QueryBuilder({
         />
       )}
 
-      <section aria-label="Save and load" className="card p-4">
-        <h2 className="font-semibold text-ink">Save</h2>
+      <Card aria-label="Save and load"><CardContent className="pt-6">
+        <h2 className="font-semibold">Save</h2>
         <div className="mt-2 flex flex-wrap items-end gap-2">
-          <label className="text-xs text-ink-secondary">
-            <span className="mb-0.5 block">Name</span>
-            <input
+          <div className="grid gap-1.5">
+            <Label htmlFor="qb-savename">Name</Label>
+            <Input
+              id="qb-savename"
               value={saveName}
               onChange={(e) => setSaveName(e.target.value)}
-              className={controlClass}
               placeholder="e.g. Change rate by energy source"
             />
-          </label>
-          <label className="text-xs text-ink-secondary">
-            <span className="mb-0.5 block">Description (optional)</span>
-            <input
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="qb-savedesc">Description (optional)</Label>
+            <Input
+              id="qb-savedesc"
               value={saveDescription}
               onChange={(e) => setSaveDescription(e.target.value)}
-              className={controlClass}
             />
-          </label>
-          <button
-            type="button"
+          </div>
+          <Button
+            variant="outline"
             onClick={handleSaveQuery}
             disabled={busy || !validation.valid || saveName.trim() === ""}
-            className={buttonClass}
           >
             Save query
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             onClick={handleSaveVisualisation}
             disabled={busy || !validation.valid || saveName.trim() === ""}
-            className={primaryClass}
           >
             Save visualisation
-          </button>
+          </Button>
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
-            <h3 className="text-sm font-medium text-ink">Saved queries ({savedQueries.length})</h3>
+            <h3 className="text-sm font-medium">Saved queries ({savedQueries.length})</h3>
             <ul className="mt-1 space-y-1">
               {savedQueries.map((q) => (
                 <li key={q.id} className="flex items-center justify-between gap-2 text-xs">
@@ -443,7 +455,7 @@ export function QueryBuilder({
                   <button
                     type="button"
                     onClick={() => handleDelete("query", q.id)}
-                    className={`text-critical-text hover:underline ${focusRing}`}
+                    className={`text-[color:var(--status-critical-text)] hover:underline ${focusRing}`}
                   >
                     Delete
                   </button>
@@ -454,22 +466,20 @@ export function QueryBuilder({
           </div>
 
           <div>
-            <h3 className="text-sm font-medium text-ink">
+            <h3 className="text-sm font-medium">
               Saved visualisations ({savedVisualisations.length})
             </h3>
             <ul className="mt-1 space-y-1">
               {savedVisualisations.map((v) => (
                 <li key={v.id} className="flex items-center justify-between gap-2 text-xs">
                   <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={selectedVisualisations.includes(v.id)}
-                      onChange={() =>
+                      onCheckedChange={() =>
                         setSelectedVisualisations((prev) =>
                           prev.includes(v.id) ? prev.filter((x) => x !== v.id) : [...prev, v.id]
                         )
                       }
-                      className={focusRing}
                     />
                     <button
                       type="button"
@@ -483,7 +493,7 @@ export function QueryBuilder({
                   <button
                     type="button"
                     onClick={() => handleDelete("visualisation", v.id)}
-                    className={`text-critical-text hover:underline ${focusRing}`}
+                    className={`text-[color:var(--status-critical-text)] hover:underline ${focusRing}`}
                   >
                     Delete
                   </button>
@@ -497,24 +507,23 @@ export function QueryBuilder({
         </div>
 
         <div className="mt-4">
-          <h3 className="text-sm font-medium text-ink">Dashboards ({dashboards.length})</h3>
+          <h3 className="text-sm font-medium">Dashboards ({dashboards.length})</h3>
           <div className="mt-1 flex flex-wrap items-end gap-2">
-            <label className="text-xs text-ink-secondary">
-              <span className="mb-0.5 block">New dashboard name</span>
-              <input
+            <div className="grid gap-1.5">
+              <Label htmlFor="qb-dashname">New dashboard name</Label>
+              <Input
+                id="qb-dashname"
                 value={dashboardName}
                 onChange={(e) => setDashboardName(e.target.value)}
-                className={controlClass}
               />
-            </label>
-            <button
-              type="button"
+            </div>
+            <Button
+              variant="outline"
               onClick={handleCreateDashboard}
               disabled={busy || dashboardName.trim() === ""}
-              className={buttonClass}
             >
               Create from {selectedVisualisations.length} selected
-            </button>
+            </Button>
           </div>
           <ul className="mt-2 space-y-1">
             {dashboards.map((d) => (
@@ -525,16 +534,16 @@ export function QueryBuilder({
                 <button
                   type="button"
                   onClick={() => handleDelete("dashboard", d.id)}
-                  className={`text-critical-text hover:underline ${focusRing}`}
+                  className={`text-[color:var(--status-critical-text)] hover:underline ${focusRing}`}
                 >
                   Delete
                 </button>
               </li>
             ))}
-            {dashboards.length === 0 && <li className="text-xs text-ink-muted">None yet.</li>}
+            {dashboards.length === 0 && <li className="text-xs text-muted-foreground">None yet.</li>}
           </ul>
         </div>
-      </section>
+      </CardContent></Card>
     </div>
   );
 }

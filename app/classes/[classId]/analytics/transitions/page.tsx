@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnalyticsNav } from "@/components/analytics/analytics-nav";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TransitionAnalytics } from "@/components/analytics/transition-analytics";
 import {
   getMappingTransitionSummaries,
@@ -36,24 +38,19 @@ export default async function TransitionAnalyticsPage({
             mapping. A change is a change — neither direction is better.
           </p>
         </div>
-        <Link
-          href={`/classes/${classId}`}
-          className="btn btn-secondary"
-        >
-          Back to class
-        </Link>
+        <Button asChild variant="outline">
+          <Link href={`/classes/${classId}`}>Back to class</Link>
+        </Button>
       </div>
 
       <AnalyticsNav classId={classId} active="transitions" />
 
       {mappingSummaries.length === 0 ? (
-        <p className="mt-6 rounded border border-hairline bg-surface-sunken px-3 py-2 text-sm text-ink-secondary">
-          No approved mappings yet — approve mappings in the{" "}
+        <Alert className="mt-6"><AlertDescription>No approved mappings yet — approve mappings in the{" "}
           <Link href={`/classes/${classId}/mappings`} className="link">
             mapping studio
           </Link>{" "}
-          to see transitions.
-        </p>
+          to see transitions.</AlertDescription></Alert>
       ) : (
         <TransitionAnalytics
           classId={classId}

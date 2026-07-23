@@ -8,6 +8,9 @@ import {
   transitionAssignment,
 } from "@/lib/assignments/actions";
 import type { AssignmentStatus } from "@/lib/types/domain";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface StatusActionsProps {
   assignmentId: string;
@@ -24,7 +27,6 @@ interface StatusActionsProps {
  */
 export function StatusActions({ assignmentId, classId, status, questionCount }: StatusActionsProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
@@ -38,12 +40,10 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
   };
 
   async function move(to: AssignmentStatus) {
-    setError(null);
     setBusy(true);
     const result = await transitionAssignment(assignmentId, to);
     setBusy(false);
     if (!result.success) {
-      setError(result.error);
       return;
     }
     const done = DONE_MESSAGES[to];
@@ -52,12 +52,10 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
   }
 
   async function duplicate() {
-    setError(null);
     setBusy(true);
     const result = await duplicateAssignment(assignmentId);
     setBusy(false);
     if (!result.success) {
-      setError(result.error);
       return;
     }
     router.push(`/classes/${classId}/assignments/${result.data.id}`);
@@ -67,91 +65,67 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
   return (
     <div className="space-y-3">
       {status === "DRAFT" && (
-        <div className="card-standard">
-          {questionCount === 0 ? (
-            <p className="note">
-              Import your questions before you can mark this assignment ready.
-            </p>
-          ) : (
-            <>
-              <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={reviewConfirmed}
-                  onChange={(e) => setReviewConfirmed(e.target.checked)}
-                  className="mt-0.5"
-                />
-                <span>
-                  I have reviewed all {questionCount} question
-                  {questionCount === 1 ? "" : "s"} below and approve this list.
-                </span>
-              </label>
-              <button
-                type="button"
-                disabled={busy || !reviewConfirmed}
-                onClick={() => move("READY")}
-                className="btn btn-primary mt-4"
-              >
-                Mark ready to publish
-              </button>
-            </>
-          )}
-        </div>
+        <Card>
+          <CardContent>
+            {questionCount === 0 ? (
+              <p className="note">
+                Import your questions before you can mark this assignment ready.
+              </p>
+            ) : (
+              <>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox
+                    checked={reviewConfirmed}
+                    onCheckedChange={(v) => setReviewConfirmed(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    I have reviewed all {questionCount} question
+                    {questionCount === 1 ? "" : "s"} below and approve this list.
+                  </span>
+                </label>
+                <Button
+                  disabled={busy || !reviewConfirmed}
+                  onClick={() => move("READY")}
+                  className="mt-4"
+                >
+                  Mark ready to publish
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <div className="flex flex-wrap gap-2">
         {status === "READY" && (
           <>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => move("OPEN")}
-              className="btn btn-primary"
-            >
+            <Button disabled={busy} onClick={() => move("OPEN")}>
               Publish to students
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => move("DRAFT")}
-              className="btn btn-secondary"
-            >
+            </Button>
+            <Button variant="outline" disabled={busy} onClick={() => move("DRAFT")}>
               Back to draft
-            </button>
+            </Button>
           </>
         )}
         {status === "OPEN" && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => move("CLOSED")}
-            className="btn btn-primary"
-          >
+          <Button disabled={busy} onClick={() => move("CLOSED")}>
             Close assignment
-          </button>
+          </Button>
         )}
         {status === "CLOSED" && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => move("ARCHIVED")}
-            className="btn btn-secondary"
-          >
+          <Button variant="outline" disabled={busy} onClick={() => move("ARCHIVED")}>
             Archive assignment
-          </button>
+          </Button>
         )}
         {status !== "ARCHIVED" && (
-          <button type="button" disabled={busy} onClick={duplicate} className="btn btn-secondary">
+          <Button variant="outline" disabled={busy} onClick={duplicate}>
             Duplicate
-          </button>
+          </Button>
         )}
       </div>
 
-      {error && (
-        <p role="alert" className="banner banner-critical">
-          {error}
-        </p>
-      )}
+
     </div>
   );
 }

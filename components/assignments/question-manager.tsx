@@ -7,6 +7,17 @@ import {
   reorderQuestions,
   updateQuestionLabels,
 } from "@/lib/assignments/actions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export interface QuestionRow {
   id: string;
@@ -36,7 +47,6 @@ export function QuestionManager({
   editable,
 }: QuestionManagerProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [zeroLabel, setZeroLabel] = useState("");
@@ -53,13 +63,10 @@ export function QuestionManager({
     if (a === undefined || b === undefined) return;
     ids[index] = b;
     ids[target] = a;
-
-    setError(null);
     setBusy(true);
     const result = await reorderQuestions(assignmentId, ids);
     setBusy(false);
     if (!result.success) {
-      setError(result.error);
       toast.error(result.error);
       return;
     }
@@ -70,11 +77,9 @@ export function QuestionManager({
     setEditingId(q.id);
     setZeroLabel(q.response_zero_label);
     setOneLabel(q.response_one_label);
-    setError(null);
   }
 
   async function saveLabels(questionId: string) {
-    setError(null);
     setBusy(true);
     const result = await updateQuestionLabels(assignmentId, questionId, {
       responseZeroLabel: zeroLabel,
@@ -82,7 +87,6 @@ export function QuestionManager({
     });
     setBusy(false);
     if (!result.success) {
-      setError(result.error);
       toast.error(result.error);
       return;
     }
@@ -92,73 +96,66 @@ export function QuestionManager({
 
   if (ordered.length === 0) {
     return (
-      <p className="banner mt-3">
-        No questions yet. Import your spreadsheet to add them.
-      </p>
+      <Alert className="mt-3">
+        <AlertDescription>No questions yet. Import your spreadsheet to add them.</AlertDescription>
+      </Alert>
     );
   }
 
   return (
     <div className="mt-4">
       {hasResponses && (
-        <p className="banner banner-warning mb-3">
-          Students have already answered this assignment, so question wording
-          and answer labels are locked. You can still reorder questions. To
-          change the questions themselves, duplicate the assignment and edit
-          the copy.
-        </p>
+        <Alert className="mb-3">
+          <AlertDescription>
+            Students have already answered this assignment, so question wording
+            and answer labels are locked. You can still reorder questions. To
+            change the questions themselves, duplicate the assignment and edit
+            the copy.
+          </AlertDescription>
+        </Alert>
       )}
-      <div className="table-frame">
-        <table className="data-table data-table--dense">
-          <thead>
-            <tr>
-              <th scope="col">#</th>
-              <th scope="col">Code</th>
-              <th scope="col">Question</th>
-              <th scope="col">Answer labels</th>
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>#</TableHead>
+              <TableHead>Code</TableHead>
+              <TableHead>Question</TableHead>
+              <TableHead>Answer labels</TableHead>
               {editable && (
-                <th scope="col">
+                <TableHead>
                   <span className="sr-only">Reorder</span>
-                </th>
+                </TableHead>
               )}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {ordered.map((q, i) => (
-              <tr key={q.id}>
-                <td className="text-ink-muted tabular-nums">{q.display_order}</td>
-                <td className="mono">{q.external_question_code}</td>
-                <td>{q.question_text}</td>
-                <td>
+              <TableRow key={q.id}>
+                <TableCell className="text-ink-muted tabular-nums">{q.display_order}</TableCell>
+                <TableCell className="mono">{q.external_question_code}</TableCell>
+                <TableCell>{q.question_text}</TableCell>
+                <TableCell>
                   {editingId === q.id ? (
                     <span className="flex flex-wrap items-center gap-2">
-                      <input
+                      <Input
                         aria-label="Label for 0"
                         value={zeroLabel}
                         onChange={(e) => setZeroLabel(e.target.value)}
-                        className="input input-compact w-28"
+                        className="w-28"
                       />
-                      <input
+                      <Input
                         aria-label="Label for 1"
                         value={oneLabel}
                         onChange={(e) => setOneLabel(e.target.value)}
-                        className="input input-compact w-28"
+                        className="w-28"
                       />
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => saveLabels(q.id)}
-                        className="btn btn-sm btn-primary"
-                      >
+                      <Button size="sm" disabled={busy} onClick={() => saveLabels(q.id)}>
                         Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(null)}
-                        className="btn btn-sm btn-secondary"
-                      >
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
                         Cancel
-                      </button>
+                      </Button>
                     </span>
                   ) : (
                     <span className="text-ink-secondary">
@@ -174,41 +171,38 @@ export function QuestionManager({
                       )}
                     </span>
                   )}
-                </td>
+                </TableCell>
                 {editable && (
-                  <td>
+                  <TableCell>
                     <span className="flex gap-1">
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
+                        variant="outline"
                         aria-label={`Move question ${q.display_order} up`}
                         disabled={busy || i === 0}
                         onClick={() => swap(i, -1)}
-                        className="btn btn-sm btn-secondary px-2"
+                        className="px-2"
                       >
                         ↑
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         aria-label={`Move question ${q.display_order} down`}
                         disabled={busy || i === ordered.length - 1}
                         onClick={() => swap(i, 1)}
-                        className="btn btn-sm btn-secondary px-2"
+                        className="px-2"
                       >
                         ↓
-                      </button>
+                      </Button>
                     </span>
-                  </td>
+                  </TableCell>
                 )}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
-      {error && (
-        <p role="alert" className="banner banner-critical mt-2">
-          {error}
-        </p>
-      )}
     </div>
   );
 }

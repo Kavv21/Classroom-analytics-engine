@@ -7,8 +7,29 @@ import { previewRosterImport, commitRosterImport } from "@/lib/roster/actions";
 import { buildRejectionReportCsv } from "@/lib/roster/validate";
 import { RosterPreviewTable } from "@/components/roster/roster-preview-table";
 import type { RosterImportPreview, RosterImportSummary } from "@/lib/types/domain";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Phase = "idle" | "loading" | "previewed" | "committed";
+
+/** The three steps, shown as a non-interactive indicator. */
+const STEPS = [
+  { key: "upload", label: "1. Upload" },
+  { key: "review", label: "2. Review" },
+  { key: "done", label: "3. Done" },
+] as const;
+
+function stepFor(phase: Phase): (typeof STEPS)[number]["key"] {
+  if (phase === "committed") return "done";
+  if (phase === "previewed") return "review";
+  return "upload";
+}
 
 export function RosterImportWizard({ classId }: { classId: string }) {
   const router = useRouter();
@@ -18,6 +39,8 @@ export function RosterImportWizard({ classId }: { classId: string }) {
   const [preview, setPreview] = useState<RosterImportPreview | null>(null);
   const [summary, setSummary] = useState<RosterImportSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const currentStep = stepFor(phase);
 
   async function handlePreview() {
     if (!file) return;
@@ -55,6 +78,7 @@ export function RosterImportWizard({ classId }: { classId: string }) {
     }
     setSummary(result.data);
     setPhase("committed");
+    toast.success(`Imported ${result.data.imported} student${result.data.imported === 1 ? "" : "s"}.`);
     router.refresh();
   }
 
@@ -81,116 +105,147 @@ export function RosterImportWizard({ classId }: { classId: string }) {
 
   return (
     <div className="space-y-6">
-      {phase !== "committed" && (
-        <div>
-          <label htmlFor="roster-file" className="block text-sm font-medium text-ink-secondary">
-            Roster file (.csv, .xlsx, .xls)
-          </label>
-          <input
-            id="roster-file"
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null);
-              setPreview(null);
-              setPhase("idle");
-            }}
-            className="mt-1 block text-sm"
-          />
-          <button
-            type="button"
-            onClick={handlePreview}
-            disabled={!file || phase === "loading"}
-            className="mt-3 btn btn-primary"
-          >
-            {phase === "loading" && !preview ? "Checking file…" : "Preview import"}
-          </button>
-        </div>
-      )}
+      {/* Step indicator — a Tabs list driven by phase, not clickable: the
+          professor moves forward by acting, not by jumping steps. */}
+      <Tabs value={currentStep}>
+        <TabsList>
+          {STEPS.map((step) => (
+            <TabsTrigger key={step.key} value={step.key} disabled className="disabled:opacity-100">
+              {step.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="upload" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Upload a roster file</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="roster-file">Roster file (.csv, .xlsx, .xls)</Label>
+                <Input
+                  id="roster-file"
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={(e) => {
+                    setFile(e.target.files?.[0] ?? null);
+                    setPreview(null);
+                    setPhase("idle");
+                  }}
+                />
+              </div>
+              <Button
+                onClick={handlePreview}
+                disabled={!file || phase === "loading"}
+              >
+                {phase === "loading" ? "Checking file…" : "Preview import"}
+              </Button>
+              {phase === "loading" && (
+                <Progress value={undefined} aria-label="Checking file" className="h-1.5" />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="review" className="mt-6 space-y-4">
+          {preview && (
+            <>
+              <div className="flex flex-wrap gap-3">
+                <Card className="min-w-32 p-0">
+                  <CardContent className="p-4">
+                    <p className="note-muted">Total rows</p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums">{preview.totalRows}</p>
+                  </CardContent>
+                </Card>
+                <Card className="min-w-32 p-0">
+                  <CardContent className="p-4">
+                    <p className="note-muted">Importable</p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[color:var(--status-good-text)]">
+                      {preview.importableRows.length}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="min-w-32 p-0">
+                  <CardContent className="p-4">
+                    <p className="note-muted">Rejected</p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[color:var(--status-critical-text)]">
+                      {preview.rejectedRows.length}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div>
+                <h3 className="mb-2 subheading">Rows to import</h3>
+                <RosterPreviewTable rows={preview.importableRows} />
+              </div>
+
+              {preview.rejectedRows.length > 0 && (
+                <div>
+                  <h3 className="mb-2 flex items-center gap-2 subheading">
+                    Rejected rows
+                    <Badge
+                      variant="outline"
+                      className="border-transparent bg-surface-critical text-[color:var(--status-critical-text)]"
+                    >
+                      {preview.rejectedRows.length}
+                    </Badge>
+                  </h3>
+                  <RosterPreviewTable rows={preview.rejectedRows} />
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={handleCommit}
+                  disabled={preview.importableRows.length === 0 || phase === "loading"}
+                >
+                  {phase === "loading"
+                    ? "Importing…"
+                    : `Import ${preview.importableRows.length} student${preview.importableRows.length === 1 ? "" : "s"}`}
+                </Button>
+                <Button variant="outline" onClick={handleReset}>
+                  Start over
+                </Button>
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="done" className="mt-6">
+          {summary && (
+            <Alert className="border-[color:var(--status-good-text)]/30 bg-surface-good">
+              <AlertTitle className="text-[color:var(--status-good-text)]">
+                Roster imported
+              </AlertTitle>
+              <AlertDescription>
+                <ul className="text-[color:var(--status-good-text)]">
+                  <li>Total rows: {summary.total}</li>
+                  <li>Imported: {summary.imported}</li>
+                  <li>Rejected: {summary.rejected}</li>
+                </ul>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {preview && preview.rejectedRows.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={handleDownloadRejectionReport}>
+                      Download rejection report
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={handleReset}>
+                    Import another file
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {error && (
-        <p role="alert" className="text-sm text-critical-text">
+        <p role="alert" className="text-sm text-[color:var(--status-critical-text)]">
           {error}
         </p>
-      )}
-
-      {preview && phase !== "committed" && (
-        <div className="space-y-4">
-          <div className="flex gap-6 rounded border border-hairline p-4 text-sm">
-            <div>
-              <p className="text-ink-muted">Total rows</p>
-              <p className="title-sm">{preview.totalRows}</p>
-            </div>
-            <div>
-              <p className="text-ink-muted">Importable</p>
-              <p className="text-lg font-semibold text-good-text">{preview.importableRows.length}</p>
-            </div>
-            <div>
-              <p className="text-ink-muted">Rejected</p>
-              <p className="text-lg font-semibold text-critical-text">{preview.rejectedRows.length}</p>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="mb-2 text-sm font-semibold text-ink-secondary">Rows to import</h3>
-            <RosterPreviewTable rows={preview.importableRows} />
-          </div>
-
-          {preview.rejectedRows.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-sm font-semibold text-ink-secondary">Rejected rows</h3>
-              <RosterPreviewTable rows={preview.rejectedRows} />
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={handleCommit}
-              disabled={preview.importableRows.length === 0 || phase === "loading"}
-              className="btn btn-primary"
-            >
-              {phase === "loading" ? "Importing…" : `Import ${preview.importableRows.length} student(s)`}
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="rounded border border-strong px-4 py-2 text-sm font-medium hover:bg-surface-sunken"
-            >
-              Start over
-            </button>
-          </div>
-        </div>
-      )}
-
-      {summary && phase === "committed" && (
-        <div className="banner banner-good space-y-4">
-          <p className="font-medium text-green-800">Import complete.</p>
-          <ul className="text-sm text-green-800">
-            <li>Total rows: {summary.total}</li>
-            <li>Imported: {summary.imported}</li>
-            <li>Rejected: {summary.rejected}</li>
-          </ul>
-          <div className="flex gap-3">
-            {preview && preview.rejectedRows.length > 0 && (
-              <button
-                type="button"
-                onClick={handleDownloadRejectionReport}
-                className="rounded border border-strong bg-white px-4 py-2 text-sm font-medium hover:bg-surface-sunken"
-              >
-                Download rejection report
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleReset}
-              className="rounded border border-strong bg-white px-4 py-2 text-sm font-medium hover:bg-surface-sunken"
-            >
-              Import another file
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );

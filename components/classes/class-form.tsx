@@ -6,6 +6,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { classFormSchema, type ClassFormValues } from "@/lib/classes/schema";
 import type { ActionResult } from "@/lib/classes/actions";
+import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface ClassFormProps {
   defaultValues?: Partial<ClassFormValues>;
@@ -65,6 +70,7 @@ export function ClassForm({
 
     if (!result.success) {
       setFormError(result.error);
+      toast.error(result.error);
       if (result.fieldErrors) {
         for (const [field, messages] of Object.entries(result.fieldErrors)) {
           if (messages?.[0]) {
@@ -82,24 +88,20 @@ export function ClassForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       {fields.map(({ name, label, type }) => (
-        <div key={name}>
-          <label htmlFor={name} className="field-label">
-            {label}
-          </label>
-          <input
+        <div key={name} className="grid gap-1.5">
+          <Label htmlFor={name}>{label}</Label>
+          <Input
             id={name}
             type={type ?? "text"}
-            aria-invalid={errors[name] ? "true" : undefined}
+            aria-invalid={errors[name] ? true : undefined}
             aria-describedby={errors[name] ? `${name}-error` : undefined}
             {...register(name)}
-            className={`input ${errors[name] ? "input-error" : ""}`}
           />
           {errors[name] && (
             <p
               id={`${name}-error`}
               role="alert"
-              className="mt-1 text-xs"
-              style={{ color: "var(--status-critical-text)" }}
+              className="mt-1 text-xs text-[color:var(--status-critical-text)]"
             >
               {errors[name]?.message}
             </p>
@@ -108,14 +110,14 @@ export function ClassForm({
       ))}
 
       {formError && (
-        <p role="alert" className="banner banner-critical">
-          {formError}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{formError}</AlertDescription>
+        </Alert>
       )}
 
-      <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+      <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Saving…" : submitLabel}
-      </button>
+      </Button>
     </form>
   );
 }

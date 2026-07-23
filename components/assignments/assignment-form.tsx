@@ -2,13 +2,27 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import {
   assignmentFormSchema,
   type AssignmentFormValues,
 } from "@/lib/assignments/schema";
 import type { AssignmentActionResult } from "@/lib/assignments/actions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface AssignmentFormProps {
   defaultValues?: Partial<AssignmentFormValues>;
@@ -41,6 +55,7 @@ export function AssignmentForm({
   const {
     register,
     handleSubmit,
+    control,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<AssignmentFormValues>({
@@ -67,6 +82,7 @@ export function AssignmentForm({
 
     if (!result.success) {
       setFormError(result.error);
+      toast.error(result.error);
       if (result.fieldErrors) {
         for (const [field, messages] of Object.entries(result.fieldErrors)) {
           if (messages?.[0]) {
@@ -83,136 +99,119 @@ export function AssignmentForm({
 
   const fieldError = (name: keyof AssignmentFormValues) =>
     errors[name] ? (
-      <p role="alert" className="mt-1 text-xs" style={{ color: "var(--status-critical-text)" }}>
+      <p role="alert" className="mt-1 text-xs text-[color:var(--status-critical-text)]">
         {errors[name]?.message}
       </p>
     ) : null;
 
-  const inputClass = "input";
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-      <div>
-        <label htmlFor="title" className="field-label">
-          Title
-        </label>
-        <input id="title" type="text" {...register("title")} className={inputClass} />
+      <div className="grid gap-1.5">
+        <Label htmlFor="title">Title</Label>
+        <Input id="title" type="text" aria-invalid={!!errors.title} {...register("title")} />
         {fieldError("title")}
       </div>
 
-      <div>
-        <label htmlFor="description" className="field-label">
-          Description
-        </label>
-        <textarea id="description" rows={2} {...register("description")} className={inputClass} />
+      <div className="grid gap-1.5">
+        <Label htmlFor="description">Description</Label>
+        <Textarea id="description" rows={2} {...register("description")} />
         {fieldError("description")}
       </div>
 
-      <div>
-        <label htmlFor="instructions" className="field-label">
-          Instructions shown to students
-        </label>
-        <textarea id="instructions" rows={3} {...register("instructions")} className={inputClass} />
+      <div className="grid gap-1.5">
+        <Label htmlFor="instructions">Instructions shown to students</Label>
+        <Textarea id="instructions" rows={3} {...register("instructions")} />
         {fieldError("instructions")}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="assignmentStage" className="field-label">
-            Stage
-          </label>
-          <select id="assignmentStage" {...register("assignmentStage")} className={inputClass}>
-            {STAGES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+        <div className="grid gap-1.5">
+          <Label htmlFor="assignmentStage">Stage</Label>
+          <Controller
+            name="assignmentStage"
+            control={control}
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger id="assignmentStage">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAGES.map((stage) => (
+                    <SelectItem key={stage.value} value={stage.value}>
+                      {stage.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
           {fieldError("assignmentStage")}
         </div>
-        <div>
-          <label htmlFor="sequenceNumber" className="field-label">
-            Sequence number
-          </label>
-          <input
-            id="sequenceNumber"
-            type="number"
-            min={1}
-            {...register("sequenceNumber")}
-            className={inputClass}
-          />
+        <div className="grid gap-1.5">
+          <Label htmlFor="sequenceNumber">Sequence number</Label>
+          <Input id="sequenceNumber" type="number" min={1} {...register("sequenceNumber")} />
           {fieldError("sequenceNumber")}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="openAt" className="field-label">
-            Opens at (optional)
-          </label>
-          <input id="openAt" type="datetime-local" {...register("openAt")} className={inputClass} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="openAt">Opens at (optional)</Label>
+          <Input id="openAt" type="datetime-local" {...register("openAt")} />
           {fieldError("openAt")}
         </div>
-        <div>
-          <label htmlFor="closeAt" className="field-label">
-            Closes at (optional)
-          </label>
-          <input id="closeAt" type="datetime-local" {...register("closeAt")} className={inputClass} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="closeAt">Closes at (optional)</Label>
+          <Input id="closeAt" type="datetime-local" {...register("closeAt")} />
           {fieldError("closeAt")}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="responseZeroLabel" className="field-label">
-            Label for 0
-          </label>
-          <input
-            id="responseZeroLabel"
-            type="text"
-            {...register("responseZeroLabel")}
-            className={inputClass}
-          />
+        <div className="grid gap-1.5">
+          <Label htmlFor="responseZeroLabel">Label for 0</Label>
+          <Input id="responseZeroLabel" type="text" {...register("responseZeroLabel")} />
           {fieldError("responseZeroLabel")}
         </div>
-        <div>
-          <label htmlFor="responseOneLabel" className="field-label">
-            Label for 1
-          </label>
-          <input
-            id="responseOneLabel"
-            type="text"
-            {...register("responseOneLabel")}
-            className={inputClass}
-          />
+        <div className="grid gap-1.5">
+          <Label htmlFor="responseOneLabel">Label for 1</Label>
+          <Input id="responseOneLabel" type="text" {...register("responseOneLabel")} />
           {fieldError("responseOneLabel")}
         </div>
       </div>
 
-      <div className="flex gap-6">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" {...register("allowDraftEditing")} />
-          Allow draft editing
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" {...register("allowResubmission")} />
-          Allow resubmission after reopening
-        </label>
+      <div className="flex flex-wrap gap-6">
+        <Controller
+          name="allowDraftEditing"
+          control={control}
+          render={({ field }) => (
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+              Allow draft editing
+            </label>
+          )}
+        />
+        <Controller
+          name="allowResubmission"
+          control={control}
+          render={({ field }) => (
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+              Allow resubmission after reopening
+            </label>
+          )}
+        />
       </div>
 
       {formError && (
-        <p role="alert" className="banner banner-critical">
-          {formError}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{formError}</AlertDescription>
+        </Alert>
       )}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="btn btn-primary"
-      >
+      <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Saving…" : submitLabel}
-      </button>
+      </Button>
     </form>
   );
 }

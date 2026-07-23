@@ -2,6 +2,15 @@
 
 import { useReactTable, getCoreRowModel, flexRender, createColumnHelper } from "@tanstack/react-table";
 import type { RosterRowResult, RosterRowClassification } from "@/lib/types/domain";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const CLASSIFICATION_LABEL: Record<RosterRowClassification, string> = {
   NEW: "New",
@@ -12,13 +21,16 @@ const CLASSIFICATION_LABEL: Record<RosterRowClassification, string> = {
   INVALID: "Invalid",
 };
 
-const CLASSIFICATION_STYLE: Record<RosterRowClassification, string> = {
-  NEW: "badge badge-good",
-  EXISTING_PROFILE: "badge badge-info",
-  DUPLICATE_IN_FILE: "badge badge-warning",
-  DUPLICATE_ALREADY_IN_CLASS: "badge badge-warning",
-  DUPLICATE_PENDING_OTHER_CLASS: "badge badge-warning",
-  INVALID: "badge badge-critical",
+/** Tone by outcome. Text always carries the meaning; colour is redundant. */
+const CLASSIFICATION_TONE: Record<RosterRowClassification, string> = {
+  NEW: "border-transparent bg-surface-good text-[color:var(--status-good-text)]",
+  EXISTING_PROFILE: "border-transparent bg-surface-info text-[color:var(--status-info-text)]",
+  DUPLICATE_IN_FILE: "border-transparent bg-surface-warning text-[color:var(--status-warning-text)]",
+  DUPLICATE_ALREADY_IN_CLASS:
+    "border-transparent bg-surface-warning text-[color:var(--status-warning-text)]",
+  DUPLICATE_PENDING_OTHER_CLASS:
+    "border-transparent bg-surface-warning text-[color:var(--status-warning-text)]",
+  INVALID: "border-transparent bg-surface-critical text-[color:var(--status-critical-text)]",
 };
 
 const columnHelper = createColumnHelper<RosterRowResult>();
@@ -36,9 +48,9 @@ const columns = [
   columnHelper.accessor("classification", {
     header: "Status",
     cell: (info) => (
-      <span className={`rounded px-2 py-0.5 text-xs font-medium ${CLASSIFICATION_STYLE[info.getValue()]}`}>
+      <Badge variant="outline" className={CLASSIFICATION_TONE[info.getValue()]}>
         {CLASSIFICATION_LABEL[info.getValue()]}
-      </span>
+      </Badge>
     ),
   }),
   columnHelper.accessor("errors", {
@@ -55,31 +67,31 @@ export function RosterPreviewTable({ rows }: { rows: RosterRowResult[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded border border-hairline">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-surface-sunken">
+    <div className="overflow-x-auto rounded-md border">
+      <Table>
+        <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
+            <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
-                <th key={header.id} className="px-3 py-2 font-medium text-ink-secondary">
+                <TableHead key={header.id}>
                   {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
+                </TableHead>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </thead>
-        <tbody className="divide-y divide-hairline">
+        </TableHeader>
+        <TableBody>
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
+            <TableRow key={row.id}>
               {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="px-3 py-2">
+                <TableCell key={cell.id}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
+                </TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

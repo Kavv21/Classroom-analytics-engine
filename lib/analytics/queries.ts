@@ -232,6 +232,70 @@ export async function getCriterionResponseSummaries(
 }
 
 // ============================================================
+// Per-energy-source A1 -> A2 change + synthetic-data census
+// (migration 0017). Same contract as everything above: the aggregation
+// lives in the view, this is only the read path.
+// ============================================================
+
+export interface EnergySourceAssignmentChange {
+  class_id: string;
+  /** btrim()'d join key — the raw per-side labels are carried separately. */
+  energy_source: string;
+  a1_energy_source_raw: string | null;
+  a2_energy_source_raw: string | null;
+  both_sides_present: boolean;
+  a1_question_count: number | null;
+  a2_question_count: number | null;
+  a1_answered: number | null;
+  a2_answered: number | null;
+  a1_zeros: number | null;
+  a2_zeros: number | null;
+  a1_ones: number | null;
+  a2_ones: number | null;
+  a1_pct_one: number | null;
+  a2_pct_one: number | null;
+  /** NULL when either assignment has no questions for this source. */
+  ones_absolute_change: number | null;
+  /** NULL on a zero A1 baseline or a one-sided source — never 0, never Inf. */
+  ones_relative_change: number | null;
+  pct_point_shift: number | null;
+}
+
+export async function getEnergySourceAssignmentChange(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<EnergySourceAssignmentChange[]> {
+  return selectAll(
+    supabase,
+    "energy_source_assignment_change",
+    { class_id: classId },
+    "energy_source"
+  );
+}
+
+export interface ClassSyntheticCensus {
+  class_id: string;
+  student_count: number;
+  synthetic_student_count: number;
+  real_student_count: number;
+}
+
+export async function getClassSyntheticCensus(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<ClassSyntheticCensus | null> {
+  const { data, error } = await supabase
+    .from("class_synthetic_census")
+    .select("*")
+    .eq("class_id", classId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`could not read class_synthetic_census: ${error.message}`);
+  }
+  return data as ClassSyntheticCensus | null;
+}
+
+// ============================================================
 // Submission progress / timeline (charts 17.13, 17.14).
 // ============================================================
 

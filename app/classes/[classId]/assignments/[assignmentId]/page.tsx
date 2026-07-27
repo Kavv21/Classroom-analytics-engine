@@ -171,6 +171,14 @@ export default async function AssignmentDetailPage({
             Import questions
           </Link>
         )}
+        {hasResponses && (
+          <Link
+            href={`/classes/${classId}/assignments/${assignmentId}/grid`}
+            className="btn btn-secondary"
+          >
+            View response grid
+          </Link>
+        )}
       </div>
 
       <h2 className="title-sm mt-10">Publishing</h2>

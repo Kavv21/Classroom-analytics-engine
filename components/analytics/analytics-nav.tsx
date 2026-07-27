@@ -6,7 +6,8 @@ export type AnalyticsSection =
   | "assignments"
   | "transitions"
   | "students"
-  | "builder";
+  | "builder"
+  | "demo";
 
 const SECTIONS: Array<{ key: AnalyticsSection; label: string; path: string }> = [
   { key: "overview", label: "Overview", path: "" },
@@ -14,6 +15,9 @@ const SECTIONS: Array<{ key: AnalyticsSection; label: string; path: string }> = 
   { key: "transitions", label: "Transition analytics", path: "/transitions" },
   { key: "students", label: "Student analytics", path: "/students" },
   { key: "builder", label: "Visualisation builder", path: "/builder" },
+  // Labelled "demo data" in the navigation itself, so the synthetic
+  // provenance is visible before the page is even opened.
+  { key: "demo", label: "Demo data", path: "/demo" },
 ];
 
 /** Professor dashboard navigation (Section 19). Mapping studio is its own

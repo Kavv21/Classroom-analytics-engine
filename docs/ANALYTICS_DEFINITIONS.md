@@ -39,6 +39,42 @@ NOT_COMPARABLE
 Change rate and net shift are different things — don't conflate them.
 Example: S01 = 30%, S10 = 27% → change rate = 57%, net shift = +3pp.
 
+## Group count change (migration 0017)
+
+For a group of questions (currently: one energy source) compared across the
+two assignments, over final responses of active students:
+
+```
+A1 ones = count of responses with value 1 on the group's Assignment 1 questions
+A2 ones = count of responses with value 1 on the group's Assignment 2 questions
+
+Absolute count change = A2 ones − A1 ones
+Relative count change = (A2 ones − A1 ones) / A1 ones
+```
+
+Two rules are part of the definition, not implementation detail:
+
+- **Relative count change is NULL when `A1 ones = 0`**, and NULL when the
+  group appears in only one of the two assignments. A zero baseline has no
+  defined relative change; it is reported as `—`, never as 0%, 100%, or
+  infinity. (Same principle as "rates over zero valid pairs are NULL".)
+- **A group present in only one assignment keeps NULL on the absent side.**
+  It is neither dropped nor zero-filled — a question nobody was asked did
+  not receive zero ones.
+
+Relative count change and percentage-point shift are **different
+measurements** and neither may be presented as the other: the first is
+relative to the A1 count and unbounded, the second is a difference of two
+rates expressed in percentage points. Both describe direction of movement
+only.
+
+Implemented as `energy_source_assignment_change`, which is built on top of
+`energy_source_response_summary` rather than recomputing the per-assignment
+counts. Because energy-source labels are stored verbatim from the source
+spreadsheets (A2's sheet has `"Solar "` where A1 has `"Solar"`), the view
+joins the two sides on `btrim(energy_source)` and carries both raw labels
+through unchanged.
+
 ## Consensus / disagreement
 
 - Simple consensus: `max(% selecting 0, % selecting 1)`

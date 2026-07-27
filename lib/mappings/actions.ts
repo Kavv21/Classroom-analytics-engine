@@ -15,6 +15,7 @@ import {
   type MappingTemplate,
   type SuggestableQuestion,
 } from "@/lib/mappings/suggest";
+import type { MappingStatus, MappingType } from "@/lib/types/domain";
 
 export type MappingActionResult<T> =
   | { success: true; data: T }
@@ -224,6 +225,151 @@ export async function setMappingApproval(
 
   revalidatePath(mappingsPath(mapping.class_id));
   return { success: true, data: null };
+}
+
+/**
+ * Everything a bulk approval is about to do, computed without writing
+ * anything — the preview half of the two-step approve-all flow.
+ *
+ * Only the two one-to-one types are offered. The others are excluded on
+ * purpose, and the reason is not cosmetic: ANALYTICS_DEFINITIONS.md defines
+ * T(i,j) on exactly one binary value per side, so ONE_TO_MANY /
+ * MANY_TO_ONE / GROUPED_CONCEPT have no documented collapse formula and
+ * produce NOT_COMPARABLE rather than transitions. Approving them in bulk
+ * would add nothing to analytics while permanently freezing them under the
+ * 0011 immutability triggers. NOT_COMPARABLE and UNMAPPED entries are
+ * records that a source has no counterpart — there is nothing to approve.
+ */
+export interface BulkApprovalCandidate {
+  id: string;
+  name: string;
+  type: MappingType;
+  version: number;
+  energySource: string | null;
+  criterion: string | null;
+}
+
+export interface BulkApprovalPreview {
+  candidates: BulkApprovalCandidate[];
+  /** Suggested mappings deliberately left out, with the reason. */
+  excluded: Array<{ name: string; type: MappingType; reason: string }>;
+  alreadyApproved: number;
+}
+
+const BULK_APPROVABLE_TYPES: MappingType[] = ["EXACT_ONE_TO_ONE", "CONCEPTUAL_ONE_TO_ONE"];
+
+export async function previewBulkApproval(
+  classId: string
+): Promise<MappingActionResult<BulkApprovalPreview>> {
+  const { supabase, user, authorized, checkError } = await requireProfessorForClass(classId);
+  if (!user || !authorized || checkError) return accessError(checkError, "Class");
+
+  const { data, error } = await supabase
+    .from("question_mappings")
+    .select(
+      "id, mapping_name, mapping_type, mapping_status, professor_approved, version, energy_source, criterion, superseded_by_id"
+    )
+    .eq("class_id", classId)
+    .order("mapping_name")
+    .returns<
+      Array<{
+        id: string;
+        mapping_name: string;
+        mapping_type: MappingType;
+        mapping_status: MappingStatus;
+        professor_approved: boolean;
+        version: number;
+        energy_source: string | null;
+        criterion: string | null;
+        superseded_by_id: string | null;
+      }>
+    >();
+  if (error) return { success: false, error: error.message };
+
+  const rows = data ?? [];
+  const candidates: BulkApprovalCandidate[] = [];
+  const excluded: BulkApprovalPreview["excluded"] = [];
+  let alreadyApproved = 0;
+
+  for (const m of rows) {
+    if (m.professor_approved) {
+      alreadyApproved += 1;
+      continue;
+    }
+    // Only pending-review states are eligible. REJECTED and SUPERSEDED are
+    // decisions already made; re-approving them in bulk would silently
+    // reverse the professor.
+    if (!["DRAFT", "SUGGESTED", "NEEDS_PROFESSOR_REVIEW"].includes(m.mapping_status)) continue;
+
+    if (m.superseded_by_id) {
+      excluded.push({
+        name: m.mapping_name,
+        type: m.mapping_type,
+        reason: "a newer version of this mapping exists — approve that one instead",
+      });
+      continue;
+    }
+    if (!BULK_APPROVABLE_TYPES.includes(m.mapping_type)) {
+      excluded.push({
+        name: m.mapping_name,
+        type: m.mapping_type,
+        reason:
+          m.mapping_type === "NOT_COMPARABLE" || m.mapping_type === "UNMAPPED"
+            ? "records that this question has no counterpart — carries no transition data"
+            : "multi-question sides have no defined transition formula, so approving adds nothing to analytics",
+      });
+      continue;
+    }
+    candidates.push({
+      id: m.id,
+      name: m.mapping_name,
+      type: m.mapping_type,
+      version: m.version,
+      energySource: m.energy_source,
+      criterion: m.criterion,
+    });
+  }
+
+  return { success: true, data: { candidates, excluded, alreadyApproved } };
+}
+
+export interface BulkApprovalResult {
+  approved: number;
+  failures: Array<{ name: string; reason: string }>;
+}
+
+/**
+ * The confirm half. Re-derives the candidate list server-side rather than
+ * trusting ids from the client, so a stale or tampered preview cannot
+ * approve something the preview never showed. Each approval still goes
+ * through set_mapping_approval, one call per mapping — the RPC owns version
+ * retirement and the audit trail.
+ */
+export async function approveAllSuggestedMappings(
+  classId: string
+): Promise<MappingActionResult<BulkApprovalResult>> {
+  const preview = await previewBulkApproval(classId);
+  if (!preview.success) return preview;
+
+  const { supabase, user, authorized, checkError } = await requireProfessorForClass(classId);
+  if (!user || !authorized || checkError) return accessError(checkError, "Class");
+
+  let approved = 0;
+  const failures: BulkApprovalResult["failures"] = [];
+
+  for (const candidate of preview.data.candidates) {
+    const { error } = await supabase.rpc("set_mapping_approval", {
+      p_mapping_id: candidate.id,
+      p_approve: true,
+    });
+    // One bad mapping must not abandon the rest half-done — collect and
+    // report, so the professor sees exactly what did and did not land.
+    if (error) failures.push({ name: candidate.name, reason: error.message });
+    else approved += 1;
+  }
+
+  revalidatePath(mappingsPath(classId));
+  return { success: true, data: { approved, failures } };
 }
 
 export async function createMappingVersion(

@@ -14,7 +14,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, act } from "@testing-library/react";
 import { AttemptRunner, type TakingQuestion } from "@/components/attempts/attempt-runner";
 import { SubmitAttemptButton } from "@/components/attempts/submit-attempt-button";
-import { saveResponses, submitAttempt } from "@/lib/attempts/actions";
+import { CsvAnswerUpload } from "@/components/attempts/csv-answer-upload";
+import { saveResponses, submitAttempt, submitCsvAnswers } from "@/lib/attempts/actions";
 
 vi.mock("@/lib/attempts/actions", () => ({
   saveResponses: vi.fn(async () => ({
@@ -29,6 +30,17 @@ vi.mock("@/lib/attempts/actions", () => ({
       submittedAt: new Date().toISOString(),
       submissionVersion: 1,
       answered: 1,
+      totalQuestions: 2,
+    },
+  })),
+  submitCsvAnswers: vi.fn(async () => ({
+    success: true,
+    data: {
+      attemptId: "attempt-1",
+      state: "SUBMITTED",
+      submittedAt: new Date().toISOString(),
+      submissionVersion: 1,
+      answered: 2,
       totalQuestions: 2,
     },
   })),
@@ -257,5 +269,133 @@ describe("no automatic submission — submit button", () => {
       fireEvent.click(screen.getByRole("button", { name: /yes, submit now/i }));
     });
     expect(submitAttempt).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * The CSV upload path (Part 2) is now the primary way a student submits, so
+ * the zero-tolerance rule has to hold here too — and the risk is different
+ * in kind. On the per-question runner the danger was a lifecycle listener;
+ * here it is the file input, because `onChange` firing is browser activity
+ * and wiring submission to it would auto-submit the moment a file is picked.
+ */
+describe("no automatic submission — CSV upload", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  const csvQuestions = [
+    { id: "q1", externalQuestionCode: "A1-001", questionText: "Solar — Conventional", displayOrder: 1 },
+    { id: "q2", externalQuestionCode: "A1-002", questionText: "Solar — Renewable", displayOrder: 2 },
+  ];
+
+  function renderUpload() {
+    return render(
+      <CsvAnswerUpload
+        attemptId="attempt-1"
+        assignmentTitle="Test assignment"
+        instructions={null}
+        questions={csvQuestions}
+        receiptPath="/assignments/a/receipt"
+      />
+    );
+  }
+
+  function chooseFile(container: HTMLElement, contents: string) {
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File([contents], "answers.csv", { type: "text/csv" });
+    // jsdom's File.text() is not wired up in every version — pin it.
+    Object.defineProperty(file, "text", { value: async () => contents });
+    Object.defineProperty(input, "files", { value: [file], configurable: true });
+    fireEvent.change(input);
+    return input;
+  }
+
+  it("registers no listeners for tab-switch/blur/fullscreen/unload events", () => {
+    const windowSpy = vi.spyOn(window, "addEventListener");
+    const documentSpy = vi.spyOn(document, "addEventListener");
+
+    renderUpload();
+
+    const registered = [
+      ...windowSpy.mock.calls.map((c) => c[0]),
+      ...documentSpy.mock.calls.map((c) => c[0]),
+    ];
+    for (const forbidden of FORBIDDEN_LISTENERS) {
+      expect(registered, `no listener for "${forbidden}" may be registered`).not.toContain(
+        forbidden
+      );
+    }
+
+    windowSpy.mockRestore();
+    documentSpy.mockRestore();
+  });
+
+  it("choosing a valid file previews it and submits NOTHING", async () => {
+    const { container } = renderUpload();
+
+    await act(async () => {
+      chooseFile(container, "A1-001,A1-002\r\n1,0");
+    });
+
+    // The preview rendered — both answers are shown for checking, and the
+    // confirm button (which only exists in the preview stage) is enabled.
+    expect(screen.getByText("A1-001")).toBeTruthy();
+    expect(screen.getByText("A1-002")).toBeTruthy();
+    const button = screen.getByRole("button", { name: /submit these answers/i });
+    expect((button as HTMLButtonElement).disabled).toBe(false);
+
+    // ...and nothing was submitted by the act of choosing the file.
+    expect(submitCsvAnswers).not.toHaveBeenCalled();
+  });
+
+  it("never submits on any excluded browser event, even with a valid file staged", async () => {
+    const { container } = renderUpload();
+
+    await act(async () => {
+      chooseFile(container, "A1-001,A1-002\r\n1,0");
+    });
+
+    fireAllExcludedEvents();
+    await act(async () => {});
+    fireAllExcludedEvents();
+
+    expect(submitCsvAnswers).not.toHaveBeenCalled();
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+
+  it("submits only on the explicit confirm click", async () => {
+    const { container } = renderUpload();
+
+    await act(async () => {
+      chooseFile(container, "A1-001,A1-002\r\n1,0");
+    });
+    expect(submitCsvAnswers).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /submit these answers/i }));
+    });
+    expect(submitCsvAnswers).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the confirm button disabled while the file has problems", async () => {
+    const { container } = renderUpload();
+
+    await act(async () => {
+      chooseFile(container, "A1-001,A1-002\r\n1,7");
+    });
+
+    const button = screen.getByRole("button", { name: /submit these answers/i });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    expect(submitCsvAnswers).not.toHaveBeenCalled();
   });
 });

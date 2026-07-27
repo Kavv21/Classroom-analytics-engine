@@ -28,6 +28,64 @@ function nullIfBlank(value: string | undefined): string | null {
   return value && value.trim() !== "" ? value.trim() : null;
 }
 
+/**
+ * Sequence numbers must be unique per class among assignments still in play.
+ *
+ * The real enforcement is the partial unique index from migration 0018 —
+ * this check exists to turn a raw Postgres unique-violation into a field
+ * error the professor can act on, and to explain WHY it matters. A check
+ * here is not a substitute for the constraint: two concurrent creates would
+ * both pass this and one would then hit the index, which
+ * `sequenceConflictMessage` translates.
+ */
+async function findSequenceConflict(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  classId: string,
+  sequenceNumber: number,
+  excludeAssignmentId?: string
+): Promise<{ title: string } | null> {
+  let query = supabase
+    .from("assignments")
+    .select("id, title, status")
+    .eq("class_id", classId)
+    .eq("sequence_number", sequenceNumber)
+    .neq("status", "ARCHIVED");
+  if (excludeAssignmentId) query = query.neq("id", excludeAssignmentId);
+
+  const { data, error } = await query.limit(1).returns<Array<{ title: string }>>();
+  // A failed lookup must not block the write — the index still guards it.
+  if (error) return null;
+  return data?.[0] ?? null;
+}
+
+function sequenceLabel(sequenceNumber: number): string {
+  if (sequenceNumber === 1) return "first";
+  if (sequenceNumber === 2) return "second";
+  return `#${sequenceNumber}`;
+}
+
+function sequenceConflictResult<T>(
+  sequenceNumber: number,
+  conflictTitle: string
+): AssignmentActionResult<T> {
+  const message =
+    `"${conflictTitle}" is already the ${sequenceLabel(sequenceNumber)} assignment in this class. ` +
+    `A class can have only one of each — this is how the platform knows which answers to ` +
+    `compare with which. Pick the other position, or change the existing assignment first.`;
+  return {
+    success: false,
+    error: message,
+    fieldErrors: { sequenceNumber: [message] },
+  };
+}
+
+/** Translates the migration-0018 index violation into the same message. */
+function isSequenceIndexViolation(error: { message: string; code?: string }): boolean {
+  return (
+    error.code === "23505" || /assignments_class_sequence_unique/.test(error.message)
+  );
+}
+
 /** Best-effort audit trail — a failed audit write is logged loudly but never
  * turns a completed action into a reported failure. */
 async function logAudit(
@@ -134,6 +192,10 @@ export async function createAssignment(
   if (!user || !authorized || checkError) return accessError(checkError, "Class");
 
   const v = parsed.data;
+
+  const conflict = await findSequenceConflict(supabase, classId, v.sequenceNumber);
+  if (conflict) return sequenceConflictResult(v.sequenceNumber, conflict.title);
+
   const { data, error } = await supabase
     .from("assignments")
     .insert({
@@ -154,7 +216,12 @@ export async function createAssignment(
     .select("id")
     .single();
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    if (isSequenceIndexViolation(error)) {
+      return sequenceConflictResult(v.sequenceNumber, "Another assignment");
+    }
+    return { success: false, error: error.message };
+  }
 
   await logAudit(supabase, "ASSIGNMENT_CREATED", "assignment", data.id, {
     classId,
@@ -184,6 +251,15 @@ export async function updateAssignment(
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
 
   const v = parsed.data;
+
+  const conflict = await findSequenceConflict(
+    supabase,
+    assignment.class_id,
+    v.sequenceNumber,
+    assignmentId
+  );
+  if (conflict) return sequenceConflictResult(v.sequenceNumber, conflict.title);
+
   const { data, error } = await supabase
     .from("assignments")
     .update({
@@ -204,7 +280,12 @@ export async function updateAssignment(
     .select("id, class_id")
     .maybeSingle();
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    if (isSequenceIndexViolation(error)) {
+      return sequenceConflictResult(v.sequenceNumber, "Another assignment");
+    }
+    return { success: false, error: error.message };
+  }
   if (!data) return { success: false, error: "Assignment not found, or you don't have access to it." };
 
   revalidatePath(`/classes/${data.class_id}/assignments`);

@@ -214,7 +214,15 @@ describe("ACCEPTANCE: the Excel export has all 10 sheets with correct headers an
     const reopened = new ExcelJS.Workbook();
     await reopened.xlsx.load(buffer as unknown as ArrayBuffer);
 
-    expect(reopened.worksheets.map((w) => w.name)).toEqual([...SHEET_NAMES]);
+    // The ten original sheets come FIRST and IN ORDER. The response-grid
+    // sheets are appended after them, so this asserts the original contract
+    // is untouched rather than asserting the workbook never grows — a grid
+    // sheet is an addition, and nothing about the ten below may change.
+    const names = reopened.worksheets.map((w) => w.name);
+    expect(names.slice(0, SHEET_NAMES.length)).toEqual([...SHEET_NAMES]);
+    for (const extra of names.slice(SHEET_NAMES.length)) {
+      expect(extra, "only grid sheets may be appended").toMatch(/^Grid — /);
+    }
 
     for (const name of SHEET_NAMES) {
       const sheet = reopened.getWorksheet(name);

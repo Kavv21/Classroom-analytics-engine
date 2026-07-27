@@ -7,6 +7,11 @@ import {
   type ExportMetadata,
 } from "@/lib/exports/metadata";
 import { BINARY_LABELS, TRANSITION_STATE_LABELS, QUALITY_LABELS } from "@/lib/analytics/chart-data";
+import {
+  gatherResponseGrid,
+  orientationDescription,
+  type ResponseGrid,
+} from "@/lib/exports/response-grid";
 
 /**
  * The 10-sheet Excel export (spec Section 22).
@@ -123,6 +128,22 @@ async function selectAll(
 export interface WorkbookData {
   metadata: ExportMetadata;
   sheets: Record<SheetName, Array<Array<string | number | null>>>;
+  /**
+   * The response-grid sheets (one per assignment), written separately from
+   * the flat `sheets` map because they carry live SUM formulas and
+   * conditional formatting rather than plain values.
+   */
+  grids: ResponseGrid[];
+}
+
+/** Sheet-name prefix for the added per-assignment grids. */
+export const GRID_SHEET_PREFIX = "Grid — ";
+
+/** Excel sheet names are capped at 31 characters and reject []:*?/\ */
+export function gridSheetName(grid: ResponseGrid): string {
+  const base = `${GRID_SHEET_PREFIX}A${grid.sequenceNumber}`;
+  const suffix = grid.assignmentTitle.replace(/[[\]:*?/\\]/g, " ").trim();
+  return `${base} ${suffix}`.slice(0, 31).trim();
 }
 
 function answerLabel(value: number | null): string {
@@ -361,8 +382,18 @@ export async function gatherWorkbookData(
       q.is_active ? "Yes" : "No",
     ]);
 
+  // Added grid sheets — one per live assignment, built from the same
+  // gatherResponseGrid the live /grid page uses so the two cannot diverge.
+  // No student limit here: an export is a complete snapshot by definition.
+  const grids: ResponseGrid[] = [];
+  for (const assignment of [a1, a2]) {
+    if (!assignment) continue;
+    grids.push(await gatherResponseGrid(supabase, assignment.id));
+  }
+
   return {
     metadata,
+    grids,
     sheets: {
       Students: members.map((m) => [
         m.user_id,
@@ -498,15 +529,172 @@ function writeSheet(
   sheet.views = [{ state: "frozen", ySplit: HEADER_ROW }];
 }
 
+/**
+ * The added per-assignment grid sheet: the source spreadsheet's own layout,
+ * with one row per student underneath a live column-total row.
+ *
+ * Three things here are deliberate:
+ *
+ *  - THE TOTALS ARE REAL FORMULAS, `=SUM(B<first>:B<first+999>)`, not
+ *    baked-in numbers. A professor who adds a row, deletes a student, or
+ *    corrects a cell sees the totals move, which is the whole point of
+ *    handing them a spreadsheet rather than a picture. The range runs a
+ *    thousand rows past the last student so appended rows are counted.
+ *  - THE COLUMN ORDER MIRRORS THE SOURCE SHEET (see response-grid.ts), so
+ *    the grid reads the way the original workbook does, and each column
+ *    header carries its original cell reference.
+ *  - IT IS A SNAPSHOT AND SAYS SO. An .xlsx cannot re-query this database;
+ *    the header block states the generation time and says plainly that the
+ *    file will not update itself.
+ *
+ * No native Excel chart is written. ExcelJS's chart support is partial and
+ * a malformed chart part makes the whole workbook unopenable — a far worse
+ * outcome than not having a chart. The header points at the PNG/PDF export
+ * routes, which render real charts.
+ */
+function writeGridSheet(
+  sheet: ExcelJS.Worksheet,
+  grid: ResponseGrid,
+  metadata: ExportMetadata
+): void {
+  const notes: Array<[string, string]> = [
+    ["Sheet", `Response grid — ${grid.assignmentTitle}`],
+    ["Assignment", `${grid.assignmentTitle} (sequence ${grid.sequenceNumber})`],
+    ["Source worksheet", grid.worksheet ?? "—"],
+    ["Layout", orientationDescription(grid.orientation)],
+    ["Generated at", grid.generatedAt],
+    [
+      "POINT-IN-TIME SNAPSHOT",
+      "This file cannot refresh itself. It shows the responses as they were at the " +
+        "generation time above. Download it again after new submissions to see them.",
+    ],
+    [
+      "Live version",
+      `The same grid updates on every page load at /classes/${grid.classId}/assignments/${grid.assignmentId}/grid`,
+    ],
+    [
+      "Charts",
+      "This sheet carries no chart. Use the PNG/PDF export buttons on the analytics pages for charts.",
+    ],
+    ["Class", metadata.className],
+    ["Students in grid", String(grid.students.length)],
+    ["Notes", metadata.notes.join(" ")],
+  ];
+
+  notes.forEach(([key, value], i) => {
+    const row = sheet.getRow(i + 1);
+    row.getCell(1).value = key;
+    row.getCell(2).value = value;
+    row.getCell(1).font = { bold: true, size: 9 };
+    row.getCell(2).font = { size: 9 };
+    row.commit();
+  });
+
+  // Three stacked header rows so a column is identifiable by its energy
+  // source, its criterion, and its original cell — the grid is wide, and a
+  // bare question code would make it unreadable.
+  const headerTop = notes.length + 2;
+  const labelRows: Array<[string, (c: (typeof grid.columns)[number]) => string]> = [
+    ["Energy source", (c) => c.energySource],
+    ["Criterion", (c) => c.criterion],
+    ["Original cell", (c) => c.originalCell],
+    ["Question code", (c) => c.code],
+  ];
+  labelRows.forEach(([label, pick], i) => {
+    const row = sheet.getRow(headerTop + i);
+    row.getCell(1).value = label;
+    row.getCell(1).font = { bold: true, size: 9 };
+    grid.columns.forEach((c, ci) => {
+      row.getCell(ci + 2).value = pick(c);
+      row.getCell(ci + 2).font = { bold: i === 0, size: 9 };
+      row.getCell(ci + 2).alignment = { textRotation: i === 0 ? 45 : 0, vertical: "bottom" };
+    });
+    row.commit();
+  });
+
+  const totalRow = headerTop + labelRows.length;
+  const firstStudentRow = totalRow + 1;
+  const formulaLastRow = firstStudentRow + Math.max(999, grid.students.length + 500);
+
+  const totals = sheet.getRow(totalRow);
+  totals.getCell(1).value = 'Total answering "1"';
+  totals.getCell(1).font = { bold: true };
+  grid.columns.forEach((_, ci) => {
+    const letter = colLetter(ci + 2);
+    const cell = totals.getCell(ci + 2);
+    cell.value = { formula: `SUM(${letter}${firstStudentRow}:${letter}${formulaLastRow})` };
+    cell.font = { bold: true };
+  });
+  totals.commit();
+
+  grid.students.forEach((student, si) => {
+    const row = sheet.getRow(firstStudentRow + si);
+    row.getCell(1).value = student.studentIdentifier
+      ? `${student.studentIdentifier} — ${student.name}`
+      : student.name;
+    student.values.forEach((value, ci) => {
+      row.getCell(ci + 2).value = value === null ? null : value;
+    });
+    row.commit();
+  });
+
+  // Conditional formatting on the totals row only: a 3-colour scale across
+  // the column totals, so which energy sources drew the most and fewest
+  // "1" answers is visible at a glance. Applied to the totals rather than
+  // the 0/1 cells on purpose — shading individual answers would make one
+  // answer look better than the other, which this platform does not do.
+  if (grid.columns.length > 0) {
+    const lastLetter = colLetter(grid.columns.length + 1);
+    sheet.addConditionalFormatting({
+      ref: `B${totalRow}:${lastLetter}${totalRow}`,
+      rules: [
+        {
+          type: "colorScale",
+          priority: 1,
+          cfvo: [{ type: "min" }, { type: "percentile", value: 50 }, { type: "max" }],
+          color: [
+            { argb: "FFF3F6FB" },
+            { argb: "FF9EC5F4" },
+            { argb: "FF2A78D6" },
+          ],
+        },
+      ],
+    });
+  }
+
+  sheet.getColumn(1).width = 32;
+  for (let c = 2; c <= grid.columns.length + 1; c++) sheet.getColumn(c).width = 6;
+  sheet.views = [{ state: "frozen", xSplit: 1, ySplit: totalRow }];
+}
+
+/** 1-based column index → spreadsheet letters (1 → A, 27 → AA). */
+function colLetter(index: number): string {
+  let n = index;
+  let out = "";
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    out = String.fromCharCode(65 + rem) + out;
+    n = Math.floor((n - 1) / 26);
+  }
+  return out;
+}
+
 export async function buildWorkbook(data: WorkbookData): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Classroom Opinion Analytics Platform";
   workbook.created = new Date(data.metadata.generatedAt);
   workbook.description = `${data.metadata.className} — generated ${data.metadata.generatedAt}`;
 
+  // The original ten sheets are written exactly as before — the grids are
+  // ADDED sheets and change nothing about the question/response sheets.
   for (const name of SHEET_NAMES) {
     const sheet = workbook.addWorksheet(name);
     writeSheet(sheet, name, data.metadata, data.sheets[name]);
+  }
+
+  for (const grid of data.grids) {
+    const sheet = workbook.addWorksheet(gridSheetName(grid));
+    writeGridSheet(sheet, grid, data.metadata);
   }
 
   const buffer = await workbook.xlsx.writeBuffer();

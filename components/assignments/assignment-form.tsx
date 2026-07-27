@@ -44,6 +44,21 @@ const STAGES = [
   { value: "OTHER", label: "Other" },
 ] as const;
 
+/**
+ * A closed choice, not a free number box.
+ *
+ * The old control was `<Input type="number" min={1}>` labelled "Sequence
+ * number", defaulting to 1. Nothing about that tells a professor it decides
+ * which answers get compared with which, and nothing stopped them leaving
+ * two assignments on 1 — which silently disables the whole transition
+ * engine (see migration 0018 for the full cascade). The platform compares
+ * exactly two assignments, so the control now offers exactly two answers.
+ */
+const SEQUENCE_CHOICES = [
+  { value: 1, label: "First — answered before instruction" },
+  { value: 2, label: "Second — answered after instruction" },
+] as const;
+
 export function AssignmentForm({
   defaultValues,
   onSubmitAction,
@@ -148,8 +163,33 @@ export function AssignmentForm({
           {fieldError("assignmentStage")}
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="sequenceNumber">Sequence number</Label>
-          <Input id="sequenceNumber" type="number" min={1} {...register("sequenceNumber")} />
+          <Label htmlFor="sequenceNumber">Which assignment is this?</Label>
+          <Controller
+            name="sequenceNumber"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={String(field.value ?? "")}
+                onValueChange={(v) => field.onChange(Number(v))}
+              >
+                <SelectTrigger id="sequenceNumber" aria-describedby="sequenceNumber-help">
+                  <SelectValue placeholder="Choose first or second" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SEQUENCE_CHOICES.map((choice) => (
+                    <SelectItem key={choice.value} value={String(choice.value)}>
+                      {choice.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          <p id="sequenceNumber-help" className="text-xs text-muted-foreground">
+            The first assignment is the one students answer before instruction; the
+            second is the one they answer afterwards. This is how the platform knows
+            which answers to compare with which — a class can have only one of each.
+          </p>
           {fieldError("sequenceNumber")}
         </div>
       </div>

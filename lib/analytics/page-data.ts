@@ -58,6 +58,29 @@ export async function getStudentNameMap(
   return names;
 }
 
+/**
+ * Which of a class's students are synthetic demo accounts (migration
+ * 0017). Returned as ids rather than a boolean over the class, because a
+ * class can legitimately hold both — and the Demo Dashboard has to be able
+ * to say so rather than labelling everyone with the majority's provenance.
+ */
+export async function getSyntheticStudentIds(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from("class_members")
+    .select("user_id")
+    .eq("class_id", classId)
+    .eq("member_role", "STUDENT")
+    .eq("is_synthetic", true)
+    .returns<Array<{ user_id: string }>>();
+  if (error) {
+    throw new Error(`Could not load synthetic student list: ${error.message}`);
+  }
+  return new Set((data ?? []).map((r) => r.user_id));
+}
+
 export interface AssignmentRow {
   id: string;
   title: string;

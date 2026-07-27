@@ -12,6 +12,7 @@ import { MAPPING_TYPES, sideCountError } from "@/lib/mappings/schema";
 import type { MappingType } from "@/lib/types/domain";
 import type { MappingRowLite, QuestionLite } from "@/components/mappings/types";
 import { MappingTable } from "@/components/mappings/mapping-table";
+import { ApproveAllButton } from "@/components/mappings/approve-all-button";
 import { mappingTypeLabel } from "@/lib/ui/labels";
 
 interface MappingStudioProps {
@@ -313,7 +314,8 @@ export function MappingStudio({
       <div className="rounded border border-hairline p-4">
         <div className="flex items-center justify-between">
           <p className="font-medium">{editingId ? "Edit mapping" : "Create mapping from selection"}</p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <ApproveAllButton classId={classId} />
             <button
               type="button"
               disabled={busy}

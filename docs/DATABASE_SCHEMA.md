@@ -505,6 +505,44 @@ there is no valid data. TS access goes through `lib/analytics/queries.ts`.
   data comes from `mapping_transition_summary` via
   `alluvialFromTransitionCounts`.
 
+## Synthetic demo data (migration 0017)
+
+`is_synthetic boolean not null default false` on **profiles**,
+**class_members**, **assignment_attempts** and **responses**. True only for
+the fictional cohort written by `scripts/seed-demo-analytics.ts`; every
+pre-existing row is real by default, which is the safe direction — this
+migration can never reclassify a real row as demo data.
+
+`classes`, `assignments`, `questions` and `question_mappings` deliberately
+carry no such flag: the demo cohort reuses the already-imported assignments
+and the existing approved mappings and creates or alters none of them.
+
+Synthetic rows obey every real constraint — the `response_value` CHECK, the
+`(attempt_id, question_id)` unique constraint, and the
+`attempts_state_transition` FSM all apply unchanged.
+
+No new tables, so no new RLS policies: these are columns on tables that
+already carry student-data policies.
+
+Two views ship with it, both `security_invoker = on` with explicit grants,
+same computed-on-read contract as the 0012 views:
+
+- `class_synthetic_census` — per class, active student count split into
+  synthetic and non-synthetic. Lets the demo dashboard state the mixture
+  honestly rather than describing a partly-real class as a demo.
+- `energy_source_assignment_change` — per energy source, Assignment 1 vs
+  Assignment 2 totals with absolute and relative change plus percentage-
+  point shift. Built on top of `energy_source_response_summary` (it does
+  not recompute the per-assignment counts). Joins the two sides on
+  `btrim(energy_source)` because labels are stored verbatim and A2's sheet
+  writes `"Solar "` where A1 writes `"Solar"`; both raw labels are carried
+  through in `a1_energy_source_raw` / `a2_energy_source_raw`. Relative
+  change is NULL on a zero A1 baseline or a one-sided energy source, never
+  0 and never a divide-by-zero — see docs/ANALYTICS_DEFINITIONS.md
+  "Group count change".
+
+TS access for both is in `lib/analytics/queries.ts`, like every other view.
+
 ## Table grants (migration 0007)
 
 RLS policies filter *rows* a role may see; they do nothing without a

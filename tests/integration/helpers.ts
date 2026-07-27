@@ -8,6 +8,26 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * (local stack or the project database). Env resolution: SUPABASE_TEST_*
  * first, then .env.local.
  */
+function isLocalSupabaseUrl(url: string): boolean {
+  return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]|host\.docker\.internal)(:\d+)?/.test(url);
+}
+
+/**
+ * SAFETY — these tests WRITE. They create users, classes, assignments,
+ * questions, responses and mappings, then delete them again.
+ *
+ * The fallback below used to read `.env.local`, which is the APPLICATION's
+ * configuration and therefore points at the production-track project.
+ * `npm run test` on a developer machine consequently ran the whole
+ * integration suite against production without saying so — the same class
+ * of bug as the seed scripts' guards exist to prevent, in the one place
+ * nobody thought to guard.
+ *
+ * So a non-local target is now refused unless it is asked for explicitly.
+ * The tests clean up after themselves and are scoped to ids they create,
+ * but "it tidies up afterwards" is not a reason to point a write suite at
+ * real data by default.
+ */
 export function loadEnv(): { url: string; anonKey: string; serviceKey: string } {
   const fromProcess = {
     url: process.env.SUPABASE_TEST_URL,
@@ -15,6 +35,7 @@ export function loadEnv(): { url: string; anonKey: string; serviceKey: string } 
     serviceKey: process.env.SUPABASE_TEST_SERVICE_ROLE_KEY,
   };
   if (fromProcess.url && fromProcess.anonKey && fromProcess.serviceKey) {
+    assertTargetAllowed(fromProcess.url, "SUPABASE_TEST_URL");
     return fromProcess as { url: string; anonKey: string; serviceKey: string };
   }
 
@@ -27,7 +48,7 @@ export function loadEnv(): { url: string; anonKey: string; serviceKey: string } 
   }
   const parsed: Record<string, string> = {};
   for (const line of readFileSync(envPath, "utf-8").split("\n")) {
-    const m = line.match(/^([A-Z_]+)=(.*)$/);
+    const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
     const [, key, value] = m ?? [];
     if (key) parsed[key] = (value ?? "").trim();
   }
@@ -37,7 +58,30 @@ export function loadEnv(): { url: string; anonKey: string; serviceKey: string } 
   if (!url || !anonKey || !serviceKey) {
     throw new Error(".env.local is missing the Supabase URL or keys.");
   }
+  assertTargetAllowed(url, ".env.local (NEXT_PUBLIC_SUPABASE_URL)");
   return { url, anonKey, serviceKey };
+}
+
+function assertTargetAllowed(url: string, source: string): void {
+  if (isLocalSupabaseUrl(url)) return;
+  if (process.env.SUPABASE_TEST_ALLOW_REMOTE === "true") return;
+
+  throw new Error(
+    `Refusing to run the integration suite against a non-local Supabase URL.\n\n` +
+      `  target: ${url}\n` +
+      `  from:   ${source}\n\n` +
+      `These tests create and delete users, classes, assignments, questions and\n` +
+      `responses. ${source.startsWith(".env.local") ? ".env.local is the application's own configuration, so it points at\nthe real project — not a test database.\n\n" : ""}` +
+      `Run them against the local stack instead:\n\n` +
+      `  npm run test:local\n\n` +
+      `or, to wire it up by hand:\n\n` +
+      `  eval "$(npx supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"\n` +
+      `  SUPABASE_TEST_URL=$API_URL \\\n` +
+      `  SUPABASE_TEST_ANON_KEY=$ANON_KEY \\\n` +
+      `  SUPABASE_TEST_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY npm run test\n\n` +
+      `If you genuinely mean to test against this project, set\n` +
+      `SUPABASE_TEST_ALLOW_REMOTE=true.`
+  );
 }
 
 export function adminClient(env: ReturnType<typeof loadEnv>): SupabaseClient {

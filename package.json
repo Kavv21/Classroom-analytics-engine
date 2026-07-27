@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:local": "eval \"$(npx supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')\"; SUPABASE_TEST_URL=$API_URL SUPABASE_TEST_ANON_KEY=$ANON_KEY SUPABASE_TEST_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:migrate": "supabase db push",

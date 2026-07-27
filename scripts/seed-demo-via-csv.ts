@@ -265,13 +265,24 @@ async function main(): Promise<void> {
         "a sequence collision disables the whole comparison."
     );
   }
+  // A CLOSED assignment is fine. Migration 0020 lets a SYNTHETIC attempt be
+  // written to an assignment that has been published, whatever its current
+  // status — the assignment is never reopened and the FSM is untouched.
+  // DRAFT/READY are still refused: their questions may still be changing.
   for (const a of [a1Row, a2Row]) {
-    if (a.status !== "OPEN") {
+    if (!["OPEN", "CLOSED", "ARCHIVED"].includes(a.status)) {
       fail(
         "checking assignment status",
-        `"${a.title}" is ${a.status}. save_attempt_responses and submit_attempt both ` +
-          `refuse a non-OPEN assignment, so the CSV path cannot run against it. ` +
-          `Open it, seed, then close it again.`
+        `"${a.title}" is ${a.status}. Synthetic seeding needs an assignment that has been ` +
+          `published at least once — a DRAFT or READY assignment may still be having its ` +
+          `questions imported, and seeding would attach responses to questions that are ` +
+          `about to change.`
+      );
+    }
+    if (a.status !== "OPEN") {
+      console.log(
+        `  note: "${a.title}" is ${a.status}. Seeding proceeds through the synthetic path ` +
+          `(migration 0020) — the assignment is NOT reopened.`
       );
     }
   }
@@ -456,11 +467,29 @@ async function main(): Promise<void> {
     }
 
     for (const assignment of [a1, a2]) {
-      // get_or_create_attempt runs as the student, exactly as the page does.
-      const { data: attemptData, error: attemptError } = await studentClient.rpc(
-        "get_or_create_attempt",
-        { p_assignment_id: assignment.id }
-      );
+      // The attempt is created with the SERVICE ROLE and flagged synthetic
+      // up front — not via get_or_create_attempt, which requires an OPEN
+      // assignment, and not tagged afterwards, because the flag is what
+      // authorises the writes that follow (migration 0020).
+      //
+      // Migration 0020's trigger means anon/authenticated cannot raise this
+      // flag, so this service-role insert is the only way a synthetic
+      // attempt comes into existence. The attempt FSM still applies: a new
+      // row may only start as NOT_STARTED or DRAFT.
+      const { data: attemptRow, error: attemptError } = await admin
+        .from("assignment_attempts")
+        .upsert(
+          {
+            assignment_id: assignment.id,
+            student_id: userId,
+            state: "DRAFT",
+            started_at: new Date().toISOString(),
+            is_synthetic: true,
+          },
+          { onConflict: "assignment_id,student_id" }
+        )
+        .select("id")
+        .single();
       if (attemptError) {
         failures.push({
           student: identifier,
@@ -469,7 +498,7 @@ async function main(): Promise<void> {
         });
         continue;
       }
-      const attemptId = (attemptData as { id: string }).id;
+      const attemptId = attemptRow!.id;
 
       const ordered = [...assignment.questions].sort((x, y) => x.displayOrder - y.displayOrder);
       const csvText = Papa.unparse(
@@ -502,30 +531,10 @@ async function main(): Promise<void> {
 
     await studentClient.auth.signOut();
 
-    // ---- tag the rows the real path just created ----
-    // save_attempt_responses / submit_attempt know nothing about
-    // is_synthetic, and deliberately so: provenance of a demo cohort is a
-    // seeding concern, not a submission concern, and adding it to the RPC
-    // would let any client mark its own answers synthetic. So the seeder
-    // stamps its own rows afterwards, with the service key. The rows were
-    // still created by the real validated path — this only records where
-    // they came from.
-    for (const [table, column] of [
-      ["assignment_attempts", "student_id"],
-      ["responses", "student_id"],
-    ] as const) {
-      const { error: tagError } = await admin
-        .from(table)
-        .update({ is_synthetic: true })
-        .eq(column, userId);
-      if (tagError) {
-        failures.push({
-          student: identifier,
-          step: `flagging ${table} as synthetic`,
-          reason: tagError.message,
-        });
-      }
-    }
+    // No post-hoc tagging any more: save_attempt_responses copies
+    // is_synthetic from the attempt onto every response it writes
+    // (migration 0020), so provenance is set by the same call that
+    // creates the row rather than by a second pass that could miss some.
 
     if ((i + 1) % 25 === 0) {
       console.log(`  … ${i + 1}/${COHORT_SIZE} students (${submitted} submissions)`);

@@ -29,10 +29,24 @@ let questionIds: string[] = [];
 const classIds: string[] = [];
 const userIds: string[] = [];
 
+/**
+ * Sequence numbers are unique per class (migration 0018), so each
+ * assignment this helper creates takes the next free one. The helper used
+ * to hardcode 1, which worked only because nothing enforced uniqueness —
+ * the exact condition that let the real class end up with two sequence-1
+ * assignments and a silently disabled transition engine.
+ */
+let nextSequenceNumber = 1;
+
 async function createOpenAssignment(title: string): Promise<{ id: string; questionIds: string[] }> {
   const { data: a, error: aError } = await professor.client
     .from("assignments")
-    .insert({ class_id: classId, title, sequence_number: 1, created_by: professor.id })
+    .insert({
+      class_id: classId,
+      title,
+      sequence_number: nextSequenceNumber++,
+      created_by: professor.id,
+    })
     .select("id")
     .single();
   if (aError) throw new Error(`assignment insert failed: ${aError.message}`);

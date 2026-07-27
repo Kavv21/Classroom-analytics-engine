@@ -47,6 +47,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { normalizeText } from "../lib/mappings/suggest";
 
 // ---------------------------------------------------------------- env ----
 
@@ -135,6 +136,151 @@ interface TemplateMapping {
 /** Only these two types can produce transitions, so only these get approved
  *  automatically. Everything else is recorded and left for the professor. */
 const APPROVABLE_TYPES = new Set(["EXACT_ONE_TO_ONE", "CONCEPTUAL_ONE_TO_ONE"]);
+
+// ============================================================
+// Question resolution.
+//
+// WHY NOT external_question_code — this is the bug that cost a live run.
+//
+// The code is generated at import time as `A${sequence_number}-NNN`
+// (lib/assignments/actions.ts -> parseUpload). It is a SNAPSHOT of a
+// mutable field, never re-derived. In the real class, Assignment 2 was
+// imported while it still carried sequence_number = 1, so all 255 of its
+// questions were stored as `A1-001…A1-255` — and Assignment 1 has its own
+// `A1-001…A1-030`. The unique constraint is (assignment_id,
+// external_question_code), so both sets coexist legitimately and the code
+// alone identifies nothing.
+//
+// The template, generated in Phase 1 straight from the spreadsheets, uses
+// `A2-030` for a question that is live as `A1-030` — while a DIFFERENT
+// question, in the other assignment, genuinely is `A1-030`. Resolving by
+// code therefore either misses or silently matches the wrong assignment's
+// question.
+//
+// So resolution is by MEANING, scoped per assignment:
+//   template code -> (energy source, criterion) via the Phase 1 manifest
+//                 -> the live question in THAT assignment with the same
+//                    normalised (energy source, criterion)
+//
+// Two safety rules, because a mapping that silently points at the wrong
+// question is worse than no mapping at all:
+//   * ambiguity (more than one live question with the same pair) is a hard
+//     failure listing the candidates — never "pick the first";
+//   * no match is a hard failure naming what was looked for — never a
+//     quiet skip and never a fallback to code matching.
+// ============================================================
+
+interface ManifestQuestion {
+  id: string;
+  energy_source: string;
+  criterion: string;
+  question_text: string;
+  display_order: number;
+}
+
+interface LiveQuestion {
+  id: string;
+  external_question_code: string;
+  energy_source: string | null;
+  criterion: string | null;
+  question_text: string;
+  display_order: number;
+}
+
+/** The identity a question keeps across re-imports and renumbering. */
+function semanticKey(energySource: string | null, criterion: string | null): string {
+  return `${normalizeText(energySource ?? "")}||${normalizeText(criterion ?? "")}`;
+}
+
+function loadManifest(sequence: 1 | 2): Map<string, ManifestQuestion> {
+  const path = resolve(`data/assignment-${sequence}-manifest.json`);
+  if (!existsSync(path)) {
+    fail(
+      "loading the Phase 1 manifest",
+      `${path} is missing. It is what gives each template code its meaning ` +
+        `(energy source + criterion); without it the template cannot be resolved.`
+    );
+  }
+  const parsed = JSON.parse(readFileSync(path, "utf-8")) as { questions: ManifestQuestion[] };
+  return new Map(parsed.questions.map((q) => [q.id, q]));
+}
+
+interface ResolvedQuestion {
+  templateCode: string;
+  liveCode: string;
+  liveId: string;
+  energySource: string;
+  criterion: string;
+  /** True when the live code differs from the template's — the drift. */
+  codeDrifted: boolean;
+}
+
+class QuestionResolver {
+  private readonly bySemantic = new Map<string, LiveQuestion[]>();
+
+  constructor(
+    private readonly sequence: 1 | 2,
+    private readonly manifest: Map<string, ManifestQuestion>,
+    live: LiveQuestion[]
+  ) {
+    for (const q of live) {
+      const key = semanticKey(q.energy_source, q.criterion);
+      this.bySemantic.set(key, [...(this.bySemantic.get(key) ?? []), q]);
+    }
+  }
+
+  /** Live questions sharing a semantic key — a data problem worth naming. */
+  ambiguousKeys(): Array<{ key: string; codes: string[] }> {
+    return [...this.bySemantic.entries()]
+      .filter(([, list]) => list.length > 1)
+      .map(([key, list]) => ({ key, codes: list.map((q) => q.external_question_code) }));
+  }
+
+  resolve(templateCode: string): { ok: true; value: ResolvedQuestion } | { ok: false; reason: string } {
+    const manifestEntry = this.manifest.get(templateCode);
+    if (!manifestEntry) {
+      return {
+        ok: false,
+        reason: `${templateCode} is not in the Assignment ${this.sequence} manifest, so its meaning is unknown`,
+      };
+    }
+
+    const key = semanticKey(manifestEntry.energy_source, manifestEntry.criterion);
+    const matches = this.bySemantic.get(key) ?? [];
+
+    if (matches.length === 0) {
+      return {
+        ok: false,
+        reason:
+          `${templateCode} ("${manifestEntry.energy_source.trim()}" / ` +
+          `"${manifestEntry.criterion.trim()}") has no matching question in the live ` +
+          `Assignment ${this.sequence}`,
+      };
+    }
+    if (matches.length > 1) {
+      return {
+        ok: false,
+        reason:
+          `${templateCode} ("${manifestEntry.energy_source.trim()}" / ` +
+          `"${manifestEntry.criterion.trim()}") matches ${matches.length} live questions ` +
+          `(${matches.map((m) => m.external_question_code).join(", ")}) — ambiguous, refusing to guess`,
+      };
+    }
+
+    const match = matches[0]!;
+    return {
+      ok: true,
+      value: {
+        templateCode,
+        liveCode: match.external_question_code,
+        liveId: match.id,
+        energySource: match.energy_source?.trim() ?? "",
+        criterion: match.criterion?.trim() ?? "",
+        codeDrifted: match.external_question_code !== templateCode,
+      },
+    };
+  }
+}
 
 // --------------------------------------------------------- preflight -----
 
@@ -382,21 +528,59 @@ async function main(): Promise<void> {
 
   const { a1, a2 } = await preflightSequence(supabase, CLASS_ID);
 
-  // ------------------------------------------------ question code index --
-  // Look questions up by external_question_code, never by hardcoded UUID —
-  // the template ships codes (A1-018, A2-030), and UUIDs differ per
-  // environment.
-  const codeToId = new Map<string, string>();
-  for (const [label, assignment] of [["A1", a1], ["A2", a2]] as const) {
+  // ------------------------------------------------ question resolvers --
+  // ONE RESOLVER PER ASSIGNMENT. Never a shared index: the live data has
+  // the same code (`A1-030`) on a question in each assignment, so a single
+  // map would let one overwrite the other and resolve side 1 to a side-2
+  // question. That is exactly what happened on the first live run.
+  const resolvers: Record<1 | 2, QuestionResolver> = {} as Record<1 | 2, QuestionResolver>;
+  const liveBySequence: Record<1 | 2, LiveQuestion[]> = {} as Record<1 | 2, LiveQuestion[]>;
+
+  for (const [sequence, assignment] of [[1, a1], [2, a2]] as const) {
     const { data, error } = await supabase
       .from("questions")
-      .select("id, external_question_code")
+      .select("id, external_question_code, energy_source, criterion, question_text, display_order")
       .eq("assignment_id", assignment.id)
       .eq("is_active", true)
-      .returns<Array<{ id: string; external_question_code: string }>>();
-    if (error) fail(`reading ${label} questions`, error.message);
-    for (const q of data ?? []) codeToId.set(q.external_question_code, q.id);
-    console.log(`${label}: ${data?.length ?? 0} active questions loaded`);
+      .order("display_order")
+      .returns<LiveQuestion[]>();
+    if (error) fail(`reading Assignment ${sequence} questions`, error.message);
+
+    const live = data ?? [];
+    liveBySequence[sequence] = live;
+    resolvers[sequence] = new QuestionResolver(sequence, loadManifest(sequence), live);
+
+    const prefixes = [...new Set(live.map((q) => q.external_question_code.split("-")[0]))].sort();
+    console.log(
+      `Assignment ${sequence}: ${live.length} active questions, code prefix ${prefixes.join("/") || "—"}`
+    );
+    if (!prefixes.includes(`A${sequence}`)) {
+      console.log(
+        `  ⚠ codes are prefixed ${prefixes.join("/")}, not A${sequence}. They were generated from\n` +
+          `    sequence_number at import time and this assignment's number has changed since.\n` +
+          `    Harmless here — questions are resolved by energy source + criterion, not by code.`
+      );
+    }
+
+    const ambiguous = resolvers[sequence].ambiguousKeys();
+    if (ambiguous.length > 0) {
+      console.log(
+        `  ⚠ ${ambiguous.length} energy-source/criterion pair(s) appear on more than one question; ` +
+          `any template entry needing one of them will be reported rather than guessed.`
+      );
+    }
+  }
+
+  // Cross-assignment code collisions — the reason code lookup is unsafe.
+  const a1Codes = new Set(liveBySequence[1].map((q) => q.external_question_code));
+  const collisions = liveBySequence[2].filter((q) => a1Codes.has(q.external_question_code));
+  if (collisions.length > 0) {
+    console.log(
+      `\n⚠ ${collisions.length} question codes exist in BOTH assignments ` +
+        `(e.g. ${collisions.slice(0, 3).map((q) => q.external_question_code).join(", ")}). ` +
+        `Codes are unique per assignment, not per class, so they cannot identify a question ` +
+        `on their own. Resolution below is semantic and per-assignment.`
+    );
   }
   console.log("");
 
@@ -421,33 +605,47 @@ async function main(): Promise<void> {
   const created: Array<{ id: string; name: string; type: string }> = [];
   const skipped: Array<{ name: string; reason: string }> = [];
   const failures: Array<{ name: string; reason: string }> = [];
+  const resolutions: Array<{
+    name: string;
+    type: string;
+    a1: ResolvedQuestion[];
+    a2: ResolvedQuestion[];
+  }> = [];
 
   for (const m of template.mappings) {
-    if (existingNames.has(m.mapping_name)) {
-      skipped.push({ name: m.mapping_name, reason: "a mapping with this name already exists" });
+    // Resolution runs BEFORE the already-exists check on purpose: verifying
+    // that the template still resolves to the right live questions is the
+    // entire job of --dry-run, and skipping early would hide it in exactly
+    // the case you most want to check — a class where a previous run
+    // already created some of the mappings.
+
+    // Resolve by meaning, per assignment. An unresolvable or ambiguous
+    // entry is a loud failure, never a silently dropped side and never a
+    // guess (CLAUDE.md: fail loudly, don't guess).
+    const resolved1: ResolvedQuestion[] = [];
+    const resolved2: ResolvedQuestion[] = [];
+    const unresolved: string[] = [];
+
+    for (const [sequence, codes, sink] of [
+      [1, m.assignment_1_question_ids, resolved1],
+      [2, m.assignment_2_question_ids, resolved2],
+    ] as const) {
+      for (const code of codes) {
+        const outcome = resolvers[sequence].resolve(code);
+        if (outcome.ok) sink.push(outcome.value);
+        else unresolved.push(outcome.reason);
+      }
+    }
+
+    if (unresolved.length > 0) {
+      failures.push({ name: m.mapping_name, reason: unresolved.join("; ") });
       continue;
     }
 
-    // Resolve codes → ids. An unresolvable code is a loud failure, never a
-    // silently dropped side (CLAUDE.md: fail loudly, don't guess).
-    const resolve1: string[] = [];
-    const resolve2: string[] = [];
-    const missing: string[] = [];
-    for (const code of m.assignment_1_question_ids) {
-      const id = codeToId.get(code);
-      if (id) resolve1.push(id);
-      else missing.push(code);
-    }
-    for (const code of m.assignment_2_question_ids) {
-      const id = codeToId.get(code);
-      if (id) resolve2.push(id);
-      else missing.push(code);
-    }
-    if (missing.length > 0) {
-      failures.push({
-        name: m.mapping_name,
-        reason: `question code(s) not found in this class: ${missing.join(", ")}`,
-      });
+    resolutions.push({ name: m.mapping_name, type: m.mapping_type, a1: resolved1, a2: resolved2 });
+
+    if (existingNames.has(m.mapping_name)) {
+      skipped.push({ name: m.mapping_name, reason: "a mapping with this name already exists" });
       continue;
     }
 
@@ -455,6 +653,9 @@ async function main(): Promise<void> {
       created.push({ id: "(dry-run)", name: m.mapping_name, type: m.mapping_type });
       continue;
     }
+
+    const resolve1 = resolved1.map((r) => r.liveId);
+    const resolve2 = resolved2.map((r) => r.liveId);
 
     const { data: mappingId, error } = await supabase.rpc("create_question_mapping", {
       p_class_id: CLASS_ID,
@@ -475,6 +676,33 @@ async function main(): Promise<void> {
       continue;
     }
     created.push({ id: mappingId as string, name: m.mapping_name, type: m.mapping_type });
+  }
+
+  // ------------------------------------------------- resolution report --
+  // The whole point of --dry-run: show the ACTUAL question ids this would
+  // use, with the live code beside the template code, so a wrong
+  // resolution is visible before anything is written.
+  if (resolutions.length > 0) {
+    const drifted = resolutions.filter((r) =>
+      [...r.a1, ...r.a2].some((q) => q.codeDrifted)
+    ).length;
+
+    console.log("Resolved questions (template code → live code / id):");
+    for (const r of resolutions) {
+      console.log(`  ${r.name}  [${r.type}]`);
+      for (const [label, list] of [["A1", r.a1], ["A2", r.a2]] as const) {
+        for (const q of list) {
+          const arrow = q.codeDrifted ? `${q.templateCode} → ${q.liveCode}` : `${q.liveCode}`;
+          console.log(
+            `    ${label}  ${arrow.padEnd(20)} ${q.liveId}  "${q.energySource}" / "${q.criterion}"`
+          );
+        }
+      }
+    }
+    console.log(
+      `\n  ${drifted} of ${resolutions.length} mappings resolved to a live code different from ` +
+        `the template's — expected, and the reason resolution is semantic.\n`
+    );
   }
 
   console.log(`Created:  ${created.length}`);

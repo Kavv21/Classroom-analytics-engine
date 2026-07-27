@@ -260,6 +260,43 @@ export async function updateAssignment(
   );
   if (conflict) return sequenceConflictResult(v.sequenceNumber, conflict.title);
 
+  // Changing the sequence number AFTER questions are imported silently
+  // invalidates every question code on this assignment.
+  //
+  // `external_question_code` is generated once, at import time, as
+  // `A${sequence_number}-NNN` (see parseUpload below). Nothing re-derives
+  // it. This is how the real class ended up with an Assignment 2 whose 255
+  // questions were all coded `A1-…`: imported while its sequence number was
+  // still 1, renumbered afterwards. Both assignments then carried `A1-001…`,
+  // which is legal — the unique constraint is (assignment_id, code) — but
+  // means a code no longer identifies a question within a class.
+  //
+  // Blocked here rather than fixed silently: rewriting the codes would need
+  // to punch through the questions_immutable_after_responses trigger, which
+  // is a data repair, not an edit. supabase/migrations/0019 does exactly
+  // that, deliberately and reviewably.
+  if (v.sequenceNumber !== assignment.sequence_number) {
+    const { count, error: questionCountError } = await supabase
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .eq("assignment_id", assignmentId);
+
+    if (!questionCountError && (count ?? 0) > 0) {
+      const message =
+        `This assignment already has ${count} imported questions, and their codes ` +
+        `(A${assignment.sequence_number}-001, …) were generated from its current position. ` +
+        `Moving it to ${sequenceLabel(v.sequenceNumber)} would leave those codes ` +
+        `disagreeing with it, which makes them ambiguous across the class. ` +
+        `Change the position before importing questions, or ask a maintainer to run the ` +
+        `code-repair migration (0019) alongside the change.`;
+      return {
+        success: false,
+        error: message,
+        fieldErrors: { sequenceNumber: [message] },
+      };
+    }
+  }
+
   const { data, error } = await supabase
     .from("assignments")
     .update({

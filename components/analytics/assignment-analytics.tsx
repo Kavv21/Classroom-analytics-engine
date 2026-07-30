@@ -377,7 +377,8 @@ export function AssignmentAnalytics({
       </FilterRow>
 
       <ChartCard
-        title="Response distribution (17.1)"
+        eyebrow="Section 17.1"
+        title="Response distribution"
         description={`Share of final answers per question — ${BINARY_LABELS.zero} vs ${BINARY_LABELS.one}. Click a bar to inspect that question.`}
         option={distributionOption}
         height={Math.min(640, Math.max(260, filtered.length * 18 + 90))}
@@ -423,7 +424,8 @@ export function AssignmentAnalytics({
       </ChartCard>
 
       <ChartCard
-        title="Response heatmap (17.6)"
+        eyebrow="Section 17.6"
+        title="Response heatmap"
         description={`% choosing ${BINARY_LABELS.one} by energy source × criterion for this assignment. Click a cell to filter the page to it.`}
         option={heatmapOption}
         height={Math.max(240, heat.rowKeys.length * 30 + 130)}
@@ -446,7 +448,8 @@ export function AssignmentAnalytics({
       />
 
       <ChartCard
-        title="Consensus ranking (17.11)"
+        eyebrow="Section 17.11"
+        title="Consensus ranking"
         description="Questions with the strongest / weakest agreement (max of the two answer shares). Consensus describes the spread of opinions — it is not a correctness measure."
         option={consensusOption}
         height={Math.max(220, ranked.length * 22 + 60)}
@@ -484,7 +487,8 @@ export function AssignmentAnalytics({
       </ChartCard>
 
       <ChartCard
-        title="Submission status (17.13)"
+        eyebrow="Section 17.13"
+        title="Submission status"
         description="Attempt states per assignment for currently enrolled active students."
         option={statusOption}
         height={Math.max(180, progress.length * 64 + 80)}
@@ -505,7 +509,8 @@ export function AssignmentAnalytics({
       />
 
       <ChartCard
-        title="Completion timeline (17.14)"
+        eyebrow="Section 17.14"
+        title="Completion timeline"
         description="Cumulative submissions per assignment by day (UTC)."
         option={timelineOption}
         height={300}

@@ -495,7 +495,8 @@ export function TransitionAnalytics({
       )}
 
       <ChartCard
-        title="Before / after (17.2)"
+        eyebrow="Section 17.2"
+        title="Before / after"
         description={`% of valid pairs choosing ${BINARY_LABELS.one} in each assignment, per approved mapping.`}
         option={beforeAfterOption}
         height={Math.min(560, Math.max(240, beforeAfter.length * 30 + 90))}
@@ -514,10 +515,11 @@ export function TransitionAnalytics({
       />
 
       <TransitionMatrixCard
+        eyebrow="Section 17.3"
         title={
           selectedMapping
-            ? `Transition matrix (17.3) — ${selectedMapping.mapping_name} v${selectedMapping.mapping_version}`
-            : "Transition matrix (17.3) — all filtered mappings"
+            ? `Transition matrix — ${selectedMapping.mapping_name} v${selectedMapping.mapping_version}`
+            : "Transition matrix — all filtered mappings"
         }
         description="Rows are the Assignment 1 answer, columns the Assignment 2 answer. Click a cell to list the students behind it."
         counts={matrixSource}
@@ -564,7 +566,8 @@ export function TransitionAnalytics({
       </TransitionMatrixCard>
 
       <ChartCard
-        title="Transition composition (17.4)"
+        eyebrow="Section 17.4"
+        title="Transition composition"
         description="Every student pair per mapping — the four transition states plus missing and not-comparable buckets, as shares of all pairs."
         option={stackedOption}
         height={Math.min(560, Math.max(240, filtered.length * 26 + 110))}
@@ -586,7 +589,8 @@ export function TransitionAnalytics({
       />
 
       <ChartCard
-        title="Answer flows (17.5)"
+        eyebrow="Section 17.5"
+        title="Answer flows"
         description={`How answers moved from Assignment 1 to Assignment 2 across the filtered mappings (valid pairs and missing answers).`}
         option={sankeyOption}
         height={320}
@@ -607,7 +611,8 @@ export function TransitionAnalytics({
       />
 
       <ChartCard
-        title="Transition heatmap (17.7)"
+        eyebrow="Section 17.7"
+        title="Transition heatmap"
         description="Student counts per mapping across all four transition states and every data-quality bucket."
         option={transitionHeatmapOption}
         height={Math.max(240, filtered.length * 28 + 150)}
@@ -623,7 +628,8 @@ export function TransitionAnalytics({
       />
 
       <ChartCard
-        title="Energy source × criterion change rate (17.8)"
+        eyebrow="Section 17.8"
+        title="Energy source × criterion change rate"
         description="Change rate pooled over each energy source × criterion group of approved mappings (all mappings, unfiltered)."
         option={sourceCriterionOption}
         height={Math.max(220, sourceCriterion.rows.length * 30 + 120)}
@@ -646,7 +652,8 @@ export function TransitionAnalytics({
       />
 
       <ChartCard
-        title="Opinion-shift ranking (17.9)"
+        eyebrow="Section 17.9"
+        title="Opinion-shift ranking"
         description={`Percentage-point shift per mapping: % choosing ${BINARY_LABELS.one} in Assignment 2 minus Assignment 1, over valid pairs. Blue = toward ${BINARY_LABELS.one}, orange = toward ${BINARY_LABELS.zero} — direction only, neither is better.`}
         option={shiftOption}
         height={Math.min(560, Math.max(220, shiftRanked.length * 26 + 80))}
@@ -659,7 +666,8 @@ export function TransitionAnalytics({
       />
 
       <ChartCard
-        title="Change-rate ranking (17.10)"
+        eyebrow="Section 17.10"
+        title="Change-rate ranking"
         description="Share of valid pairs that changed answer in either direction, per mapping. Change rate and net shift are different metrics — see both columns in the table."
         option={changeRateOption}
         height={Math.min(560, Math.max(220, changeRanked.length * 26 + 80))}

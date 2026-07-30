@@ -75,7 +75,8 @@ export default async function AnalyticsOverviewPage({
     <main className="page-dense">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="title-md">Analytics — {classRow.name}</h1>
+          <p className="eyebrow mb-1">{classRow.name}</p>
+          <h1 className="title-md">Analytics overview</h1>
           <p className="mt-1 text-sm text-ink-secondary">
             Descriptive statistics about opinion responses and how they moved
             between the two assignments. Nothing here is a grade or a

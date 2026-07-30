@@ -33,7 +33,8 @@ export default async function AssignmentAnalyticsPage({
     <main className="page-dense">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="title-md">Assignment analytics — {classRow.name}</h1>
+          <p className="eyebrow mb-1">{classRow.name}</p>
+          <h1 className="title-md">Assignment analytics</h1>
           <p className="mt-1 text-sm text-ink-secondary">
             Response distributions, agreement, and submission progress per
             assignment. Descriptive statistics about opinions — never grades.

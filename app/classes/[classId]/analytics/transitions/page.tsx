@@ -32,7 +32,8 @@ export default async function TransitionAnalyticsPage({
     <main className="page-dense">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="title-md">Transition analytics — {classRow.name}</h1>
+          <p className="eyebrow mb-1">{classRow.name}</p>
+          <h1 className="title-md">Transition analytics</h1>
           <p className="mt-1 text-sm text-ink-secondary">
             How opinions moved between the two assignments, per approved
             mapping. A change is a change — neither direction is better.

@@ -20,6 +20,7 @@ import {
 } from "@/lib/charts/theme";
 
 interface TransitionMatrixCardProps {
+  eyebrow?: string;
   title: string;
   description: string;
   counts: { s00: number; s01: number; s10: number; s11: number; valid_paired: number };
@@ -36,6 +37,7 @@ const AXIS_VALUES = [BINARY_LABELS.zero, BINARY_LABELS.one];
  * Assignment 2 answer. Each cell keeps its fixed state colour and prints
  * count + share, so colour is never the only channel. */
 export function TransitionMatrixCard({
+  eyebrow,
   title,
   description,
   counts,
@@ -103,6 +105,7 @@ export function TransitionMatrixCard({
 
   return (
     <ChartCard
+      eyebrow={eyebrow}
       title={title}
       description={description}
       option={option}

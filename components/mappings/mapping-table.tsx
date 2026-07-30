@@ -109,27 +109,27 @@ function PreviewPanel({
       </p>
 
       {preview.questionCounts.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="text-xs">
+        <div className="table-frame overflow-x-auto">
+          <table className="data-table data-table--dense data-table--numeric">
             <thead>
-              <tr className="text-left text-ink-muted">
-                <th className="pr-4 font-medium">Question</th>
-                <th className="pr-4 font-medium">Side</th>
-                <th className="pr-4 font-medium">Answered</th>
-                <th className="pr-4 font-medium">0s</th>
-                <th className="pr-4 font-medium">1s</th>
+              <tr>
+                <th>Question</th>
+                <th>Side</th>
+                <th>Answered</th>
+                <th>0s</th>
+                <th>1s</th>
               </tr>
             </thead>
             <tbody>
               {preview.questionCounts.map((qc) => (
                 <tr key={`${qc.questionId}-${qc.side}`}>
-                  <td className="pr-4">
+                  <td>
                     <QuestionCell id={qc.questionId} />
                   </td>
-                  <td className="pr-4">A{qc.side}</td>
-                  <td className="pr-4">{qc.answered}</td>
-                  <td className="pr-4">{qc.zeros}</td>
-                  <td className="pr-4">{qc.ones}</td>
+                  <td>A{qc.side}</td>
+                  <td>{qc.answered}</td>
+                  <td>{qc.zeros}</td>
+                  <td>{qc.ones}</td>
                 </tr>
               ))}
             </tbody>
@@ -138,44 +138,46 @@ function PreviewPanel({
       )}
 
       {preview.pairCounts.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="text-xs">
-            <thead>
-              <tr className="text-left text-ink-muted">
-                <th className="pr-4 font-medium">A1 × A2 pair</th>
-                <th className="pr-4 font-medium">Paired</th>
-                <th className="pr-4 font-medium">0/0</th>
-                <th className="pr-4 font-medium">0/1</th>
-                <th className="pr-4 font-medium">1/0</th>
-                <th className="pr-4 font-medium">1/1</th>
-                <th className="pr-4 font-medium">Missing A1</th>
-                <th className="pr-4 font-medium">Missing A2</th>
-                <th className="pr-4 font-medium">Missing both</th>
-              </tr>
-            </thead>
-            <tbody>
-              {preview.pairCounts.map((p) => (
-                <tr key={`${p.a1QuestionId}-${p.a2QuestionId}`}>
-                  <td className="pr-4">
-                    <span className="block">
-                      {label(p.a1QuestionId)} × {label(p.a2QuestionId)}
-                    </span>
-                    <span className="block font-mono text-[11px] text-ink-muted">
-                      {code(p.a1QuestionId)} × {code(p.a2QuestionId)}
-                    </span>
-                  </td>
-                  <td className="pr-4">{p.paired}</td>
-                  <td className="pr-4">{p.pair00}</td>
-                  <td className="pr-4">{p.pair01}</td>
-                  <td className="pr-4">{p.pair10}</td>
-                  <td className="pr-4">{p.pair11}</td>
-                  <td className="pr-4">{p.missingA1}</td>
-                  <td className="pr-4">{p.missingA2}</td>
-                  <td className="pr-4">{p.missingBoth}</td>
+        <div>
+          <div className="table-frame overflow-x-auto">
+            <table className="data-table data-table--dense data-table--numeric">
+              <thead>
+                <tr>
+                  <th>A1 × A2 pair</th>
+                  <th>Paired</th>
+                  <th>0/0</th>
+                  <th>0/1</th>
+                  <th>1/0</th>
+                  <th>1/1</th>
+                  <th>Missing A1</th>
+                  <th>Missing A2</th>
+                  <th>Missing both</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {preview.pairCounts.map((p) => (
+                  <tr key={`${p.a1QuestionId}-${p.a2QuestionId}`}>
+                    <td>
+                      <span className="block">
+                        {label(p.a1QuestionId)} × {label(p.a2QuestionId)}
+                      </span>
+                      <span className="block font-mono text-[11px] text-ink-muted">
+                        {code(p.a1QuestionId)} × {code(p.a2QuestionId)}
+                      </span>
+                    </td>
+                    <td>{p.paired}</td>
+                    <td>{p.pair00}</td>
+                    <td>{p.pair01}</td>
+                    <td>{p.pair10}</td>
+                    <td>{p.pair11}</td>
+                    <td>{p.missingA1}</td>
+                    <td>{p.missingA2}</td>
+                    <td>{p.missingBoth}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <p className="mt-1 text-xs text-ink-muted">
             Pair columns read “A1 value / A2 value”. Missing responses stay
             in their own columns — they are never counted as a pair.
@@ -256,7 +258,7 @@ export function MappingTable({
 
   if (mappings.length === 0) {
     return (
-      <div className="rounded border border-hairline p-6 text-sm text-ink-secondary">
+      <div className="card-standard text-sm text-ink-secondary">
         No mappings yet. Select questions above and create one, or use
         “Generate suggestions” to seed the deterministic matches.
       </div>
@@ -264,10 +266,11 @@ export function MappingTable({
   }
 
   return (
-    <div className="rounded border border-hairline">
+    <div className="table-frame">
       <div className="border-b border-hairline bg-surface-sunken px-4 py-3">
-        <p className="font-medium">Mappings ({mappings.length})</p>
-        <p className="text-xs text-ink-muted">
+        <p className="eyebrow">Confirmed &amp; suggested mappings</p>
+        <p className="mt-0.5 font-medium">{mappings.length} total</p>
+        <p className="mt-0.5 text-xs text-ink-muted">
           Only approved mappings are visible to analytics. Approved mappings
           can&rsquo;t be edited — create a new version instead.
         </p>
@@ -278,18 +281,18 @@ export function MappingTable({
         </p>
       )}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-surface-sunken text-xs text-ink-secondary">
+        <table className="data-table">
+          <thead>
             <tr>
-              <th className="px-3 py-2 font-medium">Name</th>
-              <th className="px-3 py-2 font-medium">Type</th>
-              <th className="px-3 py-2 font-medium">A1 questions</th>
-              <th className="px-3 py-2 font-medium">A2 questions</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Actions</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>A1 questions</th>
+              <th>A2 questions</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-hairline">
+          <tbody>
             {mappings.map((m) => {
               const busy = busyId === m.id;
               const superseded = m.mappingStatus === "SUPERSEDED" || m.supersededById !== null;
@@ -333,7 +336,16 @@ export function MappingTable({
                             type="button"
                             disabled={busy}
                             onClick={() => run(m.id, () => setMappingApproval(m.id, true))}
-                            className="rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                            className="btn btn-sm"
+                            style={
+                              busy
+                                ? undefined
+                                : {
+                                    backgroundColor: "var(--surface-good)",
+                                    borderColor: "var(--status-good)",
+                                    color: "var(--status-good-text)",
+                                  }
+                            }
                           >
                             Approve
                           </button>

@@ -172,8 +172,8 @@ export function CsvAnswerUpload({
 
       <ol className="space-y-4">
         {/* ---- step 1 ---- */}
-        <li className="rounded border border-hairline p-4">
-          <p className="font-medium">1. Download the answer sheet</p>
+        <li className="card-standard">
+          <p className="heading">1. Download the answer sheet</p>
           <p className="mt-1 text-sm text-ink-secondary">
             It has one column per question ({questions.length} in total). The first row holds the
             question code — that&rsquo;s the label the upload matches on, so leave it alone — and the
@@ -198,28 +198,22 @@ export function CsvAnswerUpload({
             <summary className="cursor-pointer text-sm font-medium">
               Question key ({questions.length} questions)
             </summary>
-            <div className="mt-2 max-h-72 overflow-auto rounded border border-hairline">
-              <table className="w-full text-left text-xs">
+            <div className="table-frame mt-2 max-h-72 overflow-y-auto">
+              <table className="data-table data-table--dense">
                 <caption className="sr-only">
                   Every question in this assignment, with the answer-sheet column code for each
                 </caption>
-                <thead className="sticky top-0 bg-surface-sunken">
+                <thead className="sticky top-0">
                   <tr>
-                    <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                      Question
-                    </th>
-                    <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                      Column in the answer sheet
-                    </th>
+                    <th scope="col">Question</th>
+                    <th scope="col">Column in the answer sheet</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-hairline">
+                <tbody>
                   {orderedQuestions.map((q) => (
                     <tr key={q.id}>
-                      <td className="px-2 py-1.5">{labelOf(q)}</td>
-                      <td className="px-2 py-1.5 font-mono text-ink-muted">
-                        {q.externalQuestionCode}
-                      </td>
+                      <td>{labelOf(q)}</td>
+                      <td className="mono text-ink-muted">{q.externalQuestionCode}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -229,18 +223,20 @@ export function CsvAnswerUpload({
         </li>
 
         {/* ---- step 2 ---- */}
-        <li className="rounded border border-hairline p-4">
-          <p className="font-medium">2. Upload your completed sheet</p>
+        <li className="card-standard">
+          <p className="heading">2. Upload your completed sheet</p>
           <p className="mt-1 text-sm text-ink-secondary">
             Choosing a file only shows you a preview — it does not submit anything.
           </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(e) => onFileChosen(e.target.files?.[0])}
-            className="mt-3 block w-full text-sm file:mr-3 file:rounded file:border file:border-hairline file:bg-surface-sunken file:px-3 file:py-1.5 file:text-sm"
-          />
+          <div className="well mt-3 rounded-md border border-dashed border-strong px-4 py-6 text-center">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => onFileChosen(e.target.files?.[0])}
+              className="mx-auto block w-full max-w-sm text-sm file:mr-3 file:rounded file:border file:border-strong file:bg-surface-raised file:px-3 file:py-1.5 file:text-sm file:font-medium"
+            />
+          </div>
           {fileName && (
             <p className="mt-2 text-xs text-ink-muted">
               Loaded <span className="font-medium">{fileName}</span>.{" "}
@@ -252,8 +248,8 @@ export function CsvAnswerUpload({
         </li>
 
         {/* ---- step 3 ---- */}
-        <li className="rounded border border-hairline p-4">
-          <p className="font-medium">3. Check the preview, then submit</p>
+        <li className="card-standard">
+          <p className="heading">3. Check the preview, then submit</p>
 
           {stage === "choose" && (
             <p className="mt-1 text-sm text-ink-secondary">
@@ -277,28 +273,22 @@ export function CsvAnswerUpload({
               </p>
 
               {issues.length > 0 && (
-                <div className="max-h-64 overflow-auto rounded border border-hairline">
-                  <table className="w-full text-left text-xs">
+                <div className="table-frame max-h-64 overflow-y-auto">
+                  <table className="data-table data-table--dense">
                     <caption className="sr-only">Problems found in the uploaded file</caption>
-                    <thead className="sticky top-0 bg-surface-sunken">
+                    <thead className="sticky top-0">
                       <tr>
-                        <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                          Row
-                        </th>
-                        <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                          Column
-                        </th>
-                        <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                          Problem
-                        </th>
+                        <th scope="col">Row</th>
+                        <th scope="col">Column</th>
+                        <th scope="col">Problem</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-hairline">
+                    <tbody>
                       {issues.map((issue, i) => (
                         <tr key={i}>
-                          <td className="px-2 py-1.5 tabular-nums">{issue.row ?? "—"}</td>
-                          <td className="px-2 py-1.5">{issue.column ?? "—"}</td>
-                          <td className="px-2 py-1.5">{issue.message}</td>
+                          <td className="tabular-nums">{issue.row ?? "—"}</td>
+                          <td>{issue.column ?? "—"}</td>
+                          <td>{issue.message}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -307,33 +297,27 @@ export function CsvAnswerUpload({
               )}
 
               {issues.length === 0 && (
-                <div className="max-h-64 overflow-auto rounded border border-hairline">
-                  <table className="w-full text-left text-xs">
+                <div className="table-frame max-h-64 overflow-y-auto">
+                  <table className="data-table data-table--dense">
                     <caption className="sr-only">Answers read from the uploaded file</caption>
-                    <thead className="sticky top-0 bg-surface-sunken">
+                    <thead className="sticky top-0">
                       <tr>
-                        <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                          Question
-                        </th>
-                        <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                          Your answer
-                        </th>
+                        <th scope="col">Question</th>
+                        <th scope="col">Your answer</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-hairline">
+                    <tbody>
                       {parsed.answers.map((a) => {
                         const q = questionById.get(a.questionId);
                         return (
                           <tr key={a.questionId}>
                             {/* Checking your own answers means reading the
                                 question, not the code. */}
-                            <td className="px-2 py-1.5">
+                            <td>
                               <span className="block">{q ? labelOf(q) : a.code}</span>
-                              <span className="block font-mono text-[11px] text-ink-muted">
-                                {a.code}
-                              </span>
+                              <span className="mono mt-0.5 block text-ink-muted">{a.code}</span>
                             </td>
-                            <td className="px-2 py-1.5 align-top tabular-nums">{a.value}</td>
+                            <td className="align-top tabular-nums">{a.value}</td>
                           </tr>
                         );
                       })}

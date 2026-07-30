@@ -65,10 +65,10 @@ export default async function SubmissionReceiptPage({
         <p aria-hidden="true" className="text-2xl leading-none">
           ✓
         </p>
-        <h1 className="title-md mt-2" style={{ color: "var(--status-good-text)" }}>
+        <p className="eyebrow mt-2">{assignment.title}</p>
+        <h1 className="title-md mt-1" style={{ color: "var(--status-good-text)" }}>
           {resubmitted ? "Resubmitted" : "Submitted"}
         </h1>
-        <p className="mt-1 text-sm">{assignment.title}</p>
       </div>
 
       <Card className="mt-6"><CardContent><dl className="space-y-3 text-sm">

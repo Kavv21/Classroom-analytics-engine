@@ -375,6 +375,7 @@ export function DemoDashboard({
       <SyntheticDataBanner scope={scope} />
 
       <ChartCard
+        eyebrow="Demo cohort"
         title={`Answers selecting “1 — Yes” per energy source — ${scope.assignment1Title} vs ${scope.assignment2Title}`}
         description="Pooled across every active question of that energy source, for all enrolled students."
         option={totalsOption}
@@ -388,6 +389,7 @@ export function DemoDashboard({
       />
 
       <ChartCard
+        eyebrow="Demo cohort"
         title="Change per energy source, Assignment 1 → Assignment 2"
         description="Direction of movement only. A shift toward 1 and a shift toward 0 are the same kind of event; neither is a gain."
         option={changeOption}
@@ -409,6 +411,7 @@ export function DemoDashboard({
       </ChartCard>
 
       <ChartCard
+        eyebrow="Demo cohort"
         title="Students by shift category"
         description="One category per student, from their net movement across all approved mappings."
         option={categoryOption}

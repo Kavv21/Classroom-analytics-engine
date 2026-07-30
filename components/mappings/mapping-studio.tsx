@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -57,14 +58,18 @@ function applyFilters(questions: QuestionLite[], f: ColumnFilters): QuestionLite
 }
 
 function QuestionColumn({
-  title,
+  eyebrow,
+  heading,
   questions,
   filters,
   onFilters,
   selected,
   onToggle,
 }: {
-  title: string;
+  /** Small-caps column identifier, e.g. "Assignment 1". */
+  eyebrow: string;
+  /** The assignment's actual title. */
+  heading: string;
   questions: QuestionLite[];
   filters: ColumnFilters;
   onFilters: (f: ColumnFilters) => void;
@@ -76,25 +81,34 @@ function QuestionColumn({
   const concepts = useMemo(() => distinct(questions.map((q) => q.concept)), [questions]);
   const visible = useMemo(() => applyFilters(questions, filters), [questions, filters]);
 
+  const columnLabel = `${eyebrow} — ${heading}`;
   const selectClass = "input input-compact";
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col rounded border border-hairline">
+    <div className="card flex min-w-0 flex-1 flex-col">
       <div className="border-b border-hairline bg-surface-sunken p-3">
-        <p className="font-medium">{title}</p>
-        <p className="text-xs text-ink-muted">
+        <p className="eyebrow">{eyebrow}</p>
+        <p className="mt-0.5 font-medium">{heading}</p>
+        <p className="mt-1 text-xs text-ink-muted">
           {visible.length} of {questions.length} questions · {selected.size} selected
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
-          <input
-            type="search"
-            value={filters.search}
-            onChange={(e) => onFilters({ ...filters, search: e.target.value })}
-            placeholder="Search wording or code…"
-            className="w-full input input-compact text-sm"
-          />
+          <div className="relative w-full">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
+            />
+            <input
+              type="search"
+              value={filters.search}
+              onChange={(e) => onFilters({ ...filters, search: e.target.value })}
+              placeholder="Search wording or code…"
+              aria-label={`Search ${columnLabel}`}
+              className="input input-compact w-full pl-8 text-sm"
+            />
+          </div>
           <select
-            aria-label={`${title} energy source filter`}
+            aria-label={`${columnLabel} energy source filter`}
             value={filters.energySource}
             onChange={(e) => onFilters({ ...filters, energySource: e.target.value })}
             className={selectClass}
@@ -107,7 +121,7 @@ function QuestionColumn({
             ))}
           </select>
           <select
-            aria-label={`${title} criterion filter`}
+            aria-label={`${columnLabel} criterion filter`}
             value={filters.criterion}
             onChange={(e) => onFilters({ ...filters, criterion: e.target.value })}
             className={selectClass}
@@ -121,7 +135,7 @@ function QuestionColumn({
           </select>
           {concepts.length > 0 && (
             <select
-              aria-label={`${title} concept filter`}
+              aria-label={`${columnLabel} concept filter`}
               value={filters.concept}
               onChange={(e) => onFilters({ ...filters, concept: e.target.value })}
               className={selectClass}
@@ -290,14 +304,15 @@ export function MappingStudio({
     router.refresh();
   }
 
-  const inputClass = "w-full input input-compact.5 text-sm";
+  const inputClass = "w-full input input-compact text-sm";
 
   return (
     <div className="mt-6 space-y-6">
       {/* Split screen: A1 left, A2 right */}
       <div className="flex flex-col gap-4 lg:flex-row">
         <QuestionColumn
-          title={`Assignment 1 — ${a1Title}`}
+          eyebrow="Assignment 1"
+          heading={a1Title}
           questions={a1Questions}
           filters={a1Filters}
           onFilters={setA1Filters}
@@ -305,7 +320,8 @@ export function MappingStudio({
           onToggle={(id) => toggle(1, id)}
         />
         <QuestionColumn
-          title={`Assignment 2 — ${a2Title}`}
+          eyebrow="Assignment 2"
+          heading={a2Title}
           questions={a2Questions}
           filters={a2Filters}
           onFilters={setA2Filters}
@@ -315,9 +331,9 @@ export function MappingStudio({
       </div>
 
       {/* Mapping form */}
-      <div className="rounded border border-hairline p-4">
-        <div className="flex items-center justify-between">
-          <p className="font-medium">{editingId ? "Edit mapping" : "Create mapping from selection"}</p>
+      <div className="card-standard">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="heading">{editingId ? "Edit mapping" : "Create mapping from selection"}</p>
           <div className="flex flex-wrap gap-2">
             <ApproveAllButton classId={classId} />
             <button
@@ -423,12 +439,7 @@ export function MappingStudio({
             {editingId ? "Save changes" : "Create mapping"}
           </button>
           {(editingId || a1Selected.size > 0 || a2Selected.size > 0) && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={resetForm}
-              className="rounded border border-strong px-4 py-2 text-sm font-medium hover:bg-surface-sunken disabled:opacity-60"
-            >
+            <button type="button" disabled={busy} onClick={resetForm} className="btn btn-secondary">
               {editingId ? "Cancel edit" : "Clear selection"}
             </button>
           )}

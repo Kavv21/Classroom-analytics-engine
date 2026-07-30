@@ -67,10 +67,20 @@ export default async function ClassDetailPage({
 
   if (!classRow) notFound();
 
+  const context = [
+    classRow.course_name,
+    classRow.academic_year,
+    classRow.semester,
+    classRow.section,
+  ].filter(Boolean);
+
   return (
     <main className="page-standard">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="title-md">{classRow.name}</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          {context.length > 0 && <p className="eyebrow">{context.join(" · ")}</p>}
+          <h1 className="title-md mt-0.5">{classRow.name}</h1>
+        </div>
         <ArchiveButton classId={classRow.id} status={classRow.status} />
       </div>
 

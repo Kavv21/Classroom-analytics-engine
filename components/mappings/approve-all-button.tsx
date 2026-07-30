@@ -110,7 +110,7 @@ export function ApproveAllButton({ classId }: { classId: string }) {
           {loading && <p className="text-sm text-muted-foreground">Checking mappings…</p>}
 
           {error && (
-            <p className="whitespace-pre-wrap rounded border border-hairline bg-surface-sunken px-3 py-2 text-sm text-[color:var(--status-critical-text)]">
+            <p role="alert" className="banner banner-critical whitespace-pre-wrap">
               {error}
             </p>
           )}
@@ -124,31 +124,23 @@ export function ApproveAllButton({ classId }: { classId: string }) {
                     : `${candidates.length} mapping${candidates.length === 1 ? "" : "s"} will be approved:`}
                 </p>
                 {candidates.length > 0 && (
-                  <div className="mt-2 max-h-60 overflow-auto rounded border border-hairline">
-                    <table className="w-full text-left text-xs">
-                      <thead className="sticky top-0 bg-surface-sunken">
+                  <div className="table-frame mt-2 max-h-60 overflow-y-auto">
+                    <table className="data-table data-table--dense">
+                      <thead className="sticky top-0">
                         <tr>
-                          <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                            Mapping
-                          </th>
-                          <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                            Type
-                          </th>
-                          <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                            Energy source
-                          </th>
-                          <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
-                            Version
-                          </th>
+                          <th scope="col">Mapping</th>
+                          <th scope="col">Type</th>
+                          <th scope="col">Energy source</th>
+                          <th scope="col">Version</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-hairline">
+                      <tbody>
                         {candidates.map((c) => (
                           <tr key={c.id}>
-                            <td className="px-2 py-1.5">{c.name}</td>
-                            <td className="px-2 py-1.5">{mappingTypeLabel(c.type)}</td>
-                            <td className="px-2 py-1.5">{c.energySource ?? "—"}</td>
-                            <td className="px-2 py-1.5 tabular-nums">v{c.version}</td>
+                            <td>{c.name}</td>
+                            <td>{mappingTypeLabel(c.type)}</td>
+                            <td>{c.energySource ?? "—"}</td>
+                            <td className="tabular-nums">v{c.version}</td>
                           </tr>
                         ))}
                       </tbody>

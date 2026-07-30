@@ -58,7 +58,8 @@ export default async function DemoDashboardPage({
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 className="title-md">Demo dashboard — {classRow.name}</h1>
+        <p className="eyebrow mb-1">{classRow.name}</p>
+        <h1 className="title-md">Demo dashboard</h1>
         <p className="mt-1 text-sm text-ink-secondary">
           A presentation view of the platform&apos;s analytics running on a synthetic cohort.
           Every figure comes from the same approved-mappings-only views the rest of analytics uses.

@@ -48,6 +48,8 @@ import {
 
 interface QueryBuilderProps {
   classId: string;
+  /** Serializable display string, never a function across the boundary. */
+  classDisplayName: string;
   initialQuery: QueryDefinition;
   savedQueries: SavedQuerySummary[];
   savedVisualisations: SavedVisualisationSummary[];
@@ -65,6 +67,7 @@ function formatCell(value: number | null, format: string): string | number | nul
 
 export function QueryBuilder({
   classId,
+  classDisplayName,
   initialQuery,
   savedQueries,
   savedVisualisations,
@@ -222,10 +225,18 @@ export function QueryBuilder({
     ? result.rows.map((r) => [...r.keys, formatCell(r.value, measure.format)])
     : [];
 
+  // Presentational-only summary of what's currently applied — read from
+  // state already held for the query itself, no new data fetch.
+  const filterSummary =
+    query.filters.length === 0
+      ? "No filters applied"
+      : query.filters.map((f) => `${DIMENSIONS[f.dimension].label}: ${f.value}`).join(" · ");
+
   return (
     <div className="mt-6 space-y-6">
       <Card aria-label="Query definition"><CardContent className="pt-6">
-        <h2 className="font-semibold text-ink">Build a query</h2>
+        <p className="eyebrow mb-1">{classDisplayName}</p>
+        <h2 className="title-sm">Build a query</h2>
         <p className="mt-0.5 text-xs text-ink-secondary">{dataset.description}</p>
 
         <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -306,6 +317,9 @@ export function QueryBuilder({
                 PDF
               </Button>
             </div>
+            <p className="eyebrow mt-1">
+              {classDisplayName} · {filterSummary}
+            </p>
           </div>
         </div>
 
@@ -394,6 +408,7 @@ export function QueryBuilder({
 
       {validation.valid && result && (
         <ChartCard
+          eyebrow="Query preview"
           title={`${measure.label} by ${query.dimensions.map((d) => DIMENSIONS[d].label).join(" and ") || "total"}`}
           description={`${dataset.label} · ${result.rowCount} row${result.rowCount === 1 ? "" : "s"} · source view: ${result.sources.join(", ")}`}
           option={buildChartOption(query, result)}
@@ -405,7 +420,7 @@ export function QueryBuilder({
       )}
 
       <Card aria-label="Save and load"><CardContent className="pt-6">
-        <h2 className="font-semibold">Save</h2>
+        <h2 className="title-sm">Save</h2>
         <div className="mt-2 flex flex-wrap items-end gap-2">
           <div className="grid gap-1.5">
             <Label htmlFor="qb-savename">Name</Label>
@@ -441,7 +456,7 @@ export function QueryBuilder({
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
-            <h3 className="text-sm font-medium">Saved queries ({savedQueries.length})</h3>
+            <h3 className="title-sm">Saved queries ({savedQueries.length})</h3>
             <ul className="mt-1 space-y-1">
               {savedQueries.map((q) => (
                 <li key={q.id} className="flex items-center justify-between gap-2 text-xs">
@@ -466,7 +481,7 @@ export function QueryBuilder({
           </div>
 
           <div>
-            <h3 className="text-sm font-medium">
+            <h3 className="title-sm">
               Saved visualisations ({savedVisualisations.length})
             </h3>
             <ul className="mt-1 space-y-1">
@@ -507,7 +522,7 @@ export function QueryBuilder({
         </div>
 
         <div className="mt-4">
-          <h3 className="text-sm font-medium">Dashboards ({dashboards.length})</h3>
+          <h3 className="title-sm">Dashboards ({dashboards.length})</h3>
           <div className="mt-1 flex flex-wrap items-end gap-2">
             <div className="grid gap-1.5">
               <Label htmlFor="qb-dashname">New dashboard name</Label>

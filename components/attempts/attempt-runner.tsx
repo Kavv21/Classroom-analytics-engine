@@ -225,6 +225,7 @@ export function AttemptRunner({
 
   return (
     <div className="space-y-5">
+      <p className="eyebrow">There are no right or wrong answers</p>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="title-sm">{assignmentTitle}</h1>
         <p

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -55,6 +55,28 @@ export function QuestionManager({
   const [oneLabel, setOneLabel] = useState("");
 
   const ordered = [...questions].sort((a, b) => a.display_order - b.display_order);
+  const globalIndex = new Map(ordered.map((q, i) => [q.id, i]));
+
+  // Grouped purely for readability — display order (and therefore the
+  // up/down reorder controls) is untouched; a group is just a heading
+  // inserted between runs of rows that already sit together by source.
+  interface QuestionGroup {
+    key: string;
+    label: string | null;
+    rows: QuestionRow[];
+  }
+  const groups: QuestionGroup[] = [];
+  for (const q of ordered) {
+    const label = (q.energy_source ?? "").trim() || null;
+    const key = label ?? "__ungrouped__";
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) {
+      last.rows.push(q);
+    } else {
+      groups.push({ key, label, rows: [q] });
+    }
+  }
+  const showGroupHeadings = groups.some((g) => g.label !== null) && groups.length > 1;
 
   async function swap(index: number, direction: -1 | 1) {
     const target = index + direction;
@@ -131,7 +153,21 @@ export function QuestionManager({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ordered.map((q, i) => (
+            {groups.map((group) => (
+              <Fragment key={group.key}>
+                {showGroupHeadings && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell
+                      colSpan={editable ? 4 : 3}
+                      className="bg-surface-sunken py-1.5"
+                    >
+                      <span className="eyebrow">{group.label ?? "Ungrouped"}</span>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {group.rows.map((q) => {
+                  const i = globalIndex.get(q.id) ?? 0;
+                  return (
               <TableRow key={q.id}>
                 <TableCell className="text-ink-muted tabular-nums">{q.display_order}</TableCell>
                 {/* Wording is the identifier a professor reads; the code is
@@ -220,6 +256,9 @@ export function QuestionManager({
                   </TableCell>
                 )}
               </TableRow>
+                  );
+                })}
+              </Fragment>
             ))}
           </TableBody>
         </Table>

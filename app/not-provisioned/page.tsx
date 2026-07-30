@@ -7,6 +7,7 @@ export default function NotProvisionedPage() {
     <main className="page-spacious">
       <Card>
         <CardHeader>
+          <p className="eyebrow mb-2">Evaluating Energy Sources</p>
           <CardTitle as="h1" className="title-lg">
             You&rsquo;re signed in, but not on a roster yet
           </CardTitle>
@@ -25,6 +26,7 @@ export default function NotProvisionedPage() {
           <SignOutButton />
         </CardContent>
       </Card>
+      <p className="eyebrow mt-8 text-center">© Jinraj Joshipura 1994</p>
     </main>
   );
 }

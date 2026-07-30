@@ -22,6 +22,10 @@ export interface ChartTable {
 }
 
 interface ChartCardProps {
+  /** Small-caps context line above the title — e.g. a spec section
+   * reference or a dataset label. Purely presentational; never a
+   * substitute for the title itself. */
+  eyebrow?: string;
   title: string;
   description?: string;
   height?: number;
@@ -43,6 +47,7 @@ export const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
 
 export function ChartCard({
+  eyebrow,
   title,
   description,
   height = 320,
@@ -88,6 +93,7 @@ export function ChartCard({
     <section aria-label={title} className="card p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
+          {eyebrow && <p className="eyebrow mb-0.5">{eyebrow}</p>}
           <h3 className="heading">{title}</h3>
           {description && <p className="note-muted mt-0.5">{description}</p>}
         </div>

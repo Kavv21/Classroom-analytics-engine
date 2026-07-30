@@ -110,7 +110,8 @@ export function TransitionDrilldown({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-ink">Drill-down explorer</h3>
+          <p className="eyebrow mb-0.5">Section 21</p>
+          <h3 className="heading">Drill-down explorer</h3>
           <p className="mt-0.5 text-xs text-ink-secondary">
             Energy source → criterion → mapped question → transition matrix → students → student
             profile.

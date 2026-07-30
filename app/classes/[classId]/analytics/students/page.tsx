@@ -32,7 +32,8 @@ export default async function StudentAnalyticsPage({
     <main className="page-dense">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="title-md">Student analytics — {classRow.name}</h1>
+          <p className="eyebrow mb-1">{classRow.name}</p>
+          <h1 className="title-md">Student analytics</h1>
           <p className="mt-1 text-sm text-ink-secondary">
             Per-student opinion movement across all approved mappings. Change
             rates describe movement, not performance — there are no scores

@@ -164,7 +164,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           <SidebarTrigger />
           {/* One shell-level notice rather than a per-page footer, so it is
               present on every authenticated screen and never duplicated. */}
-          <span className="note-muted ml-auto whitespace-nowrap">
+          <span className="eyebrow ml-auto whitespace-nowrap">
             © JINRAJ JOSHIPURA 1994
           </span>
         </header>

@@ -4,6 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { assignmentStatusLabel, assignmentStatusTone } from "@/lib/ui/labels";
+
+interface ClassAssignmentStatusRow {
+  class_id: string;
+  sequence_number: number;
+  status: string;
+}
 
 export default async function ClassesPage() {
   const supabase = await createClient();
@@ -18,6 +25,25 @@ export default async function ClassesPage() {
         .eq("professor_id", user.id)
         .order("created_at", { ascending: false })
     : { data: null };
+
+  // Second, cheap read (indexed on class_id, at most two rows per class) so
+  // each row can show where its assignments stand without opening the class.
+  const classIds = (classes ?? []).map((c) => c.id);
+  const { data: assignmentStatuses } =
+    classIds.length > 0
+      ? await supabase
+          .from("assignments")
+          .select("class_id, sequence_number, status")
+          .in("class_id", classIds)
+          .in("sequence_number", [1, 2])
+          .order("sequence_number")
+          .returns<ClassAssignmentStatusRow[]>()
+      : { data: [] as ClassAssignmentStatusRow[] };
+
+  const assignmentsByClass = new Map<string, ClassAssignmentStatusRow[]>();
+  for (const row of assignmentStatuses ?? []) {
+    assignmentsByClass.set(row.class_id, [...(assignmentsByClass.get(row.class_id) ?? []), row]);
+  }
 
   return (
     <main className="page-standard">
@@ -39,33 +65,42 @@ export default async function ClassesPage() {
         <Card className="mt-6 overflow-hidden p-0">
           <CardContent className="p-0">
             <ul className="divide-y">
-          {classes.map((c) => (
+          {classes.map((c) => {
+            const classAssignments = assignmentsByClass.get(c.id) ?? [];
+            const context = [c.course_name, c.academic_year, c.semester, c.section].filter(Boolean);
+            return (
             <li key={c.id}>
               <Link
                 href={`/classes/${c.id}`}
                 className="flex items-center justify-between gap-4 bg-surface-raised p-4 hover:bg-surface-sunken"
               >
                 <div className="min-w-0">
-                  <p className="font-medium">{c.name}</p>
-                  <p className="note mt-0.5">
-                    {[c.course_name, c.academic_year, c.semester, c.section]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
+                  {context.length > 0 && <p className="eyebrow">{context.join(" · ")}</p>}
+                  <p className="mt-0.5 font-medium">{c.name}</p>
+                  {classAssignments.length > 0 && (
+                    <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {classAssignments.map((a) => (
+                        <span key={a.sequence_number} className={assignmentStatusTone(a.status)}>
+                          A{a.sequence_number}: {assignmentStatusLabel(a.status)}
+                        </span>
+                      ))}
+                    </p>
+                  )}
                 </div>
                 <Badge
                   variant="outline"
                   className={
                     c.status === "ARCHIVED"
-                      ? "border-transparent bg-surface-sunken text-ink-secondary"
-                      : "border-transparent bg-surface-good text-[color:var(--status-good-text)]"
+                      ? "shrink-0 border-transparent bg-surface-sunken text-ink-secondary"
+                      : "shrink-0 border-transparent bg-surface-good text-[color:var(--status-good-text)]"
                   }
                 >
                   {c.status === "ARCHIVED" ? "Archived" : "Active"}
                 </Badge>
               </Link>
             </li>
-          ))}
+            );
+          })}
             </ul>
           </CardContent>
         </Card>

@@ -67,13 +67,15 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
       {status === "DRAFT" && (
         <Card>
           <CardContent>
+            <p className="eyebrow">Final step</p>
             {questionCount === 0 ? (
-              <p className="note">
+              <p className="note mt-1">
                 Import your questions before you can mark this assignment ready.
               </p>
             ) : (
               <>
-                <label className="flex items-start gap-2 text-sm">
+                <p className="heading mt-1">Review before publishing</p>
+                <label className="mt-3 flex items-start gap-2 text-sm">
                   <Checkbox
                     checked={reviewConfirmed}
                     onCheckedChange={(v) => setReviewConfirmed(v === true)}
@@ -97,17 +99,27 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
         </Card>
       )}
 
+      {status === "READY" && (
+        <Card>
+          <CardContent>
+            <p className="eyebrow">Final step</p>
+            <p className="heading mt-1">Ready to publish</p>
+            <p className="note mt-1">
+              Students will be able to open this assignment as soon as you publish it.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button disabled={busy} onClick={() => move("OPEN")}>
+                Publish to students
+              </Button>
+              <Button variant="outline" disabled={busy} onClick={() => move("DRAFT")}>
+                Back to draft
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex flex-wrap gap-2">
-        {status === "READY" && (
-          <>
-            <Button disabled={busy} onClick={() => move("OPEN")}>
-              Publish to students
-            </Button>
-            <Button variant="outline" disabled={busy} onClick={() => move("DRAFT")}>
-              Back to draft
-            </Button>
-          </>
-        )}
         {status === "OPEN" && (
           <Button disabled={busy} onClick={() => move("CLOSED")}>
             Close assignment
@@ -124,8 +136,6 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
           </Button>
         )}
       </div>
-
-
     </div>
   );
 }

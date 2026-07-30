@@ -194,7 +194,8 @@ export function StudentAnalytics({
       </FilterRow>
 
       <ChartCard
-        title="Student change distribution (17.12)"
+        eyebrow="Section 17.12"
+        title="Student change distribution"
         description="How many students fall in each personal change-rate band (share of their valid pairs that changed answer). Click a bar to filter the table below."
         option={histogramOption}
         height={280}
@@ -218,7 +219,7 @@ export function StudentAnalytics({
       />
 
       <section aria-label="Students" className="card p-4">
-        <h3 className="font-semibold text-ink">Students ({tableRows.length})</h3>
+        <h3 className="heading">Students ({tableRows.length})</h3>
         <p className="mt-0.5 text-xs text-ink-secondary">
           Per-student transition summary across all approved mappings. Change describes opinion
           movement — it is not a score. Click a row for the full profile.

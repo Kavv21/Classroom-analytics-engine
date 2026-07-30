@@ -33,7 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="page-standard max-w-6xl">
       <header>
-        <p className="note-muted">Administration</p>
+        <p className="eyebrow">Administration</p>
         <h1 className="title-md mt-1">System administration</h1>
         <p className="note mt-1">
           Accounts and activity across every class. Class content itself is

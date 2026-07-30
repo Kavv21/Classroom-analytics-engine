@@ -302,6 +302,14 @@
     @apply mb-1 block text-xs font-medium;
     color: var(--text-secondary);
   }
+  /* Small-caps "eyebrow" label: a context line above a page title (class
+     name, status, screen name) or a quiet reassurance/footer line. One
+     treatment, several positions — never a heading substitute, never
+     below the serif size floor it sits next to. */
+  .eyebrow {
+    @apply text-xs font-medium uppercase tracking-widest;
+    color: var(--text-muted);
+  }
   .mono {
     font-family: var(--font-mono);
     @apply text-xs;

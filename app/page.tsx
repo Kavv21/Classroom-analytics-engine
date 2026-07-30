@@ -27,7 +27,7 @@ export default async function HomePage() {
 
   return (
     <main className="page-spacious">
-      <h1 className="title-lg">Classroom Opinion Analytics</h1>
+      <h1 className="title-lg">EVALUATING ENERGY SOURCES</h1>
       <p className="lede mt-3">
         Collects student opinions across two assignments and shows how they
         shifted between them.

@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { questionLabel, questionLabelWithCode } from "@/lib/ui/question-label";
 
 export default async function ReviewAttemptPage({
   params,
@@ -82,7 +83,16 @@ export default async function ReviewAttemptPage({
       {unanswered.length > 0 && (
         <Alert className="mt-5"><AlertDescription>
           {unanswered.length} question{unanswered.length === 1 ? " is" : "s are"} still
-          unanswered ({unanswered.map((q) => q.external_question_code).join(", ")}). You
+          unanswered (
+          {unanswered
+            .map((q) =>
+              questionLabelWithCode({
+                questionText: q.question_text,
+                code: q.external_question_code,
+              })
+            )
+            .join("; ")}
+          ). You
           can submit anyway — they&rsquo;ll be recorded as unanswered — or go back and
           fill them in.
         </AlertDescription></Alert>
@@ -95,11 +105,15 @@ export default async function ReviewAttemptPage({
             value === 0 ? q.response_zero_label : value === 1 ? q.response_one_label : null;
           return (
             <li key={q.id} className="flex items-start justify-between gap-4 px-4 py-3">
+              {/* The wording is what a student checks their answer against;
+                  the number and code are the small supporting detail. */}
               <div className="min-w-0">
-                <p className="note-muted">
-                  {i + 1}. <span className="mono">{q.external_question_code}</span>
+                <p className="text-sm">
+                  {i + 1}. {questionLabel({ questionText: q.question_text, code: q.external_question_code })}
                 </p>
-                <p className="mt-0.5 text-sm">{q.question_text}</p>
+                <p className="note-muted mt-0.5">
+                  <span className="mono">{q.external_question_code}</span>
+                </p>
               </div>
               {value === null ? (
                 <Badge variant="outline" className="shrink-0 border-transparent bg-surface-warning text-[color:var(--status-warning-text)]">Unanswered</Badge>

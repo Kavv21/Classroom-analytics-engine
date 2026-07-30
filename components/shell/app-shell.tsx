@@ -91,7 +91,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           <Link href="/" className="flex items-center gap-2 px-2 py-1.5">
             <GraduationCap className="size-5 shrink-0" aria-hidden="true" />
             <span className="truncate font-semibold group-data-[collapsible=icon]:hidden">
-              Opinion Analytics
+              EVALUATING ENERGY SOURCES
             </span>
           </Link>
         </SidebarHeader>
@@ -162,6 +162,11 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       <SidebarInset>
         <header className="flex h-12 items-center gap-2 border-b px-4">
           <SidebarTrigger />
+          {/* One shell-level notice rather than a per-page footer, so it is
+              present on every authenticated screen and never duplicated. */}
+          <span className="note-muted ml-auto whitespace-nowrap">
+            © JINRAJ JOSHIPURA 1994
+          </span>
         </header>
         {children}
       </SidebarInset>

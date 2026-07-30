@@ -77,6 +77,9 @@ export interface QuestionResponseSummary {
   assignment_id: string;
   question_id: string;
   external_question_code: string;
+  /** Verbatim wording, added to the view in migration 0021 so analytics can
+   *  name a question rather than printing its code. */
+  question_text: string;
   energy_source: string | null;
   criterion: string | null;
   concept: string | null;

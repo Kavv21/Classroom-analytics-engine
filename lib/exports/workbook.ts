@@ -12,6 +12,7 @@ import {
   orientationDescription,
   type ResponseGrid,
 } from "@/lib/exports/response-grid";
+import { questionLabel } from "@/lib/ui/question-label";
 
 /**
  * The 10-sheet Excel export (spec Section 22).
@@ -66,18 +67,22 @@ export const SHEET_HEADERS: Record<SheetName, string[]> = {
     "Question code", "Question text", "Energy source", "Criterion", "Concept",
     "Label for 0", "Label for 1", "Display order", "Active",
   ],
+  // "Question" (the wording) leads "Question code" on every sheet that names
+  // a question: a reader should never have to cross-reference a sheet to
+  // learn what a row is about.
   "Assignment 1 Responses": [
-    "Student ID", "Student name", "Question code", "Response value",
+    "Student ID", "Student name", "Question", "Question code", "Response value",
     "Response label", "Is final", "Submitted at", "Version",
   ],
   "Assignment 2 Responses": [
-    "Student ID", "Student name", "Question code", "Response value",
+    "Student ID", "Student name", "Question", "Question code", "Response value",
     "Response label", "Is final", "Submitted at", "Version",
   ],
   "Question Mappings": [
     "Mapping ID", "Mapping name", "Version", "Mapping type", "Status",
     "Professor approved", "Common concept", "Energy source", "Criterion",
-    "Comparison method", "A1 questions", "A2 questions", "Notes",
+    "Comparison method", "A1 questions", "A2 questions",
+    "A1 question codes", "A2 question codes", "Notes",
     "Contributes to analytics",
   ],
   "Response Transitions": [
@@ -86,7 +91,7 @@ export const SHEET_HEADERS: Record<SheetName, string[]> = {
     "Data quality",
   ],
   "Question Analytics": [
-    "Assignment", "Question code", "Energy source", "Criterion", "Concept",
+    "Assignment", "Question", "Question code", "Energy source", "Criterion", "Concept",
     "Answered", `Count ${BINARY_LABELS.zero}`, `Count ${BINARY_LABELS.one}`,
     `% ${BINARY_LABELS.one}`, "Consensus", "Disagreement", "Binary entropy",
   ],
@@ -225,8 +230,20 @@ export async function gatherWorkbookData(
   const a1Questions = await questionsFor(a1?.id);
   const a2Questions = await questionsFor(a2?.id);
   const questionCode = new Map<string, string>();
+  // The readable name for every question id, so no sheet has to identify a
+  // row by its code alone.
+  const questionName = new Map<string, string>();
   for (const q of [...a1Questions, ...a2Questions]) {
     questionCode.set(q.id, q.external_question_code);
+    questionName.set(
+      q.id,
+      questionLabel({
+        questionText: q.question_text,
+        energySource: q.energy_source,
+        criterion: q.criterion,
+        code: q.external_question_code,
+      })
+    );
   }
 
   const responsesFor = async (assignmentId: string | undefined) =>
@@ -292,6 +309,7 @@ export async function gatherWorkbookData(
   )) as Array<{
     assignment_id: string;
     external_question_code: string;
+    question_text: string;
     energy_source: string | null;
     criterion: string | null;
     concept: string | null;
@@ -359,6 +377,7 @@ export async function gatherWorkbookData(
     rows.map((r) => [
       r.student_id,
       studentName.get(r.student_id) ?? "—",
+      questionName.get(r.question_id) ?? questionCode.get(r.question_id) ?? r.question_id,
       questionCode.get(r.question_id) ?? r.question_id,
       r.response_value,
       answerLabel(r.response_value),
@@ -421,6 +440,8 @@ export async function gatherWorkbookData(
         m.energy_source,
         m.criterion,
         m.comparison_method,
+        (m.assignment_1_question_ids ?? []).map((id) => questionName.get(id) ?? id).join("; "),
+        (m.assignment_2_question_ids ?? []).map((id) => questionName.get(id) ?? id).join("; "),
         (m.assignment_1_question_ids ?? []).map((id) => questionCode.get(id) ?? id).join("; "),
         (m.assignment_2_question_ids ?? []).map((id) => questionCode.get(id) ?? id).join("; "),
         m.professor_notes,
@@ -445,6 +466,12 @@ export async function gatherWorkbookData(
       ]),
       "Question Analytics": questionAnalytics.map((q) => [
         assignmentTitle(q.assignment_id),
+        questionLabel({
+          questionText: q.question_text,
+          energySource: q.energy_source,
+          criterion: q.criterion,
+          code: q.external_question_code,
+        }),
         q.external_question_code,
         q.energy_source,
         q.criterion,
@@ -681,7 +708,7 @@ function colLetter(index: number): string {
 
 export async function buildWorkbook(data: WorkbookData): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Classroom Opinion Analytics Platform";
+  workbook.creator = "EVALUATING ENERGY SOURCES";
   workbook.created = new Date(data.metadata.generatedAt);
   workbook.description = `${data.metadata.className} — generated ${data.metadata.generatedAt}`;
 

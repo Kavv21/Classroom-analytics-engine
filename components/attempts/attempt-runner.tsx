@@ -12,6 +12,7 @@ import {
 import type { ResponseValue } from "@/lib/types/domain";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { questionLabel } from "@/lib/ui/question-label";
 
 export interface TakingQuestion {
   id: string;
@@ -271,8 +272,11 @@ export function AttemptRunner({
       </div>
 
       <Card className="p-6">
-        <p className="mono text-ink-muted">{current.externalQuestionCode}</p>
-        <p className="mt-2 text-lg leading-snug">{current.questionText}</p>
+        {/* The wording a student is answering is the heading. The code is
+            below it in muted type — useful when checking against the CSV
+            answer sheet, useless as a question. */}
+        <p className="text-lg leading-snug">{questionLabel({ questionText: current.questionText, code: current.externalQuestionCode })}</p>
+        <p className="mono mt-1.5 text-ink-muted">{current.externalQuestionCode}</p>
 
         {/* Two explicit toggle buttons rather than a shadcn ToggleGroup.
             Radix's ToggleGroup type="single" renders RADIO semantics
@@ -370,7 +374,14 @@ export function AttemptRunner({
               <button
                 key={q.id}
                 type="button"
-                aria-label={`Question ${i + 1}${answered ? " (answered)" : " (unanswered)"}`}
+                aria-label={`Question ${i + 1}: ${questionLabel({
+                  questionText: q.questionText,
+                  code: q.externalQuestionCode,
+                })}${answered ? " (answered)" : " (unanswered)"}`}
+                title={questionLabel({
+                  questionText: q.questionText,
+                  code: q.externalQuestionCode,
+                })}
                 aria-current={isCurrent ? "true" : undefined}
                 onClick={() => setIndex(i)}
                 className="h-8 min-w-8 rounded border px-1 text-xs font-medium tabular-nums"

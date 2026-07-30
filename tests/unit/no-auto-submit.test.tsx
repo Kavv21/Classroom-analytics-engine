@@ -345,8 +345,12 @@ describe("no automatic submission — CSV upload", () => {
 
     // The preview rendered — both answers are shown for checking, and the
     // confirm button (which only exists in the preview stage) is enabled.
-    expect(screen.getByText("A1-001")).toBeTruthy();
-    expect(screen.getByText("A1-002")).toBeTruthy();
+    // Each code appears twice on the page (the always-present question key
+    // and the preview), so assert on the count rather than uniqueness.
+    expect(screen.getAllByText("A1-001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("A1-002").length).toBeGreaterThan(0);
+    // The preview names the question in words, not only by its code.
+    expect(screen.getAllByText("Solar — Conventional").length).toBeGreaterThan(0);
     const button = screen.getByRole("button", { name: /submit these answers/i });
     expect((button as HTMLButtonElement).disabled).toBe(false);
 

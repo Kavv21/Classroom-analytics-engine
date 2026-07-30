@@ -12,12 +12,72 @@ import {
 } from "@/lib/mappings/actions";
 import type { MappingRowLite, QuestionLite } from "@/components/mappings/types";
 import { mappingStatusLabel, mappingStatusTone, mappingTypeLabel } from "@/lib/ui/labels";
+import { questionLabel } from "@/lib/ui/question-label";
 
-function codesFor(ids: string[], questionsById: Record<string, QuestionLite>): string {
-  if (ids.length === 0) return "—";
-  const codes = ids.map((id) => questionsById[id]?.code ?? "?").sort();
-  if (codes.length <= 4) return codes.join(", ");
-  return `${codes.slice(0, 4).join(", ")} +${codes.length - 4} more`;
+/** The stored fields `questionLabel` needs, for a question id. */
+function fieldsFor(id: string, questionsById: Record<string, QuestionLite>) {
+  const q = questionsById[id];
+  return {
+    questionText: q?.text,
+    energySource: q?.energySource,
+    criterion: q?.criterion,
+    code: q?.code ?? id.slice(0, 8),
+  };
+}
+
+/** One-line label for a question id, wording first. */
+function labelFor(id: string, questionsById: Record<string, QuestionLite>): string {
+  return questionLabel(fieldsFor(id, questionsById));
+}
+
+const SIDE_PREVIEW_LIMIT = 4;
+
+/**
+ * The questions on one side of a mapping. Each is named by its wording, with
+ * its code underneath as the small cross-reference — a column of bare
+ * "A1-017"s tells a professor nothing about what they approved.
+ */
+function QuestionSideCell({
+  ids,
+  questionsById,
+}: {
+  ids: string[];
+  questionsById: Record<string, QuestionLite>;
+}) {
+  if (ids.length === 0) return <span className="text-ink-muted">—</span>;
+
+  const sorted = [...ids].sort((a, b) =>
+    labelFor(a, questionsById).localeCompare(labelFor(b, questionsById))
+  );
+  const shown = sorted.slice(0, SIDE_PREVIEW_LIMIT);
+  const overflow = sorted.length - shown.length;
+
+  return (
+    <ul className="space-y-1">
+      {shown.map((id) => {
+        const fields = fieldsFor(id, questionsById);
+        const label = questionLabel(fields);
+        return (
+          <li key={id} className="min-w-0">
+            <span className="block">{label}</span>
+            {fields.code && fields.code !== label && (
+              <span className="block font-mono text-[11px] text-ink-muted">{fields.code}</span>
+            )}
+          </li>
+        );
+      })}
+      {overflow > 0 && (
+        <li className="text-ink-muted">
+          +{overflow} more (
+          {sorted
+            .slice(SIDE_PREVIEW_LIMIT)
+            .map((id) => labelFor(id, questionsById))
+            .join(", ")}
+          )
+        </li>
+      )}
+    </ul>
+  );
 }
 
 function PreviewPanel({
@@ -27,7 +87,18 @@ function PreviewPanel({
   preview: MappingPreview;
   questionsById: Record<string, QuestionLite>;
 }) {
-  const code = (id: string) => questionsById[id]?.code ?? id.slice(0, 8);
+  // Wording is the label; the code follows in muted type so a professor can
+  // still tie a preview row back to an export.
+  const label = (id: string) => labelFor(id, questionsById);
+  const code = (id: string) => fieldsFor(id, questionsById).code;
+  const QuestionCell = ({ id }: { id: string }) => (
+    <>
+      <span className="block">{label(id)}</span>
+      {code(id) !== label(id) && (
+        <span className="block font-mono text-[11px] text-ink-muted">{code(id)}</span>
+      )}
+    </>
+  );
   return (
     <div className="space-y-3 bg-surface-sunken p-3 text-sm">
       <p className="text-ink-secondary">
@@ -52,7 +123,9 @@ function PreviewPanel({
             <tbody>
               {preview.questionCounts.map((qc) => (
                 <tr key={`${qc.questionId}-${qc.side}`}>
-                  <td className="pr-4 font-mono">{code(qc.questionId)}</td>
+                  <td className="pr-4">
+                    <QuestionCell id={qc.questionId} />
+                  </td>
                   <td className="pr-4">A{qc.side}</td>
                   <td className="pr-4">{qc.answered}</td>
                   <td className="pr-4">{qc.zeros}</td>
@@ -83,8 +156,13 @@ function PreviewPanel({
             <tbody>
               {preview.pairCounts.map((p) => (
                 <tr key={`${p.a1QuestionId}-${p.a2QuestionId}`}>
-                  <td className="pr-4 font-mono">
-                    {code(p.a1QuestionId)} × {code(p.a2QuestionId)}
+                  <td className="pr-4">
+                    <span className="block">
+                      {label(p.a1QuestionId)} × {label(p.a2QuestionId)}
+                    </span>
+                    <span className="block font-mono text-[11px] text-ink-muted">
+                      {code(p.a1QuestionId)} × {code(p.a2QuestionId)}
+                    </span>
                   </td>
                   <td className="pr-4">{p.paired}</td>
                   <td className="pr-4">{p.pair00}</td>
@@ -227,11 +305,11 @@ export function MappingTable({
                       )}
                     </td>
                     <td className="px-3 py-2 text-xs">{mappingTypeLabel(m.mappingType)}</td>
-                    <td className="px-3 py-2 font-mono text-xs">
-                      {codesFor(m.a1QuestionIds, questionsById)}
+                    <td className="px-3 py-2 text-xs">
+                      <QuestionSideCell ids={m.a1QuestionIds} questionsById={questionsById} />
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs">
-                      {codesFor(m.a2QuestionIds, questionsById)}
+                    <td className="px-3 py-2 text-xs">
+                      <QuestionSideCell ids={m.a2QuestionIds} questionsById={questionsById} />
                     </td>
                     <td className="px-3 py-2">
                       <span
@@ -325,12 +403,20 @@ export function MappingTable({
                     <tr>
                       <td colSpan={6} className="bg-surface-sunken px-4 py-3 text-xs text-ink-secondary">
                         <p className="font-medium text-ink-secondary">Revision history</p>
-                        <ul className="mt-1 space-y-1">
+                        <ul className="mt-1 space-y-2">
                           {historyChain(m).map((v) => (
                             <li key={v.id}>
                               v{v.version} — {mappingStatusLabel(v.mappingStatus)}
                               {v.professorApproved ? " (live in analytics)" : ""} · last updated{" "}
                               {new Date(v.updatedAt).toLocaleString()}
+                              {/* Which questions that version actually mapped —
+                                  by wording, so a history entry is readable
+                                  without opening the version. */}
+                              <span className="mt-0.5 block text-ink-muted">
+                                A1: {v.a1QuestionIds.map((id) => labelFor(id, questionsById)).join(", ") || "—"}
+                                {" · "}
+                                A2: {v.a2QuestionIds.map((id) => labelFor(id, questionsById)).join(", ") || "—"}
+                              </span>
                             </li>
                           ))}
                         </ul>

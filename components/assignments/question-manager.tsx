@@ -18,6 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { QuestionLabel } from "@/components/questions/question-label";
+import { questionLabel } from "@/lib/ui/question-label";
 
 export interface QuestionRow {
   id: string;
@@ -119,7 +121,6 @@ export function QuestionManager({
           <TableHeader>
             <TableRow>
               <TableHead>#</TableHead>
-              <TableHead>Code</TableHead>
               <TableHead>Question</TableHead>
               <TableHead>Answer labels</TableHead>
               {editable && (
@@ -133,8 +134,18 @@ export function QuestionManager({
             {ordered.map((q, i) => (
               <TableRow key={q.id}>
                 <TableCell className="text-ink-muted tabular-nums">{q.display_order}</TableCell>
-                <TableCell className="mono">{q.external_question_code}</TableCell>
-                <TableCell>{q.question_text}</TableCell>
+                {/* Wording is the identifier a professor reads; the code is
+                    kept underneath for cross-referencing exports. */}
+                <TableCell>
+                  <QuestionLabel
+                    question={{
+                      questionText: q.question_text,
+                      energySource: q.energy_source,
+                      criterion: q.criterion,
+                      code: q.external_question_code,
+                    }}
+                  />
+                </TableCell>
                 <TableCell>
                   {editingId === q.id ? (
                     <span className="flex flex-wrap items-center gap-2">
@@ -178,7 +189,12 @@ export function QuestionManager({
                       <Button
                         size="sm"
                         variant="outline"
-                        aria-label={`Move question ${q.display_order} up`}
+                        aria-label={`Move “${questionLabel({
+                          questionText: q.question_text,
+                          energySource: q.energy_source,
+                          criterion: q.criterion,
+                          code: q.external_question_code,
+                        })}” up`}
                         disabled={busy || i === 0}
                         onClick={() => swap(i, -1)}
                         className="px-2"
@@ -188,7 +204,12 @@ export function QuestionManager({
                       <Button
                         size="sm"
                         variant="outline"
-                        aria-label={`Move question ${q.display_order} down`}
+                        aria-label={`Move “${questionLabel({
+                          questionText: q.question_text,
+                          energySource: q.energy_source,
+                          criterion: q.criterion,
+                          code: q.external_question_code,
+                        })}” down`}
                         disabled={busy || i === ordered.length - 1}
                         onClick={() => swap(i, 1)}
                         className="px-2"

@@ -14,6 +14,7 @@ import type { MappingRowLite, QuestionLite } from "@/components/mappings/types";
 import { MappingTable } from "@/components/mappings/mapping-table";
 import { ApproveAllButton } from "@/components/mappings/approve-all-button";
 import { mappingTypeLabel } from "@/lib/ui/labels";
+import { questionLabel } from "@/lib/ui/question-label";
 
 interface MappingStudioProps {
   classId: string;
@@ -145,10 +146,13 @@ function QuestionColumn({
                 onChange={() => onToggle(q.id)}
                 className="mt-1"
               />
+              {/* Wording leads; the code is a trailing detail for
+                  cross-referencing an export, never the label itself. */}
               <span className="min-w-0">
-                <span className="font-mono text-xs text-ink-muted">{q.code}</span>{" "}
-                <span>{q.text}</span>
+                <span>{questionLabel({ questionText: q.text, energySource: q.energySource, criterion: q.criterion, code: q.code })}</span>
                 <span className="mt-0.5 block text-xs text-ink-muted">
+                  <span className="font-mono">{q.code}</span>
+                  {[q.energySource, q.criterion, q.concept].filter(Boolean).length > 0 && " · "}
                   {[q.energySource, q.criterion, q.concept].filter(Boolean).join(" · ")}
                 </span>
               </span>

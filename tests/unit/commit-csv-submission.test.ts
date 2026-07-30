@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildCsvQuestionKey,
   buildCsvTemplate,
   commitCsvSubmission,
   parseCsvAnswers,
+  QUESTION_KEY_HEADERS,
   type CsvQuestion,
 } from "@/lib/attempts/commit-csv-submission";
 
@@ -76,6 +78,60 @@ describe("buildCsvTemplate", () => {
     const parsed = parseCsvAnswers("A1-001,A1-002,A1-003\r\n1,,0", questions);
     expect(parsed.answers.map((a) => a.code)).toEqual(["A1-001", "A1-003"]);
     expect(parsed.issues.some((i) => i.column === "A1-002")).toBe(true);
+  });
+
+  it("puts the wording on a commented row under every code column", () => {
+    // The code must stay the machine-readable header, so the wording lives
+    // on a second row that the parser skips.
+    const [header, wordingRow] = buildCsvTemplate(questions).split("\r\n");
+    expect(header).toBe("A1-001,A1-002,A1-003");
+    expect(wordingRow!.split(",").every((cell) => cell.trim().startsWith("#"))).toBe(true);
+    expect(wordingRow).toContain("Solar — Conventional");
+  });
+});
+
+// ============================================================
+// Question key
+// ============================================================
+
+describe("buildCsvQuestionKey", () => {
+  it("maps every code to its wording, energy source and criterion", () => {
+    const csv = buildCsvQuestionKey([
+      {
+        id: "q1",
+        externalQuestionCode: "A1-001",
+        questionText: "Solar — Conventional",
+        energySource: "Solar",
+        criterion: "Conventional",
+        displayOrder: 1,
+      },
+    ]);
+    const [header, first] = csv.trim().split("\r\n");
+    expect(header).toBe(QUESTION_KEY_HEADERS.join(","));
+    expect(first).toBe("A1-001,Solar — Conventional,Solar,Conventional,1");
+  });
+
+  it("lists every question, in display order", () => {
+    const csv = buildCsvQuestionKey([...questions].reverse());
+    const codes = csv
+      .trim()
+      .split("\r\n")
+      .slice(1)
+      .map((line) => line.split(",")[0]);
+    expect(codes).toEqual(["A1-001", "A1-002", "A1-003"]);
+  });
+
+  it("quotes wording containing a comma rather than splitting the row", () => {
+    const csv = buildCsvQuestionKey([
+      {
+        id: "q1",
+        externalQuestionCode: "A1-001",
+        questionText: "Solar, wind and tidal — Conventional",
+        displayOrder: 1,
+      },
+    ]);
+    expect(csv).toContain('"Solar, wind and tidal — Conventional"');
+    expect(csv.trim().split("\r\n")).toHaveLength(2);
   });
 });
 

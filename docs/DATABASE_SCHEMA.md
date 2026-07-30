@@ -486,6 +486,14 @@ there is no valid data. TS access goes through `lib/analytics/queries.ts`.
   `question_response_summary`, `assignment_response_summary` (per-question
   averages + distinct respondents), `energy_source_response_summary` and
   `criterion_response_summary` (pooled per group within an assignment).
+  `question_response_summary` also carries `question_text` verbatim
+  (**migration 0021**) so charts, the query builder and the Excel export can
+  name a question instead of printing `external_question_code`. It is the
+  view's LAST column: `create or replace view` may only append, so 0021
+  replaced the old `i.*` expansion with an explicit column list to keep
+  positions 1–15 byte-identical to migration 0012. No metric changed —
+  `questions` is already the driving table of the inner aggregate, so this
+  is one more attribute on a GROUP BY of the question's own primary key.
 - `submission_timeline` (migration 0013, Phase 8) — submissions per day
   (UTC) and cumulative per assignment, from `assignment_attempts.submitted_at`.
   Feeds the completion-timeline chart (17.14); same computed-on-read

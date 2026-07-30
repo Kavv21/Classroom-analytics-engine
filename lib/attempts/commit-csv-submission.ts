@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { questionLabel } from "@/lib/ui/question-label";
 
 /**
  * CSV answer submission — the validation + commit core.
@@ -36,6 +37,10 @@ export interface CsvQuestion {
   externalQuestionCode: string;
   questionText: string;
   displayOrder: number;
+  /** Optional because the two stored fields the wording is built from are
+   *  only needed for the question-key reference sheet, not for parsing. */
+  energySource?: string | null;
+  criterion?: string | null;
 }
 
 export interface CsvRowIssue {
@@ -77,26 +82,75 @@ const IGNORED_COLUMNS = new Set([
 
 /**
  * The downloadable template: one column per active question, in display
- * order, headed by `external_question_code` — the same identifier the
- * import pipeline and every export use. A second commented line carries the
- * question wording so the file is readable without cross-referencing, and
- * because the wording must never be retyped by hand (CLAUDE.md rule 1),
- * it is copied verbatim from the database.
+ * order, headed by `external_question_code`.
+ *
+ * THE CODE IS THE COLUMN HEADER HERE ON PURPOSE, and this is the one place
+ * in the app where a bare code is the primary identifier. It is the key
+ * `parseCsvAnswers` matches against, so replacing it with wording would
+ * break every uploaded sheet. Instead the readability problem is solved
+ * twice over: a second header row carries the question wording, and
+ * `buildCsvQuestionKey` ships a companion reference table. Because wording
+ * must never be retyped by hand (CLAUDE.md rule 1), both are copied verbatim
+ * from the database.
  */
 export function buildCsvTemplate(questions: CsvQuestion[]): string {
   const ordered = [...questions].sort((a, b) => a.displayOrder - b.displayOrder);
   const header = ordered.map((q) => q.externalQuestionCode);
-  const wording = ordered.map((q) => q.questionText);
+  const wording = ordered.map((q) => questionLabel({
+    questionText: q.questionText,
+    energySource: q.energySource,
+    criterion: q.criterion,
+    code: q.externalQuestionCode,
+  }));
   const blank = ordered.map(() => "");
 
   return Papa.unparse(
     [
       header,
-      // A wording row prefixed with # so a parser that skips comments still
-      // sees a clean single-header CSV — same convention as the Phase 9
-      // export provenance block.
-      wording.map((w, i) => (i === 0 ? `# ${w}` : `# ${w}`)),
+      // Every cell of the wording row is prefixed with # so a parser that
+      // skips comments still sees a clean single-header CSV — same
+      // convention as the Phase 9 export provenance block.
+      wording.map((w) => `# ${w}`),
       blank,
+    ],
+    { newline: "\r\n" }
+  );
+}
+
+export const QUESTION_KEY_HEADERS = [
+  "Question code",
+  "Question",
+  "Energy source",
+  "Criterion",
+  "Column in answer sheet",
+] as const;
+
+/**
+ * The companion "question key": every code paired with its full wording, its
+ * energy source and its criterion, plus which column of the answer sheet it
+ * is. Downloaded alongside the template so a student filling in 0s and 1s
+ * has something to check against rather than a row of codes.
+ *
+ * Same rule as the template — wording is copied, never composed.
+ */
+export function buildCsvQuestionKey(questions: CsvQuestion[]): string {
+  const ordered = [...questions].sort((a, b) => a.displayOrder - b.displayOrder);
+  return Papa.unparse(
+    [
+      [...QUESTION_KEY_HEADERS],
+      ...ordered.map((q, i) => [
+        q.externalQuestionCode,
+        questionLabel({
+          questionText: q.questionText,
+          energySource: q.energySource,
+          criterion: q.criterion,
+          code: q.externalQuestionCode,
+        }),
+        q.energySource ?? "",
+        q.criterion ?? "",
+        // 1-based so it matches what a spreadsheet shows.
+        String(i + 1),
+      ]),
     ],
     { newline: "\r\n" }
   );
@@ -108,6 +162,19 @@ export function buildCsvTemplate(questions: CsvQuestion[]): string {
 
 function normaliseCode(raw: string): string {
   return raw.trim().toUpperCase();
+}
+
+/** How a question is named inside an error message: wording, then code. */
+function describe(question: CsvQuestion): string {
+  const label = questionLabel({
+    questionText: question.questionText,
+    energySource: question.energySource,
+    criterion: question.criterion,
+    code: question.externalQuestionCode,
+  });
+  return label === question.externalQuestionCode
+    ? label
+    : `${label} (${question.externalQuestionCode})`;
 }
 
 /**
@@ -213,13 +280,17 @@ export function parseCsvAnswers(
     columnQuestion.forEach((question, columnIndex) => {
       if (!question) return;
       const raw = String(firstRow[columnIndex] ?? "").trim();
+      // `column` stays the code because that IS the CSV column heading the
+      // student has to find. The message names the question in words, so
+      // fixing it doesn't require the question key open alongside.
       const columnLabel = question.externalQuestionCode;
+      const named = describe(question);
 
       if (raw === "") {
         issues.push({
           row: 2,
           column: columnLabel,
-          message: `${columnLabel} has no answer. Every question needs a 0 or a 1.`,
+          message: `${named} has no answer. Every question needs a 0 or a 1.`,
         });
         return;
       }
@@ -227,7 +298,7 @@ export function parseCsvAnswers(
         issues.push({
           row: 2,
           column: columnLabel,
-          message: `${columnLabel} is "${raw}". Only 0 or 1 is allowed.`,
+          message: `${named} is "${raw}". Only 0 or 1 is allowed.`,
         });
         return;
       }
@@ -250,14 +321,16 @@ export function parseCsvAnswers(
   const headerCodes = new Set(
     columnQuestion.filter((q): q is CsvQuestion => q !== null).map((q) => q.externalQuestionCode)
   );
-  const absentFromFile = missingCodes.filter((code) => !headerCodes.has(code));
+  const absentFromFile = questions.filter(
+    (q) => !answeredIds.has(q.id) && !headerCodes.has(q.externalQuestionCode)
+  );
   if (absentFromFile.length > 0) {
     issues.push({
       row: 1,
       column: null,
       message:
         `${absentFromFile.length} question${absentFromFile.length === 1 ? " is" : "s are"} ` +
-        `missing from the file: ${absentFromFile.slice(0, 8).join(", ")}` +
+        `missing from the file: ${absentFromFile.slice(0, 8).map(describe).join("; ")}` +
         `${absentFromFile.length > 8 ? `, and ${absentFromFile.length - 8} more` : ""}.`,
     });
   }

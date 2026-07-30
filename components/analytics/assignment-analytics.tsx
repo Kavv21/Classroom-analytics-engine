@@ -18,6 +18,7 @@ import type {
 import {
   baseChrome,
   categoryAxis,
+  FONT_FAMILY,
   formatPct,
   INK,
   labelFormatter,
@@ -28,6 +29,7 @@ import {
   SERIES,
   valueAxis,
 } from "@/lib/charts/theme";
+import { questionLabel, questionLabelWithCode } from "@/lib/ui/question-label";
 
 export interface AssignmentInfo {
   id: string;
@@ -44,6 +46,27 @@ interface AssignmentAnalyticsProps {
 
 const YES_COLOR = SERIES[0]; // "1 — Yes" is always slot 1 (blue)
 const NO_COLOR = SERIES[1]; // "0 — No" is always slot 2 (orange)
+
+/**
+ * How a question is named on this page. Chart categories and table cells can
+ * only carry one string, so the wording leads and the code is parenthesised
+ * after it — a bare "A1-017" on an axis tells a professor nothing.
+ */
+const label = (q: QuestionResponseSummary) =>
+  questionLabel({
+    questionText: q.question_text,
+    energySource: q.energy_source,
+    criterion: q.criterion,
+    code: q.external_question_code,
+  });
+
+const axisLabel = (q: QuestionResponseSummary) =>
+  questionLabelWithCode({
+    questionText: q.question_text,
+    energySource: q.energy_source,
+    criterion: q.criterion,
+    code: q.external_question_code,
+  });
 
 export function AssignmentAnalytics({
   assignments,
@@ -80,6 +103,7 @@ export function AssignmentAnalytics({
       .filter((q) =>
         needle
           ? q.external_question_code.toLowerCase().includes(needle) ||
+            label(q).toLowerCase().includes(needle) ||
             (q.energy_source ?? "").toLowerCase().includes(needle) ||
             (q.criterion ?? "").toLowerCase().includes(needle)
           : true
@@ -92,7 +116,7 @@ export function AssignmentAnalytics({
 
   // ---- 17.1 response distribution -------------------------------------
   const distributionOption: EChartsOption = useMemo(() => {
-    const codes = filtered.map((q) => q.external_question_code);
+    const names = filtered.map(axisLabel);
     return {
       ...baseChrome(),
       tooltip: { ...baseChrome().tooltip, trigger: "axis" },
@@ -103,7 +127,18 @@ export function AssignmentAnalytics({
           ? [{ type: "slider", yAxisIndex: 0, startValue: 0, endValue: 23, width: 16 }]
           : undefined,
       xAxis: percentAxis(),
-      yAxis: categoryAxis({ data: codes, inverse: true }),
+      // Question wording is long, so the category axis truncates with the
+      // full name available in the tooltip rather than shortening to a code.
+      yAxis: categoryAxis({
+        data: names,
+        inverse: true,
+        axisLabel: {
+          color: INK.muted,
+          fontFamily: FONT_FAMILY,
+          width: 200,
+          overflow: "truncate",
+        },
+      }),
       series: [
         {
           name: BINARY_LABELS.zero,
@@ -186,7 +221,16 @@ export function AssignmentAnalytics({
       ...baseChrome(),
       grid: { left: 8, right: 48, top: 8, bottom: 8, containLabel: true },
       xAxis: percentAxis({ min: 0.5 }),
-      yAxis: categoryAxis({ data: ranked.map((q) => q.external_question_code), inverse: true }),
+      yAxis: categoryAxis({
+        data: ranked.map(axisLabel),
+        inverse: true,
+        axisLabel: {
+          color: INK.muted,
+          fontFamily: FONT_FAMILY,
+          width: 200,
+          overflow: "truncate",
+        },
+      }),
       series: [
         {
           name: "Consensus",
@@ -327,7 +371,7 @@ export function AssignmentAnalytics({
           label="Search questions"
           value={search}
           onChange={setSearch}
-          placeholder="Code, source, criterion…"
+          placeholder="Question, code, source, criterion…"
         />
         <ResetFiltersButton onReset={resetFilters} disabled={!filtersActive} />
       </FilterRow>
@@ -343,8 +387,9 @@ export function AssignmentAnalytics({
           setSelectedQuestion(q ? q.question_id : null);
         }}
         table={{
-          columns: ["Question", "Energy source", "Criterion", "Answered", BINARY_LABELS.zero, BINARY_LABELS.one, `% ${BINARY_LABELS.one}`, "Consensus", "Entropy"],
+          columns: ["Question", "Question code", "Energy source", "Criterion", "Answered", BINARY_LABELS.zero, BINARY_LABELS.one, `% ${BINARY_LABELS.one}`, "Consensus", "Entropy"],
           rows: filtered.map((q) => [
+            label(q),
             q.external_question_code,
             q.energy_source,
             q.criterion,
@@ -359,7 +404,8 @@ export function AssignmentAnalytics({
       >
         {selected && (
           <p className="mt-2 rounded bg-surface-info px-3 py-2 text-xs text-ink-secondary">
-            <strong>{selected.external_question_code}</strong>
+            <strong>{label(selected)}</strong>{" "}
+            <span className="mono text-ink-muted">{selected.external_question_code}</span>
             {" — "}
             {[selected.energy_source, selected.criterion].filter(Boolean).join(" · ")}: {selected.answered}{" "}
             answered · {selected.zeros} × {BINARY_LABELS.zero} · {selected.ones} × {BINARY_LABELS.one} ·
@@ -406,8 +452,9 @@ export function AssignmentAnalytics({
         height={Math.max(220, ranked.length * 22 + 60)}
         exportName="consensus-ranking"
         table={{
-          columns: ["Question", "Energy source", "Criterion", "Consensus", "Disagreement", "Entropy"],
+          columns: ["Question", "Question code", "Energy source", "Criterion", "Consensus", "Disagreement", "Entropy"],
           rows: ranked.map((q) => [
+            label(q),
             q.external_question_code,
             q.energy_source,
             q.criterion,

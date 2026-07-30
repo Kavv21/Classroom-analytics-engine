@@ -19,6 +19,10 @@ export interface MappingExportRow {
   professor_notes: string | null;
   assignment_1_question_codes: string[];
   assignment_2_question_codes: string[];
+  /** Question wording, verbatim, in the same order as the code lists — the
+   *  codes alone make an exported row unreadable away from the app. */
+  assignment_1_questions: string[];
+  assignment_2_questions: string[];
   previous_version_id: string | null;
   superseded_by_id: string | null;
   created_at: string;
@@ -44,6 +48,10 @@ const CSV_COLUMNS: Array<[header: string, pick: (r: MappingExportRow) => string]
   ["criterion", (r) => r.criterion ?? ""],
   ["comparison_method", (r) => r.comparison_method ?? ""],
   ["professor_notes", (r) => r.professor_notes ?? ""],
+  // Wording before codes, so the readable column is the one a reader hits
+  // first when scanning left to right.
+  ["assignment_1_questions", (r) => r.assignment_1_questions.join("; ")],
+  ["assignment_2_questions", (r) => r.assignment_2_questions.join("; ")],
   ["assignment_1_question_codes", (r) => r.assignment_1_question_codes.join("; ")],
   ["assignment_2_question_codes", (r) => r.assignment_2_question_codes.join("; ")],
   ["previous_version_id", (r) => r.previous_version_id ?? ""],

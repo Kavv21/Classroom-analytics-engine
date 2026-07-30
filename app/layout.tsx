@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const metadata: Metadata = {
-  title: "Classroom Opinion Analytics Platform",
+  title: "EVALUATING ENERGY SOURCES",
   description: "Collects and analyses binary student opinions across paired assignments.",
 };
 

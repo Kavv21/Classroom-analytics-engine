@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { QuestionLabel } from "@/components/questions/question-label";
 
 interface ImportWizardProps {
   classId: string;
@@ -225,7 +226,6 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
               <TableHeader>
                 <TableRow>
                   <TableHead>#</TableHead>
-                  <TableHead>Code</TableHead>
                   <TableHead>Question</TableHead>
                   <TableHead>Source cell</TableHead>
                 </TableRow>
@@ -234,8 +234,18 @@ export function AssignmentImportWizard({ classId, assignmentId }: ImportWizardPr
                 {preview.questions.map((q) => (
                   <TableRow key={q.externalQuestionCode}>
                     <TableCell className="text-ink-muted tabular-nums">{q.displayOrder}</TableCell>
-                    <TableCell className="font-mono text-xs">{q.externalQuestionCode}</TableCell>
-                    <TableCell>{q.questionText}</TableCell>
+                    {/* The wording the professor is approving leads; the
+                        generated code sits underneath it. */}
+                    <TableCell>
+                      <QuestionLabel
+                        question={{
+                          questionText: q.questionText,
+                          energySource: q.energySource,
+                          criterion: q.criterion,
+                          code: q.externalQuestionCode,
+                        }}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs text-ink-muted">
                       {q.originalColumnReference}
                       {q.originalRowReference}

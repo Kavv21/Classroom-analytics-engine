@@ -16,6 +16,8 @@ function row(overrides: Partial<MappingExportRow>): MappingExportRow {
     professor_notes: null,
     assignment_1_question_codes: ["A1-002"],
     assignment_2_question_codes: ["A2-016"],
+    assignment_1_questions: ["Solar — Renewable over 25 years"],
+    assignment_2_questions: ["Solar — Renewable"],
     previous_version_id: null,
     superseded_by_id: null,
     created_at: "2026-07-22T00:00:00Z",
@@ -54,5 +56,21 @@ describe("mapping CSV export", () => {
     ]);
     expect(csv).toContain('"Check the ""25-year"" framing, then approve."');
     expect(csv).toContain("A1-001; A1-002");
+  });
+
+  it("carries the question wording, not only the codes", () => {
+    // A code-only export is unreadable away from the app, so the wording
+    // columns come first and the em dash survives the CSV quoting rules.
+    const csv = mappingsToCsv([
+      row({
+        assignment_1_questions: ["Solar — Conventional", "Solar — Renewable over 25 years"],
+      }),
+    ]);
+    const header = csv.split("\r\n")[0]!.split(",");
+    expect(header).toContain("assignment_1_questions");
+    expect(header.indexOf("assignment_1_questions")).toBeLessThan(
+      header.indexOf("assignment_1_question_codes")
+    );
+    expect(csv).toContain("Solar — Conventional; Solar — Renewable over 25 years");
   });
 });

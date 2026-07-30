@@ -36,6 +36,20 @@ testing knowledge. Nothing you choose is marked or graded.
   tick means you've answered that one.
 - The counter shows how many you've answered and how many are left.
 
+Every question is shown in words. The short code underneath it (like
+`A1-017`) is only there so you can match the question to a column of the
+answer sheet if you use that route.
+
+### If you answer on a spreadsheet instead
+
+Some assignments let you download an answer sheet, fill it in, and upload
+it. The answer sheet's first row holds those short codes, because that is
+what the upload matches your answers against — **don't rename or reorder
+those columns**. Underneath each code, the same file repeats the question in
+words. There is also a **question key** download (and the same table on
+screen) listing every code with its full question, energy source and
+criterion, so you can check what you're answering as you go.
+
 ## Your work saves itself
 
 Answers save automatically a moment after you choose. The indicator near

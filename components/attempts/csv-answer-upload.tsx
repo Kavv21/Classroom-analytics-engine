@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { submitCsvAnswers } from "@/lib/attempts/actions";
 import {
+  buildCsvQuestionKey,
   buildCsvTemplate,
   MAX_CSV_BYTES,
   parseCsvAnswers,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/attempts/commit-csv-submission";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { questionLabel } from "@/lib/ui/question-label";
 
 /**
  * Upload → preview → explicit confirm, the same three-step shape as the
@@ -65,16 +67,35 @@ export function CsvAnswerUpload({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  function downloadTemplate() {
-    const blob = new Blob([buildCsvTemplate(questions)], {
-      type: "text/csv;charset=utf-8",
+  const fileStem = assignmentTitle.replace(/[^\w-]+/g, "-").toLowerCase();
+
+  const labelOf = (q: CsvQuestion) =>
+    questionLabel({
+      questionText: q.questionText,
+      energySource: q.energySource,
+      criterion: q.criterion,
+      code: q.externalQuestionCode,
     });
+  const orderedQuestions = [...questions].sort((a, b) => a.displayOrder - b.displayOrder);
+  const questionById = new Map(questions.map((q) => [q.id, q]));
+
+  function download(csv: string, filename: string) {
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${assignmentTitle.replace(/[^\w-]+/g, "-").toLowerCase()}-answer-sheet.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function downloadTemplate() {
+    download(buildCsvTemplate(questions), `${fileStem}-answer-sheet.csv`);
+  }
+
+  /** The companion reference: code → wording, energy source, criterion. */
+  function downloadQuestionKey() {
+    download(buildCsvQuestionKey(questions), `${fileStem}-question-key.csv`);
   }
 
   /**
@@ -154,12 +175,57 @@ export function CsvAnswerUpload({
         <li className="rounded border border-hairline p-4">
           <p className="font-medium">1. Download the answer sheet</p>
           <p className="mt-1 text-sm text-ink-secondary">
-            It has one column per question ({questions.length} in total), already labelled with the
-            question codes. Fill in the row underneath with 0 or 1 and save it as CSV.
+            It has one column per question ({questions.length} in total). The first row holds the
+            question code — that&rsquo;s the label the upload matches on, so leave it alone — and the
+            row below it repeats the question in words. Fill in the empty row underneath with 0 or 1
+            and save it as CSV.
           </p>
-          <Button type="button" variant="outline" className="mt-3" onClick={downloadTemplate}>
-            Download answer sheet (CSV)
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={downloadTemplate}>
+              Download answer sheet (CSV)
+            </Button>
+            <Button type="button" variant="outline" onClick={downloadQuestionKey}>
+              Download question key (CSV)
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">
+            The question key lists every code with its full question, energy source and criterion —
+            keep it open while you fill the sheet in.
+          </p>
+
+          {/* The same key on screen, so checking a code costs no download. */}
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm font-medium">
+              Question key ({questions.length} questions)
+            </summary>
+            <div className="mt-2 max-h-72 overflow-auto rounded border border-hairline">
+              <table className="w-full text-left text-xs">
+                <caption className="sr-only">
+                  Every question in this assignment, with the answer-sheet column code for each
+                </caption>
+                <thead className="sticky top-0 bg-surface-sunken">
+                  <tr>
+                    <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
+                      Question
+                    </th>
+                    <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">
+                      Column in the answer sheet
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {orderedQuestions.map((q) => (
+                    <tr key={q.id}>
+                      <td className="px-2 py-1.5">{labelOf(q)}</td>
+                      <td className="px-2 py-1.5 font-mono text-ink-muted">
+                        {q.externalQuestionCode}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
         </li>
 
         {/* ---- step 2 ---- */}
@@ -255,12 +321,22 @@ export function CsvAnswerUpload({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-hairline">
-                      {parsed.answers.map((a) => (
-                        <tr key={a.questionId}>
-                          <td className="px-2 py-1.5">{a.code}</td>
-                          <td className="px-2 py-1.5 tabular-nums">{a.value}</td>
-                        </tr>
-                      ))}
+                      {parsed.answers.map((a) => {
+                        const q = questionById.get(a.questionId);
+                        return (
+                          <tr key={a.questionId}>
+                            {/* Checking your own answers means reading the
+                                question, not the code. */}
+                            <td className="px-2 py-1.5">
+                              <span className="block">{q ? labelOf(q) : a.code}</span>
+                              <span className="block font-mono text-[11px] text-ink-muted">
+                                {a.code}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1.5 align-top tabular-nums">{a.value}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

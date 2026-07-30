@@ -77,7 +77,7 @@ export async function buildDashboardPdf(options: {
 
   pdf.setTitle(options.title);
   pdf.setSubject(`${options.metadata.className} — analytics report`);
-  pdf.setProducer("Classroom Opinion Analytics Platform");
+  pdf.setProducer("EVALUATING ENERGY SOURCES");
   pdf.setCreationDate(new Date(options.metadata.generatedAt));
 
   const cursor: Cursor = { page: pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]), y: PAGE_HEIGHT - MARGIN };

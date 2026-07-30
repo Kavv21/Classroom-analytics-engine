@@ -11,6 +11,7 @@ import {
   QUALITY_LABELS,
   TRANSITION_STATE_LABELS,
 } from "@/lib/analytics/chart-data";
+import { questionLabelWithCode } from "@/lib/ui/question-label";
 
 /**
  * Executes a validated builder query by reading ONE of the Phase 7/8
@@ -232,6 +233,17 @@ export async function executeQuery(
     if (dimension === "ASSIGNMENT") {
       const id = str(row.assignment_id);
       return context.assignmentTitles?.[id] ?? id.slice(0, 8);
+    }
+    if (dimension === "QUESTION") {
+      // A result key is one string, and it becomes a chart category, a table
+      // cell and an exported CSV cell. Wording leads; the code follows in
+      // brackets so a row is still traceable to the answer sheet.
+      return questionLabelWithCode({
+        questionText: row.question_text as string | null | undefined,
+        energySource: row.energy_source as string | null | undefined,
+        criterion: row.criterion as string | null | undefined,
+        code: row.external_question_code as string | null | undefined,
+      });
     }
     const column = DIMENSION_COLUMNS[dimension];
     return column ? str(row[column]) : "—";

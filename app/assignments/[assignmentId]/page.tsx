@@ -47,7 +47,11 @@ export default async function TakeAssignmentPage({
       .maybeSingle(),
     supabase
       .from("questions")
-      .select("id, external_question_code, question_text, display_order")
+      // energy_source/criterion back the question-key reference sheet and the
+      // fallback label when question_text is somehow blank.
+      .select(
+        "id, external_question_code, question_text, energy_source, criterion, display_order"
+      )
       .eq("assignment_id", assignmentId)
       .eq("is_active", true)
       .order("display_order", { ascending: true }),
@@ -74,6 +78,8 @@ export default async function TakeAssignmentPage({
     id: q.id,
     externalQuestionCode: q.external_question_code,
     questionText: q.question_text,
+    energySource: q.energy_source,
+    criterion: q.criterion,
     displayOrder: q.display_order,
   }));
 

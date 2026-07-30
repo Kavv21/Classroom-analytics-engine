@@ -306,11 +306,21 @@ describe("ACCEPTANCE: exports never leak unapproved mapping data", () => {
     });
 
     // It IS in the professor's own mapping inventory, clearly flagged.
+    // Columns are located by header name, not by a hard-coded index — this
+    // assertion is about the flag, not about the sheet's column layout.
     const inventory = data.sheets["Question Mappings"];
-    const unapprovedRow = inventory.find((r) => r[1] === UNAPPROVED_NAME);
+    const mappingHeaders = SHEET_HEADERS["Question Mappings"];
+    const column = (header: string) => {
+      const index = mappingHeaders.indexOf(header);
+      expect(index, `"${header}" column should exist`).toBeGreaterThanOrEqual(0);
+      return index;
+    };
+    const unapprovedRow = inventory.find((r) => r[column("Mapping name")] === UNAPPROVED_NAME);
     expect(unapprovedRow, "unapproved mapping should be in the inventory").toBeTruthy();
-    expect(unapprovedRow![5]).toBe("No"); // professor approved
-    expect(String(unapprovedRow![13])).toMatch(/contributes to no figure/i);
+    expect(unapprovedRow![column("Professor approved")]).toBe("No");
+    expect(String(unapprovedRow![column("Contributes to analytics")])).toMatch(
+      /contributes to no figure/i
+    );
 
     // It is in NO analytics-bearing sheet, by name or by id.
     const analyticsSheets = [

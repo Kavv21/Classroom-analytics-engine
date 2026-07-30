@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { mappingsToCsv, type MappingExportRow } from "@/lib/mappings/export";
+import { questionLabel } from "@/lib/ui/question-label";
 
 interface MappingDbRow {
   id: string;
@@ -85,7 +86,8 @@ export async function GET(
     );
   }
 
-  // Resolve question ids to external codes for a human-readable export.
+  // Resolve question ids to both their wording and their code — the code
+  // alone is not a human-readable export.
   const questionIds = [
     ...new Set(
       (mappings ?? []).flatMap((m) => [
@@ -95,22 +97,42 @@ export async function GET(
     ),
   ];
   const codeById = new Map<string, string>();
+  const nameById = new Map<string, string>();
   if (questionIds.length > 0) {
     const { data: questions, error: questionsError } = await supabase
       .from("questions")
-      .select("id, external_question_code")
+      .select("id, external_question_code, question_text, energy_source, criterion")
       .in("id", questionIds);
     if (questionsError) {
       return NextResponse.json(
-        { error: `Could not load question codes: ${questionsError.message}` },
+        { error: `Could not load questions: ${questionsError.message}` },
         { status: 500 }
       );
     }
-    for (const q of questions ?? []) codeById.set(q.id, q.external_question_code);
+    for (const q of questions ?? []) {
+      codeById.set(q.id, q.external_question_code);
+      nameById.set(
+        q.id,
+        questionLabel({
+          questionText: q.question_text,
+          energySource: q.energy_source,
+          criterion: q.criterion,
+          code: q.external_question_code,
+        })
+      );
+    }
   }
 
+  // Both lists are sorted by CODE so the two columns stay index-aligned —
+  // reading the nth wording next to the nth code must always be valid.
+  const orderedIds = (ids: string[] | null) =>
+    [...(ids ?? [])].sort((a, b) =>
+      (codeById.get(a) ?? a).localeCompare(codeById.get(b) ?? b)
+    );
   const codesOf = (ids: string[] | null) =>
-    (ids ?? []).map((id) => codeById.get(id) ?? id).sort();
+    orderedIds(ids).map((id) => codeById.get(id) ?? id);
+  const namesOf = (ids: string[] | null) =>
+    orderedIds(ids).map((id) => nameById.get(id) ?? id);
 
   const rows: MappingExportRow[] = (mappings ?? []).map((m) => ({
     id: m.id,
@@ -126,6 +148,8 @@ export async function GET(
     professor_notes: m.professor_notes,
     assignment_1_question_codes: codesOf(m.assignment_1_question_ids),
     assignment_2_question_codes: codesOf(m.assignment_2_question_ids),
+    assignment_1_questions: namesOf(m.assignment_1_question_ids),
+    assignment_2_questions: namesOf(m.assignment_2_question_ids),
     previous_version_id: m.previous_version_id,
     superseded_by_id: m.superseded_by_id,
     created_at: m.created_at,

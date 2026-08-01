@@ -103,6 +103,8 @@ npm run test:e2e         # Playwright end-to-end tests
 npm run build            # production build
 npm run verify:extraction  # re-check the question manifests against the source spreadsheets
 npm run db:seed          # seed demo data (local/staging only — never run against production)
+npm run db:seed:demo-responses   # add 150 synthetic students answering both assignments
+                                 # through the real CSV path (same guard; --clean removes them)
 ```
 
 All four of `lint`/`typecheck`/`test`/`build` must pass before any change

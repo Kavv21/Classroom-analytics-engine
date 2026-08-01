@@ -157,7 +157,11 @@ export function CsvAnswerUpload({
   return (
     <section className="space-y-5">
       <div>
-        <h1 className="title-md">{assignmentTitle}</h1>
+        {/* Same reassurance the manual path opens with (attempt-runner):
+            these two screens are alternative routes through the same step,
+            so they carry the same neutrality line. */}
+        <p className="eyebrow">There are no right or wrong answers</p>
+        <h1 className="title-md mt-1">{assignmentTitle}</h1>
         <p className="mt-1 text-sm text-ink-secondary">
           Answer every question with a <strong>0</strong> or a <strong>1</strong> in the answer
           sheet, then upload it here. Nothing is submitted until you have seen the preview and

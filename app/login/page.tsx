@@ -4,10 +4,11 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
  * The sign-in screen: the app's front door, and the only page most people
  * see before they are anyone in particular.
  *
- * It is deliberately not a card on a page. There is nothing else on this
- * screen to sit beside, so the content is centred in the viewport on the
- * warm page surface and given room — a bordered box would only draw a
- * frame around empty space.
+ * The content sits in a centred, lifted card on the slate page surface —
+ * the entry-screen shape taken from the 21st.dev "Login Page 1" pull and
+ * rebuilt on project tokens. (It was previously deliberately card-less; the
+ * new direction carries hierarchy with elevation rather than with paper
+ * warmth, so on a bare page this screen had nothing left to sit on.)
  *
  * The domain line comes from NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN, never from a
  * literal in this file, so a deployment for another Google Workspace names
@@ -26,23 +27,27 @@ const ALLOWED_DOMAIN = process.env.NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN;
 
 export default function LoginPage() {
   return (
-    <main className="page-spacious flex min-h-screen flex-col items-center justify-center text-center">
-      <h1 className="title-lg max-w-[14ch] text-balance">Evaluating Energy Sources</h1>
+    <main className="page-spacious flex min-h-screen flex-col items-center justify-center">
+      <div className="card-elevated w-full max-w-md text-center">
+        <h1 className="title-lg mx-auto max-w-[14ch] text-balance">
+          Evaluating Energy Sources
+        </h1>
 
-      <p className="lede mt-4 max-w-sm">
-        Use your university Google account. If you&rsquo;re a student, your professor adds you to a
-        class roster before your first sign-in.
-      </p>
+        <p className="lede mx-auto mt-4 max-w-sm">
+          Use your university Google account. If you&rsquo;re a student, your professor adds you to
+          a class roster before your first sign-in.
+        </p>
 
-      <div className="mt-10">
-        <GoogleSignInButton />
+        <div className="mt-10">
+          <GoogleSignInButton />
+        </div>
+
+        {ALLOWED_DOMAIN && (
+          <p className="eyebrow mt-5">Restricted to {ALLOWED_DOMAIN} accounts</p>
+        )}
       </div>
 
-      {ALLOWED_DOMAIN && (
-        <p className="eyebrow mt-5">Restricted to {ALLOWED_DOMAIN} accounts</p>
-      )}
-
-      <p className="eyebrow mt-16">© Jinraj Joshipura 1994</p>
+      <p className="eyebrow mt-10">© Jinraj Joshipura 1994</p>
     </main>
   );
 }

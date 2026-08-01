@@ -6,10 +6,15 @@ import tailwindcssAnimate from "tailwindcss-animate";
  * (hand-authored for this project — see app/globals.css for the full
  * rationale and the contrast measurements behind each text colour).
  *
+ * Direction: "cool slate, soft elevation, sans" — see the header comment
+ * in app/globals.css for where it came from and what was rejected.
+ *
  * These names mirror the CSS custom properties so a component can use
  * either `bg-surface-raised` or `var(--surface-raised)` and get the same
- * value. Chart data-encoding colours are NOT here — they live in
- * lib/charts/theme.ts and are deliberately untouched.
+ * value. The role names are unchanged from the previous system even
+ * though every value behind them changed, so no component needed editing
+ * to pick up the new palette. Chart data-encoding colours are NOT here —
+ * they live in lib/charts/theme.ts and are deliberately untouched.
  */
 const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
@@ -118,6 +123,14 @@ const config: Config = {
       },
       borderColor: {
         DEFAULT: "var(--border-hairline)",
+      },
+      /* Elevation is new in this direction (the previous system was flat).
+         Shadow is inside the motion budget — it may transition; size and
+         position may not. */
+      boxShadow: {
+        raised: "var(--shadow-raised)",
+        lifted: "var(--shadow-lifted)",
+        overlay: "var(--shadow-overlay)",
       },
       transitionDuration: {
         micro: "120ms",

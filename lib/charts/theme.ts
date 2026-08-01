@@ -9,13 +9,42 @@
  * data-table view).
  */
 
+/**
+ * Chart CHROME only — surface, gridlines, axis, axis-label ink. These are
+ * not data encoding: no value is ever mapped to one of them, so they track
+ * the UI palette rather than the validated categorical ramp below.
+ *
+ * Retuned for the cool-slate token set (app/globals.css). They previously
+ * held the warm-paper values, which left every chart sitting as a warm
+ * rectangle inside a cool white card. Each maps to its UI counterpart:
+ *   surface   -> --surface-raised   grid  -> --border-hairline
+ *   axis      -> --border-strong    muted -> --text-muted
+ *   secondary -> --text-secondary
+ *
+ * Two of these close pre-existing accessibility gaps, measured against the
+ * card the chart sits on:
+ *   muted (axis labels, TEXT)  3.59:1 -> 6.07:1  (WCAG 1.4.3 now met)
+ *   axis  (line, graphical)    1.79:1 -> 3.85:1  (WCAG 1.4.11 now met)
+ * `secondary` is legend/label TEXT at all 11 of its call sites and already
+ * passed; it moves for hue, not for contrast (7.94:1 -> 8.33:1).
+ * Gridlines stay deliberately recessive (1.32:1 -> 1.29:1) — they are a
+ * decorative aid with no contrast minimum, and darkening them would let
+ * chrome compete with the data.
+ *
+ * `primary` (#0b0b0b) is left alone: it is effectively neutral already, so
+ * recolouring it would be churn rather than a fix.
+ *
+ * NOTE: `axis` and `muted` previously shared their hex with
+ * QUALITY_COLORS.MISSING_A1 and NOT_COMPARABLE. That was a coincidence of
+ * value, not a shared meaning — those are data encoding and are unchanged.
+ */
 export const INK = {
   primary: "#0b0b0b",
-  secondary: "#52514e",
-  muted: "#898781",
-  grid: "#e1e0d9",
-  axis: "#c3c2b7",
-  surface: "#fcfcfb",
+  secondary: "#454f5b",
+  muted: "#576470",
+  grid: "#dfe3e9",
+  axis: "#79838f",
+  surface: "#ffffff",
 } as const;
 
 /** Fixed categorical order — never reassigned when a filter removes series. */

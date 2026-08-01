@@ -71,7 +71,7 @@ export default async function SubmissionReceiptPage({
         </h1>
       </div>
 
-      <Card className="mt-6"><CardContent><dl className="space-y-3 text-sm">
+      <Card className="mt-6 shadow-lifted"><CardContent><dl className="space-y-3 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-ink-secondary">Submitted</dt>
           <dd>{attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString() : "—"}</dd>

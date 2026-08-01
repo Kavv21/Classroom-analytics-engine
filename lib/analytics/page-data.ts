@@ -127,9 +127,9 @@ export async function getClassStudentRoster(
 
   const { data: attempts, error: attemptsError } = await supabase
     .from("assignment_attempts")
-    .select("student_id, assignment_id, attempt_state, assignments!inner(class_id)")
+    .select("student_id, assignment_id, state, assignments!inner(class_id)")
     .eq("assignments.class_id", classId)
-    .returns<Array<{ student_id: string; assignment_id: string; attempt_state: string }>>();
+    .returns<Array<{ student_id: string; assignment_id: string; state: string }>>();
   if (attemptsError) {
     throw new Error(`Could not load attempts: ${attemptsError.message}`);
   }
@@ -137,7 +137,7 @@ export async function getClassStudentRoster(
   const stateByStudent = new Map<string, Record<string, string>>();
   for (const a of attempts ?? []) {
     const forStudent = stateByStudent.get(a.student_id) ?? {};
-    forStudent[a.assignment_id] = a.attempt_state;
+    forStudent[a.assignment_id] = a.state;
     stateByStudent.set(a.student_id, forStudent);
   }
 

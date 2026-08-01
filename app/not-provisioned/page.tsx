@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function NotProvisionedPage() {
   return (
     <main className="page-spacious">
-      <Card>
+      {/* Lifted like the sign-in card: the three entry screens
+          (login / not-provisioned / receipt) share one shape. */}
+      <Card className="shadow-lifted">
         <CardHeader>
           <p className="eyebrow mb-2">Evaluating Energy Sources</p>
           <CardTitle as="h1" className="title-lg">

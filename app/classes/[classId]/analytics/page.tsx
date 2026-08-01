@@ -6,7 +6,6 @@ import {
   getAssignmentResponseSummaries,
   getSubmissionProgress,
 } from "@/lib/analytics/queries";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -103,12 +102,15 @@ export default async function AnalyticsOverviewPage({
                       s.avg_entropy === null ? "—" : `${s.avg_entropy.toFixed(2)} bits`,
                   },
                 ].map((tile) => (
-                  <Card key={tile.label} className="p-0">
-                    <CardContent className="p-3">
-                      <p className="text-xs text-muted-foreground">{tile.label}</p>
-                      <p className="mt-1 text-xl font-semibold tabular-nums">{tile.value}</p>
-                    </CardContent>
-                  </Card>
+                  /* Metric tile from the "Statistics Card 1" pull, rebuilt on
+                     project tokens. Its delta badge is deliberately absent:
+                     a green-up / red-down indicator would imply one split is
+                     better than another, which .claude/rules/analytics.md
+                     forbids for descriptive opinion statistics. */
+                  <div key={tile.label} className="card p-4">
+                    <p className="stat-label">{tile.label}</p>
+                    <p className="stat-value">{tile.value}</p>
+                  </div>
                 ))}
               </div>
             </section>

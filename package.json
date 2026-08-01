@@ -14,6 +14,7 @@
     "test:e2e": "playwright test",
     "db:migrate": "supabase db push",
     "db:seed": "tsx scripts/seed.ts",
+    "db:seed:demo-responses": "tsx scripts/seed-demo-responses.ts",
     "verify:extraction": "tsx scripts/verify-extraction.ts"
   },
   "dependencies": {

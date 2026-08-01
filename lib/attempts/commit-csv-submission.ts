@@ -9,7 +9,7 @@ import { questionLabel } from "@/lib/ui/question-label";
  * imports. It takes a Supabase client and CSV text, and it is called from
  * two places that must never diverge:
  *   - the web upload wizard (server action, student's RLS-scoped client);
- *   - scripts/seed-demo-via-csv.ts (a client signed in as each synthetic
+ *   - scripts/seed-demo-responses.ts (a client signed in as each synthetic
  *     student).
  * The script therefore exercises the same validation and the same RPCs a
  * real student's upload does, rather than a lookalike written for seeding.

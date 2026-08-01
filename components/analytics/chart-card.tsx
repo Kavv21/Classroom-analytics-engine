@@ -78,7 +78,17 @@ export function ChartCard({
   function exportPng() {
     const instance = chartRef.current?.getEchartsInstance();
     if (!instance) return;
-    const url = instance.getDataURL({ pixelRatio: 2, backgroundColor: "#fcfcfb" });
+    // The exported PNG must sit on the same surface the card does. Canvas
+    // cannot resolve a CSS custom property, so the token is read off the
+    // document at export time rather than hardcoded — otherwise a change to
+    // --surface-raised would silently leave every export on the old colour.
+    const surface = getComputedStyle(document.documentElement)
+      .getPropertyValue("--surface-raised")
+      .trim();
+    const url = instance.getDataURL({
+      pixelRatio: 2,
+      backgroundColor: surface || "#fcfcfb",
+    });
     const a = document.createElement("a");
     a.href = url;
     a.download = `${exportName}.png`;
@@ -91,7 +101,7 @@ export function ChartCard({
 
   return (
     <section aria-label={title} className="card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="card-header">
         <div className="min-w-0">
           {eyebrow && <p className="eyebrow mb-0.5">{eyebrow}</p>}
           <h3 className="heading">{title}</h3>

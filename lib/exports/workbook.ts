@@ -6,9 +6,10 @@ import {
   METADATA_ROW_COUNT,
   type ExportMetadata,
 } from "@/lib/exports/metadata";
-import { BINARY_LABELS, TRANSITION_STATE_LABELS, QUALITY_LABELS } from "@/lib/analytics/chart-data";
+import { BINARY_LABELS } from "@/lib/analytics/chart-data";
 import {
   gatherResponseGrid,
+  GRID_TOTAL_LABEL,
   orientationDescription,
   type ResponseGrid,
 } from "@/lib/exports/response-grid";
@@ -23,15 +24,12 @@ import { questionLabel } from "@/lib/ui/question-label";
  *    what is visible. A professor exporting their class cannot reach
  *    another professor's class, whatever class id is supplied — and the
  *    route re-checks ownership before getting here.
- *  - Analytics-bearing sheets (Response Transitions, Question Analytics,
- *    Student Analytics) read the approved-only views, so an unapproved
- *    mapping can never contribute a figure to this workbook.
- *  - The Question Mappings sheet is deliberately the professor's full
- *    inventory, including unapproved and rejected rows, carrying explicit
- *    `professor_approved` / `mapping_status` columns. That mirrors the
- *    Phase 6 mapping export: it is the professor's own record of their own
- *    class, not analytics output. The distinction that matters is that
- *    those rows contribute to no transition or analytic figure anywhere.
+ *  - Every analytics-bearing sheet reads a Phase 7 view, so aggregation
+ *    happens in PostgreSQL and the workbook cannot drift from the screen.
+ *  - Every sheet describes ONE assignment at a time. The Question Mappings,
+ *    Response Transitions and Student Analytics sheets were removed with
+ *    the question-mapping feature (migration 0022) — each was defined only
+ *    over an approved mapping's paired answers.
  */
 
 export const SHEET_NAMES = [
@@ -40,10 +38,7 @@ export const SHEET_NAMES = [
   "Assignment 2 Questions",
   "Assignment 1 Responses",
   "Assignment 2 Responses",
-  "Question Mappings",
-  "Response Transitions",
   "Question Analytics",
-  "Student Analytics",
   "Import Validation",
 ] as const;
 
@@ -78,27 +73,10 @@ export const SHEET_HEADERS: Record<SheetName, string[]> = {
     "Student ID", "Student name", "Question", "Question code", "Response value",
     "Response label", "Is final", "Submitted at", "Version",
   ],
-  "Question Mappings": [
-    "Mapping ID", "Mapping name", "Version", "Mapping type", "Status",
-    "Professor approved", "Common concept", "Energy source", "Criterion",
-    "Comparison method", "A1 questions", "A2 questions",
-    "A1 question codes", "A2 question codes", "Notes",
-    "Contributes to analytics",
-  ],
-  "Response Transitions": [
-    "Mapping name", "Mapping version", "Mapping type", "Energy source", "Criterion",
-    "Student ID", "Student name", "A1 answer", "A2 answer", "Transition state",
-    "Data quality",
-  ],
   "Question Analytics": [
     "Assignment", "Question", "Question code", "Energy source", "Criterion", "Concept",
     "Answered", `Count ${BINARY_LABELS.zero}`, `Count ${BINARY_LABELS.one}`,
     `% ${BINARY_LABELS.one}`, "Consensus", "Disagreement", "Binary entropy",
-  ],
-  "Student Analytics": [
-    "Student ID", "Student name", "All pairs", "Valid pairs", "Changed", "Unchanged",
-    "Change rate", "Stability rate", "Net movement toward 1 — Yes",
-    "Percentage-point shift", "Missing A1", "Missing A2", "Missing both", "Not comparable",
   ],
   "Import Validation": [
     "Import ID", "Import type", "Source filename", "Status", "Imported at",
@@ -265,45 +243,6 @@ export async function gatherWorkbookData(
   const a1Responses = await responsesFor(a1?.id);
   const a2Responses = await responsesFor(a2?.id);
 
-  const mappings = (await selectAll(supabase, "question_mappings", (q) =>
-    q
-      .select(
-        "id, mapping_name, version, mapping_type, mapping_status, professor_approved, common_concept, energy_source, criterion, comparison_method, professor_notes, assignment_1_question_ids, assignment_2_question_ids"
-      )
-      .eq("class_id", classId)
-      .order("mapping_name")
-  )) as Array<{
-    id: string;
-    mapping_name: string;
-    version: number;
-    mapping_type: string;
-    mapping_status: string;
-    professor_approved: boolean;
-    common_concept: string | null;
-    energy_source: string | null;
-    criterion: string | null;
-    comparison_method: string | null;
-    professor_notes: string | null;
-    assignment_1_question_ids: string[] | null;
-    assignment_2_question_ids: string[] | null;
-  }>;
-
-  // Approved-only view: this is the analytics boundary.
-  const transitions = (await selectAll(supabase, "response_transitions_live", (q) =>
-    q.select("*").eq("class_id", classId).order("mapping_name")
-  )) as Array<{
-    mapping_name: string;
-    mapping_version: number;
-    mapping_type: string;
-    energy_source: string | null;
-    criterion: string | null;
-    student_id: string;
-    assignment_1_value: number | null;
-    assignment_2_value: number | null;
-    transition_state: string | null;
-    data_quality_status: string | null;
-  }>;
-
   const questionAnalytics = (await selectAll(supabase, "question_response_summary", (q) =>
     q.select("*").eq("class_id", classId).order("external_question_code")
   )) as Array<{
@@ -320,24 +259,6 @@ export async function gatherWorkbookData(
     consensus: number | null;
     disagreement: number | null;
     entropy: number | null;
-  }>;
-
-  const studentAnalytics = (await selectAll(supabase, "student_transition_summary", (q) =>
-    q.select("*").eq("class_id", classId).order("student_id")
-  )) as Array<{
-    student_id: string;
-    pairs_considered: number;
-    valid_paired: number;
-    changed_count: number;
-    unchanged_count: number;
-    change_rate: number | null;
-    stability_rate: number | null;
-    net_movement_toward_1: number;
-    pct_point_shift: number | null;
-    missing_a1: number;
-    missing_a2: number;
-    missing_both: number;
-    not_comparable: number;
   }>;
 
   const imports = (await selectAll(supabase, "imports", (q) =>
@@ -429,41 +350,6 @@ export async function gatherWorkbookData(
       "Assignment 2 Questions": questionRows(a2Questions),
       "Assignment 1 Responses": responseRows(a1Responses),
       "Assignment 2 Responses": responseRows(a2Responses),
-      "Question Mappings": mappings.map((m) => [
-        m.id,
-        m.mapping_name,
-        m.version,
-        m.mapping_type,
-        m.mapping_status,
-        m.professor_approved ? "Yes" : "No",
-        m.common_concept,
-        m.energy_source,
-        m.criterion,
-        m.comparison_method,
-        (m.assignment_1_question_ids ?? []).map((id) => questionName.get(id) ?? id).join("; "),
-        (m.assignment_2_question_ids ?? []).map((id) => questionName.get(id) ?? id).join("; "),
-        (m.assignment_1_question_ids ?? []).map((id) => questionCode.get(id) ?? id).join("; "),
-        (m.assignment_2_question_ids ?? []).map((id) => questionCode.get(id) ?? id).join("; "),
-        m.professor_notes,
-        m.professor_approved ? "Yes" : "No — inventory only, contributes to no figure",
-      ]),
-      "Response Transitions": transitions.map((t) => [
-        t.mapping_name,
-        t.mapping_version,
-        t.mapping_type,
-        t.energy_source,
-        t.criterion,
-        t.student_id,
-        studentName.get(t.student_id) ?? "—",
-        answerLabel(t.assignment_1_value),
-        answerLabel(t.assignment_2_value),
-        t.transition_state
-          ? TRANSITION_STATE_LABELS[t.transition_state as keyof typeof TRANSITION_STATE_LABELS]
-          : null,
-        t.data_quality_status
-          ? QUALITY_LABELS[t.data_quality_status.toLowerCase() as keyof typeof QUALITY_LABELS]
-          : "Valid pair",
-      ]),
       "Question Analytics": questionAnalytics.map((q) => [
         assignmentTitle(q.assignment_id),
         questionLabel({
@@ -483,22 +369,6 @@ export async function gatherWorkbookData(
         q.consensus,
         q.disagreement,
         q.entropy,
-      ]),
-      "Student Analytics": studentAnalytics.map((s) => [
-        s.student_id,
-        studentName.get(s.student_id) ?? "—",
-        s.pairs_considered,
-        s.valid_paired,
-        s.changed_count,
-        s.unchanged_count,
-        s.change_rate,
-        s.stability_rate,
-        s.net_movement_toward_1,
-        s.pct_point_shift,
-        s.missing_a1,
-        s.missing_a2,
-        s.missing_both,
-        s.not_comparable,
       ]),
       "Import Validation": importRows.map((r) => {
         const parent = imports.find((i) => i.id === r.import_id);
@@ -557,9 +427,14 @@ function writeSheet(
 }
 
 /**
- * The added per-assignment grid sheet: the source spreadsheet's own layout,
- * carrying each question's ANSWER TOTALS and a rolled-up subtotal for every
- * energy-source group.
+ * The added per-assignment grid sheet: the SOURCE SPREADSHEET'S OWN GRID,
+ * reproduced — same rows, same columns, same order as the file the
+ * professor uploaded, with the totals row in the same place that file has
+ * it (below the data for Assignment 1, above it for Assignment 2).
+ *
+ * Where a single student would have typed 0 or 1, the sheet carries one
+ * number: the sum of every student's answer for that cell, which is the
+ * count of students who answered 1.
  *
  * NO STUDENT ROWS. This sheet is aggregate-only — no names, no per-person
  * answers. An individual student's full submission lives on the per-student
@@ -567,22 +442,26 @@ function writeSheet(
  *
  * Four things here are deliberate:
  *
- *  - THE SUBTOTALS ARE REAL FORMULAS, `=SUM(B12:AE12)` across each energy
- *    source's own question columns, not baked-in numbers. A professor who
- *    corrects a question total sees every subtotal and the grand total move,
- *    which is the whole point of handing them a spreadsheet rather than a
- *    picture. (The per-question counts themselves are counts of student
- *    answers from the database — there are no rows left underneath them to
- *    sum, so a formula there would only ever sum an empty range.)
- *  - THE COLUMN ORDER MIRRORS THE SOURCE SHEET (see response-grid.ts), so
- *    the grid reads the way the original workbook does, each source's
- *    questions stay adjacent, and each column header carries its original
- *    cell reference.
+ *  - THE TOTAL ROW IS REAL FORMULAS, `=SUM(B20:B34)` straight down each
+ *    column, not baked-in numbers — whichever end of the grid it sits at. A
+ *    professor who corrects a cell sees the totals move, which is the whole
+ *    point of handing them a spreadsheet rather than a picture. (The cells
+ *    themselves are already-aggregated counts from the database — there are
+ *    no per-student rows left underneath them, so a formula there would only
+ *    sum an empty range.)
+ *  - THE GEOMETRY MIRRORS THE SOURCE SHEET (see response-grid.ts's
+ *    `buildGridMatrix`), which is why Assignment 1 comes out 15 sources x 2
+ *    criteria with its totals last and Assignment 2 comes out 17 criteria x
+ *    15 sources with its totals first, from one orientation rule.
  *  - IT IS A SNAPSHOT AND SAYS SO. An .xlsx cannot re-query this database;
  *    the header block states the generation time and says plainly that the
  *    file will not update itself.
  *  - NEITHER ANSWER IS SHADED AS BETTER. The colour scale runs across the
- *    question totals, never over an answer value.
+ *    per-cell counts, never over an answer value.
+ *
+ * Question wording and question codes are NOT repeated here — the grid is
+ * the source file's grid, and the "Assignment N Questions" sheet already
+ * carries every question's verbatim text against its code and source cell.
  *
  * No native Excel chart is written. ExcelJS's chart support is partial and
  * a malformed chart part makes the whole workbook unopenable — a far worse
@@ -594,6 +473,9 @@ function writeGridSheet(
   grid: ResponseGrid,
   metadata: ExportMetadata
 ): void {
+  const { matrix } = grid;
+  const columnAxisName = matrix.rowAxis === "ENERGY_SOURCE" ? "criteria" : "energy sources";
+
   const notes: Array<[string, string]> = [
     ["Sheet", `Response totals — ${grid.assignmentTitle}`],
     ["Assignment", `${grid.assignmentTitle} (sequence ${grid.sequenceNumber})`],
@@ -602,9 +484,13 @@ function writeGridSheet(
     ["Generated at", grid.generatedAt],
     [
       "What this sheet shows",
-      "Class totals per question, in the source spreadsheet's own column order, plus a " +
-        "subtotal for each energy source. It holds no individual student rows — a single " +
-        "student's full submission is on their profile page in the app.",
+      "The source spreadsheet's own grid, cell for cell. Where one student would have entered " +
+        "0 or 1, this shows the sum of every student's answer for that cell — the number of " +
+        "students who answered 1. It holds no individual student rows; a single student's full " +
+        "submission is on their profile page in the app. Question wording and codes are on the " +
+        "Assignment " +
+        String(grid.sequenceNumber) +
+        " Questions sheet.",
     ],
     [
       "POINT-IN-TIME SNAPSHOT",
@@ -621,6 +507,7 @@ function writeGridSheet(
     ],
     ["Class", metadata.className],
     ["Questions", String(grid.columns.length)],
+    ["Grid size", `${matrix.rows.length} rows x ${matrix.columns.length} columns`],
     ["Students enrolled", String(grid.totalStudentCount)],
     ["Of which synthetic", String(grid.syntheticStudentCount)],
     ["Notes", metadata.notes.join(" ")],
@@ -635,139 +522,117 @@ function writeGridSheet(
     row.commit();
   });
 
-  // Stacked header rows so a column is identifiable by its energy source,
-  // its criterion, its wording and its original cell — the grid is wide, and
-  // a bare question code would make it unreadable (lib/ui/question-label.ts).
-  const headerTop = notes.length + 2;
-  const labelRows: Array<[string, (c: (typeof grid.columns)[number]) => string]> = [
-    ["Energy source", (c) => c.energySource],
-    ["Criterion", (c) => c.criterion],
-    ["Question", (c) => c.questionText ?? ""],
-    ["Original cell", (c) => c.originalCell],
-    ["Question code", (c) => c.code],
-  ];
-  labelRows.forEach(([label, pick], i) => {
-    const row = sheet.getRow(headerTop + i);
-    row.getCell(1).value = label;
-    row.getCell(1).font = { bold: true, size: 9 };
-    grid.columns.forEach((c, ci) => {
-      row.getCell(ci + 2).value = pick(c);
-      row.getCell(ci + 2).font = { bold: i === 0, size: 9 };
-      row.getCell(ci + 2).alignment = { textRotation: i === 0 ? 45 : 0, vertical: "bottom" };
+  // ---- the grid itself -----------------------------------------------------
+  // One header row of column labels, then one row per source row, then the
+  // TOTAL row. Nothing between them: this is the original sheet's shape.
+  const headerRowNumber = notes.length + 2;
+  const headerRow = sheet.getRow(headerRowNumber);
+  headerRow.getCell(1).value = matrix.rowAxisHeading;
+  headerRow.getCell(1).font = { bold: true };
+  headerRow.height = 30;
+  matrix.columns.forEach((column, ci) => {
+    const cell = headerRow.getCell(ci + 2);
+    cell.value = column.label;
+    cell.font = { bold: true };
+    cell.alignment = { wrapText: true, vertical: "bottom", horizontal: "center" };
+  });
+  headerRow.commit();
+
+  // The totals row goes where the SOURCE FILE puts it — below the data for
+  // Assignment 1, above it for Assignment 2 — so the two blocks swap places
+  // rather than the grid being reshaped. `matrix.totalsPosition` decides;
+  // nothing here re-derives it.
+  const totalsOnTop = matrix.totalsPosition === "TOP";
+  const totalRowNumber = totalsOnTop ? headerRowNumber + 1 : headerRowNumber + 1 + matrix.rows.length;
+  const firstGridRow = totalsOnTop ? headerRowNumber + 2 : headerRowNumber + 1;
+  const lastGridRow = firstGridRow + matrix.rows.length - 1;
+
+  matrix.rows.forEach((row, ri) => {
+    const sheetRow = sheet.getRow(firstGridRow + ri);
+    sheetRow.getCell(1).value = row.label;
+    row.cells.forEach((cell, ci) => {
+      sheetRow.getCell(ci + 2).value = cell?.total ?? null;
+      sheetRow.getCell(ci + 2).alignment = { horizontal: "center" };
     });
-    row.commit();
+    sheetRow.commit();
   });
 
-  // Three total rows, one per number, so a column stays six characters wide.
-  const totalRows: Array<[string, (c: (typeof grid.columns)[number]) => number | null]> = [
-    ['Total answering "1" (Yes)', (c) => c.ones],
-    ['Total answering "0" (No)', (c) => c.zeros],
-    ["Students who answered", (c) => c.answered],
-  ];
-  const firstTotalRow = headerTop + labelRows.length;
-  totalRows.forEach(([label, pick], i) => {
-    const row = sheet.getRow(firstTotalRow + i);
-    row.getCell(1).value = label;
-    row.getCell(1).font = { bold: i === 0 };
-    grid.columns.forEach((c, ci) => {
-      const cell = row.getCell(ci + 2);
-      cell.value = pick(c);
-      cell.font = { bold: i === 0 };
+  // ---- the TOTAL row, as live SUM formulas --------------------------------
+  // Straight down each column over the data rows, so the row recomputes if a
+  // professor edits anything in the grid. When the row sits on top the range
+  // simply points forward at the rows beneath it — an ordinary Excel
+  // reference, and not circular, because the totals row is never inside it.
+  if (matrix.rows.length > 0) {
+    const totalRow = sheet.getRow(totalRowNumber);
+    totalRow.getCell(1).value = GRID_TOTAL_LABEL;
+    matrix.columns.forEach((_column, ci) => {
+      const letter = colLetter(ci + 2);
+      const cell = totalRow.getCell(ci + 2);
+      cell.value = { formula: `SUM(${letter}${firstGridRow}:${letter}${lastGridRow})` };
+      cell.alignment = { horizontal: "center" };
     });
-    row.commit();
-  });
-  const onesRow = firstTotalRow;
-  const zerosRow = firstTotalRow + 1;
-  const answeredRow = firstTotalRow + 2;
+    for (let c = 1; c <= matrix.columns.length + 1; c++) totalRow.getCell(c).font = { bold: true };
+    totalRow.border = totalsOnTop ? { bottom: { style: "thin" } } : { top: { style: "thin" } };
+    totalRow.commit();
 
-  // Conditional formatting on the "1" totals row only: a 3-colour scale
-  // across the question totals, so which energy sources drew the most and
-  // fewest "1" answers is visible at a glance. Applied to the totals rather
-  // than to answer values on purpose — shading an answer would make one of
-  // the two look better than the other, which this platform does not do.
-  if (grid.columns.length > 0) {
-    const lastLetter = colLetter(grid.columns.length + 1);
-    sheet.addConditionalFormatting({
-      ref: `B${onesRow}:${lastLetter}${onesRow}`,
-      rules: [
-        {
-          type: "colorScale",
-          priority: 1,
-          cfvo: [{ type: "min" }, { type: "percentile", value: 50 }, { type: "max" }],
-          color: [
-            { argb: "FFF3F6FB" },
-            { argb: "FF9EC5F4" },
-            { argb: "FF2A78D6" },
-          ],
-        },
-      ],
-    });
-  }
-
-  // ---- energy-source subtotals, as live SUM formulas ----------------------
-  // Each subtotal sums that source's own question columns on the rows above,
-  // so the block recomputes if a professor edits a question total.
-  const sumOver = (row: number, ranges: Array<[number, number]>) =>
-    ranges
-      .map(([from, to]) => `${colLetter(from + 2)}${row}:${colLetter(to + 2)}${row}`)
-      .join(",");
-
-  const subtotalTop = answeredRow + 2;
-  const subtotalHeader = sheet.getRow(subtotalTop);
-  // Wrapped, on a taller row: the subtotal block shares the question grid's
-  // narrow columns, and a clipped header would be worse than a two-line one.
-  subtotalHeader.height = 30;
-  ["Energy source", "Questions", 'Answered "1"', 'Answered "0"', "Answers given", 'Share "1"'].forEach(
-    (label, ci) => {
-      const cell = subtotalHeader.getCell(ci + 1);
-      cell.value = label;
-      cell.font = { bold: true };
-      cell.alignment = { wrapText: true, vertical: "bottom" };
+    // Conditional formatting across the grid body only: a 3-colour scale over
+    // the per-cell counts, so which cells drew the most and fewest "1"
+    // answers is visible at a glance. Applied to counts rather than to answer
+    // values on purpose — shading an answer would make one of the two look
+    // better than the other, which this platform does not do. The TOTAL row
+    // is left out so its larger numbers do not flatten the scale.
+    if (matrix.columns.length > 0) {
+      const lastLetter = colLetter(matrix.columns.length + 1);
+      sheet.addConditionalFormatting({
+        ref: `B${firstGridRow}:${lastLetter}${lastGridRow}`,
+        rules: [
+          {
+            type: "colorScale",
+            priority: 1,
+            cfvo: [{ type: "min" }, { type: "percentile", value: 50 }, { type: "max" }],
+            color: [
+              { argb: "FFF3F6FB" },
+              { argb: "FF9EC5F4" },
+              { argb: "FF2A78D6" },
+            ],
+          },
+        ],
+      });
     }
-  );
-  subtotalHeader.commit();
-
-  grid.sourceSubtotals.forEach((subtotal, si) => {
-    const r = subtotalTop + 1 + si;
-    const row = sheet.getRow(r);
-    row.getCell(1).value = subtotal.energySource;
-    row.getCell(2).value = subtotal.questionCount;
-    row.getCell(3).value = { formula: `SUM(${sumOver(onesRow, subtotal.columnRanges)})` };
-    row.getCell(4).value = { formula: `SUM(${sumOver(zerosRow, subtotal.columnRanges)})` };
-    row.getCell(5).value = { formula: `SUM(${sumOver(answeredRow, subtotal.columnRanges)})` };
-    row.getCell(6).value = { formula: `IF(E${r}=0,"",C${r}/E${r})` };
-    row.getCell(6).numFmt = "0.0%";
-    row.commit();
-  });
-
-  const grandRow = subtotalTop + 1 + grid.sourceSubtotals.length;
-  if (grid.columns.length > 0) {
-    const lastLetter = colLetter(grid.columns.length + 1);
-    const row = sheet.getRow(grandRow);
-    row.getCell(1).value = "All energy sources";
-    row.getCell(2).value = grid.columns.length;
-    row.getCell(3).value = { formula: `SUM(B${onesRow}:${lastLetter}${onesRow})` };
-    row.getCell(4).value = { formula: `SUM(B${zerosRow}:${lastLetter}${zerosRow})` };
-    row.getCell(5).value = { formula: `SUM(B${answeredRow}:${lastLetter}${answeredRow})` };
-    row.getCell(6).value = { formula: `IF(E${grandRow}=0,"",C${grandRow}/E${grandRow})` };
-    row.getCell(6).numFmt = "0.0%";
-    for (let c = 1; c <= 6; c++) row.getCell(c).font = { bold: true };
-    row.commit();
   }
 
-  const footer = sheet.getRow(grandRow + 2);
+  // Questions that collided on one source cell are named rather than dropped.
+  let nextRow = Math.max(lastGridRow, totalRowNumber) + 2;
+  if (matrix.unplaced.length > 0) {
+    const row = sheet.getRow(nextRow);
+    row.getCell(1).value = "Not placed on the grid";
+    row.getCell(1).font = { bold: true, size: 9 };
+    row.getCell(2).value =
+      `${matrix.unplaced.length} question(s) share a source cell with another question and are ` +
+      "not shown above or counted in TOTAL: " +
+      matrix.unplaced.map((c) => `${c.code} (${c.originalCell})`).join(", ");
+    row.getCell(2).font = { size: 9 };
+    row.commit();
+    nextRow += 1;
+  }
+
+  const footer = sheet.getRow(nextRow);
   footer.getCell(1).value = "How to read this";
   footer.getCell(1).font = { bold: true, size: 9 };
   footer.getCell(2).value =
-    '0 and 1 are the two options — neither is a preferred answer. "Students who answered" counts ' +
-    "students with a non-blank final answer to that question; a student who left it blank is in " +
-    "neither total. The subtotal block below uses live SUM formulas over the question totals above.";
+    "Each cell is the sum of every student's answer for that cell — the number of students who " +
+    "answered 1. 0 and 1 are the two options and neither is a preferred answer. A blank cell " +
+    "means no answers have been recorded there yet, and a student who left a cell blank counts " +
+    `in neither figure. The TOTAL row is a live SUM down each of the ${matrix.columns.length} ` +
+    `${columnAxisName} columns, so it recalculates if anything in the grid is edited. It sits ` +
+    `${totalsOnTop ? "above" : "below"} the data because that is where this assignment's own ` +
+    "source spreadsheet puts it.";
   footer.getCell(2).font = { size: 9 };
   footer.commit();
 
   sheet.getColumn(1).width = 32;
-  for (let c = 2; c <= Math.max(6, grid.columns.length + 1); c++) sheet.getColumn(c).width = 9;
-  sheet.views = [{ state: "frozen", xSplit: 1, ySplit: answeredRow }];
+  for (let c = 2; c <= Math.max(6, matrix.columns.length + 1); c++) sheet.getColumn(c).width = 14;
+  sheet.views = [{ state: "frozen", xSplit: 1, ySplit: headerRowNumber }];
 }
 
 /** 1-based column index → spreadsheet letters (1 → A, 27 → AA). */

@@ -9,7 +9,7 @@ import {
 
 /**
  * Professor workflow: class → roster → assignment → questions → publish →
- * mapping approval → analytics → export.
+ * analytics → export.
  *
  * Runs against the seeded local stack. Anything this spec creates itself
  * (a fresh class and assignment) is deleted in afterAll; the shared seed
@@ -23,10 +23,6 @@ test.beforeAll(() => requireEnv());
 
 test.afterAll(async () => {
   for (const id of createdClassIds) {
-    await admin
-      .from("question_mappings")
-      .update({ professor_approved: false, mapping_status: "REJECTED" })
-      .eq("class_id", id);
     const { error } = await admin.from("classes").delete().eq("id", id);
     if (error) throw new Error(`e2e cleanup failed for class ${id}: ${error.message}`);
   }
@@ -57,9 +53,8 @@ test("professor creates a class end to end", async ({ page }) => {
   expect(data?.id).toBeTruthy();
   createdClassIds.push(data!.id);
 
-  // The class detail page exposes the three workflow entry points.
+  // The class detail page exposes both workflow entry points.
   await expect(page.getByRole("link", { name: "Manage assignments" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open mapping studio" })).toBeVisible();
   await expect(page.getByRole("link", { name: "View analytics" })).toBeVisible();
 });
 
@@ -75,71 +70,24 @@ test("assignment detail shows imported questions and the publishing controls", a
   await expect(page.getByRole("button", { name: "Close assignment" })).toBeVisible();
 });
 
-test("mapping studio lists mappings and shows the approval gate", async ({ page }) => {
-  const { classId } = await seededClass(admin);
-  await page.goto(`/classes/${classId}/mappings`);
-
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Question mapping");
-  // 19 approved + 1 deliberately left unapproved by the seed.
-  await expect(page.getByText(/^Mappings \(20\)$/)).toBeVisible();
-  await expect(page.getByText("Approved").first()).toBeVisible();
-  await expect(page.getByText("Suggested").first()).toBeVisible();
-});
-
-test("professor approves a mapping and it becomes visible to analytics", async ({ page }) => {
-  const { classId } = await seededClass(admin);
-
-  const { data: pending } = await admin
-    .from("question_mappings")
-    .select("id, mapping_name")
-    .eq("class_id", classId)
-    .eq("professor_approved", false)
-    .limit(1)
-    .maybeSingle();
-  expect(pending, "seed should leave one unapproved mapping").toBeTruthy();
-
-  const before = await admin
-    .from("approved_question_mappings")
-    .select("id")
-    .eq("class_id", classId);
-  const beforeCount = before.data!.length;
-
-  await page.goto(`/classes/${classId}/mappings`);
-  const row = page.locator("tr", { hasText: pending!.mapping_name });
-  await row.getByRole("button", { name: "Approve" }).click();
-  await expect(row.getByText("Approved")).toBeVisible();
-
-  const after = await admin
-    .from("approved_question_mappings")
-    .select("id")
-    .eq("class_id", classId);
-  expect(after.data!.length).toBe(beforeCount + 1);
-
-  // Put it back so re-running the suite starts from the same state.
-  await admin
-    .from("question_mappings")
-    .update({ professor_approved: false, mapping_status: "SUGGESTED" })
-    .eq("id", pending!.id);
-});
-
 test("analytics pages render real figures from the seeded responses", async ({ page }) => {
   const { classId } = await seededClass(admin);
 
   await page.goto(`/classes/${classId}/analytics`);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Analytics");
-  await expect(page.getByText("Valid response pairs")).toBeVisible();
-  await expect(page.getByText("Change rate")).toBeVisible();
+  await expect(page.getByText("Answered responses").first()).toBeVisible();
+  await expect(page.getByText("Average consensus").first()).toBeVisible();
 
-  await page.goto(`/classes/${classId}/analytics/transitions`);
-  await expect(page.getByRole("heading", { name: /Transition matrix/ }).first()).toBeVisible();
+  await page.goto(`/classes/${classId}/analytics/assignments`);
+  await expect(page.getByRole("heading", { name: /Response distribution/ }).first()).toBeVisible();
 
   // Every chart must offer its accessible table twin.
-  const firstCard = page.locator("section").filter({ hasText: "Before / after" }).first();
+  const firstCard = page.locator("section").filter({ hasText: "Response distribution" }).first();
   await firstCard.getByRole("button", { name: "Table" }).click();
   await expect(firstCard.locator("table")).toBeVisible();
 });
 
-test("professor downloads the 10-sheet Excel export", async ({ page }) => {
+test("professor downloads the full Excel export", async ({ page }) => {
   const { classId } = await seededClass(admin);
   await page.goto(`/classes/${classId}/analytics/builder`);
 
@@ -158,10 +106,9 @@ test("query builder rejects an incompatible chart combination with a clear messa
   // Chart type is now a shadcn Select (a combobox), not a native <select>,
   // so it is opened and its option chosen rather than selectOption()'d.
   await page.getByLabel("Chart type").click();
-  await page.getByRole("option", { name: "Sankey (answer flows)" }).click();
-  // Default grouping is Mapping, not Transition state — invalid for a Sankey.
+  await page.getByRole("option", { name: "Heatmap" }).click();
+  // The default query has one grouping; a heatmap needs two.
   const banner = page.getByRole("alert").filter({ hasText: "can’t be charted" });
-  await expect(banner).toContainText("Sankey");
-  await expect(banner).toContainText("Transition state");
-  await expect(banner).toContainText("choose a bar chart");
+  await expect(banner).toContainText("heatmap");
+  await expect(banner).toContainText("at least 2 groupings");
 });

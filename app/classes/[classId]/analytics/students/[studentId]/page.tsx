@@ -3,16 +3,11 @@ import { notFound } from "next/navigation";
 import { AnalyticsNav } from "@/components/analytics/analytics-nav";
 import { StudentProfile } from "@/components/analytics/student-profile";
 import { Button } from "@/components/ui/button";
-import {
-  getStudentResponseTransitionsLive,
-  getStudentTransitionSummary,
-} from "@/lib/analytics/queries";
 import { requireProfessorClassPage } from "@/lib/analytics/page-data";
 import { getStudentFullResponses } from "@/lib/analytics/student-responses";
 
 /**
- * One student's profile: their opinion shift across the approved mappings,
- * and their FULL raw submission on every assignment.
+ * One student's profile: their FULL raw submission on every assignment.
  *
  * This is the only surface in the app that shows an individual student's
  * answers. The assignment response grid is aggregate-only — it carries class
@@ -59,11 +54,7 @@ export default async function StudentProfilePage({
   const studentName = profile?.full_name ?? profile?.email ?? `Student ${studentId.slice(0, 8)}`;
   const { is_synthetic: isSynthetic, status } = member;
 
-  const [summary, transitions, assignments] = await Promise.all([
-    getStudentTransitionSummary(supabase, classId, studentId),
-    getStudentResponseTransitionsLive(supabase, classId, studentId),
-    getStudentFullResponses(supabase, classId, studentId),
-  ]);
+  const assignments = await getStudentFullResponses(supabase, classId, studentId);
 
   return (
     <main className="page-dense">
@@ -91,12 +82,7 @@ export default async function StudentProfilePage({
         </p>
       )}
 
-      <StudentProfile
-        studentName={studentName}
-        summary={summary}
-        transitions={transitions}
-        assignments={assignments}
-      />
+      <StudentProfile studentName={studentName} assignments={assignments} />
     </main>
   );
 }

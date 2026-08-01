@@ -11,7 +11,6 @@ CLAUDE.md                         # read every session — stack, rules, command
 docs/
   DATABASE_SCHEMA.md              # schema reference, kept in sync with migrations
   ANALYTICS_DEFINITIONS.md        # formulas — copy exactly, never reimplement
-  QUESTION_MAPPING.md             # mapping module reference
   EXCLUDED_FEATURES.md            # hard boundary, never build these
 .claude/
   rules/db.md                     # auto-loaded when touching db/migrations

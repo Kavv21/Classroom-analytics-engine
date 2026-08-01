@@ -27,12 +27,11 @@ script. No page or action uses it.
 
 | Layer | Location | Notes |
 |---|---|---|
-| Schema, RLS, RPCs, views | `supabase/migrations/` | 15 migrations, forward-only |
+| Schema, RLS, RPCs, views | `supabase/migrations/` | 22 migrations, forward-only |
 | Domain types & formulas | `lib/types/domain.ts` | Metric formulas live here, mirrored by SQL views |
 | Import parsing | `lib/imports/parse-grid.ts` | Pure; fails loudly on ambiguous rows |
 | Roster | `lib/roster/` | Parse, classify, commit |
 | Attempts | `lib/attempts/` | Autosave batching + local draft store |
-| Mappings | `lib/mappings/` | Deterministic suggestions, approval, export |
 | Analytics | `lib/analytics/` | View readers + pure chart shaping |
 | Query builder | `lib/query-builder/` | Catalogue, validation, execution |
 | Exports | `lib/exports/` | Excel / CSV / PDF + provenance |
@@ -41,18 +40,19 @@ script. No page or action uses it.
 
 ## Key design decisions
 
-**Analytics is computed on read.** All 14 analytics views (migrations
-0012/0013) are plain views, not materialised. Consequence: figures are
-always current with the latest responses and mapping approvals, and there
-is no refresh step, no staleness window, and no cache invalidation.
-Rationale and the alternative are documented in
-`DATABASE_SCHEMA.md` → "Analytics views".
+**Analytics is computed on read.** The analytics views (migrations
+0012/0013/0017) are plain views, not materialised. Consequence: figures
+are always current with the latest responses, and there is no refresh
+step, no staleness window, and no cache invalidation. Rationale and the
+alternative are documented in `DATABASE_SCHEMA.md` → "Analytics views".
 
-**The approved-mapping boundary is structural, not procedural.**
-`approved_question_mappings` bakes `professor_approved = true` into the
-view definition. Downstream code physically cannot read an unapproved
-mapping through it — including `service_role`, which bypasses RLS but not
-a view's WHERE clause.
+**Analytics is single-assignment.** Question mappings and the transition
+engine built on them were removed in migration 0022. Every figure now
+describes one assignment on its own, except `energy_source_assignment_change`,
+which compares the two assignments through their shared energy-source
+labels — no per-student pairing of an A1 answer with an A2 answer exists
+anywhere. See `ANALYTICS_DEFINITIONS.md` → "Removed: response transition
+states".
 
 **The query builder generates no SQL.** A builder query selects one of a
 fixed set of views by lookup table (`lib/query-builder/execute.ts`), so
@@ -69,7 +69,7 @@ profile page (`/classes/:id/analytics/students/:studentId`) — the single
 place in the app a per-person answer appears.
 
 **Invariants live in the database.** Attempt-state transitions, question
-immutability after responses, mapping immutability once load-bearing, and
+immutability after responses, the `is_synthetic` flag authority, and
 the `response_value ∈ {0,1,NULL}` constraint are all enforced by triggers
 and CHECK constraints that fire for every role — `service_role` included.
 UI checks exist only to produce friendly errors earlier.

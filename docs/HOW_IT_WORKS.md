@@ -80,11 +80,11 @@ controlled thing.
 
 ### View
 A view is a saved *query*, dressed up to look like a table. `select *
-from class_transition_summary` looks like reading a table, but it's
+from question_response_summary` looks like reading a table, but it's
 actually re-running a calculation live every time you ask. This is how
-Phase 7's analytics work — every number you see (change rate, consensus,
-etc.) is computed fresh from the raw responses each time the page loads,
-not stored and recalculated on a schedule.
+Phase 7's analytics work — every number you see (consensus, entropy,
+% choosing 1, etc.) is computed fresh from the raw responses each time the
+page loads, not stored and recalculated on a schedule.
 
 ### Immutability trigger
 A special kind of trigger that *blocks* an action rather than doing one —
@@ -128,39 +128,29 @@ This is the story of what happens as your app gets used for real:
 
 1. **A professor imports Assignment 1 and Assignment 2** — each question
    from the Excel files becomes a row in the `questions` table.
-2. **The professor maps questions between the two assignments** in the
-   Mapping Studio — e.g. "Solar's renewable question in Assignment 1"
-   is declared equivalent to "Solar's renewable question in Assignment 2."
-   This creates a row in `question_mappings`, starting as unapproved.
-3. **The professor approves that mapping.** Only now does it "count" for
-   anything — an unapproved mapping is invisible to all analytics.
-4. **A student answers Assignment 1**, one 0/1 answer per question,
+2. **A student answers Assignment 1**, one 0/1 answer per question,
    saved as rows in `responses`. They submit — this locks in their
    answers as final.
-5. Time passes ("the professor teaches outside the platform").
-6. **The same student answers Assignment 2.**
-7. Now, for that one approved mapping, the app can look at the student's
-   two answers (0 or 1 on each side) and classify the pair into one of
-   four buckets:
-   - **S00** — said 0 both times (no change)
-   - **S01** — said 0, then 1 (opinion shifted toward "yes")
-   - **S10** — said 1, then 0 (opinion shifted toward "no")
-   - **S11** — said 1 both times (no change)
-8. **Across all students**, these get totaled up into the metrics you
-   see on the Analytics page:
-   - **Change rate** — what fraction of students changed their answer at
-     all (S01 + S10 combined)
-   - **Net shift** — which *direction* the change leaned, on net (S01
-     minus S10) — this is different from change rate; a class could have
-     huge change rate but zero net shift if people flip both ways equally
+3. Time passes ("the professor teaches outside the platform").
+4. **The same student answers Assignment 2.**
+5. **Across all students**, each assignment's answers get totaled up into
+   the metrics you see on the Analytics page:
+   - **% choosing 1** — what fraction of the answers to a question were 1
    - **Consensus** — how much the class agrees with each other (not with
      any "correct" answer — there is no correct answer) — 100% if
      everyone picked the same value, 50% if it's an even split
    - **Entropy** — a more precise mathematical version of "how mixed are
      the opinions," maxed out at an even 50/50 split
-9. **All of this renders as charts** on the Analytics page — heatmaps,
-   Sankey diagrams, ranking charts — all just different visual framings
-   of the same underlying S00/S01/S10/S11 counts.
+6. **All of this renders as charts** on the Analytics page — response
+   distributions, heatmaps, consensus rankings — all different visual
+   framings of the same underlying per-question 0/1 counts.
+
+**What the app deliberately does NOT do:** it never pairs one student's
+Assignment 1 answer with their Assignment 2 answer. Doing that would
+require a record declaring which A1 question corresponds to which A2
+question. That record (a "question mapping") and everything built on it
+were removed in migration 0022. The two assignments are compared only in
+aggregate, through the energy-source labels they share.
 
 Nowhere in this entire pipeline is there a concept of "correct." Every
 number describes what people *said*, never whether they were *right*.
@@ -177,11 +167,6 @@ number describes what people *said*, never whether they were *right*.
 - **Attempt** — one student's one try at one assignment. Has a state:
   `NOT_STARTED → DRAFT → SUBMITTED`, and can be `REOPENED` by the
   professor if the student needs to fix something after submitting.
-- **Mapping type** (`EXACT_ONE_TO_ONE`, `GROUPED_CONCEPT`, etc.) —
-  describes *how* a question in Assignment 1 relates to one or more
-  questions in Assignment 2. Most of your data has a clean 1-to-1 match;
-  some doesn't, and gets marked `NOT_COMPARABLE` rather than forced into
-  a comparison that wouldn't mean anything.
 - **Exploratory analytics** — the more advanced statistical views
   (clustering, similarity scores) that are explicitly labeled as "for
   poking around," not as findings — the spec is strict that these never
@@ -196,8 +181,10 @@ number describes what people *said*, never whether they were *right*.
 3. **Classes & rosters** — professor creates a class, imports a student list.
 4. **Assignments** — professor publishes Assignment 1 / Assignment 2.
 5. **Student responses** — the actual screen students use to answer.
-6. **Mapping studio** — linking Assignment 1 questions to Assignment 2 questions.
-7. **Analytics engine** — the math (S00-S11, change rate, consensus) as live database views.
-8. **Visualisations** — the 14 chart types rendering that math.
+6. **Mapping studio** — linked A1 questions to A2 questions. *Removed in
+   migration 0022, along with everything downstream of it: the transition
+   engine, 6 chart types, and the demo dashboard.*
+7. **Analytics engine** — the math (consensus, disagreement, entropy) as live database views.
+8. **Visualisations** — the chart types rendering that math.
 9. **Query builder & exports** — lets the professor build custom views and download data.
 10. **Testing & deployment** — proving it all actually works, then shipping it.

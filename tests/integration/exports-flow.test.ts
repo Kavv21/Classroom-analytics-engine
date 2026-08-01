@@ -28,11 +28,9 @@ import {
 
 /**
  * Phase 9 acceptance:
- *  1. The Excel export contains all 10 sheets with the right headers and
+ *  1. The Excel export contains every sheet with the right headers and
  *     data shape.
- *  2. Exports respect the approved-mapping boundary — an unapproved
- *     mapping contributes to no analytics figure in any export.
- *  3. Exports respect RLS — another professor cannot reach this class's
+ *  2. Exports respect RLS — another professor cannot reach this class's
  *     data through the builder or the export path, even with a crafted
  *     query naming the class id directly.
  */
@@ -48,9 +46,6 @@ let a1AssignmentId: string;
 let a2AssignmentId: string;
 const a1Codes = new Map<string, string>();
 const a2Codes = new Map<string, string>();
-let approvedMappingId: string;
-let unapprovedMappingId: string;
-const UNAPPROVED_NAME = "UNAPPROVED SENTINEL MAPPING";
 
 const classIds: string[] = [];
 const userIds: string[] = [];
@@ -141,7 +136,7 @@ beforeAll(async () => {
     for (const q of data ?? []) into.set(q.external_question_code, q.id);
   }
 
-  // Final responses on both sides so transitions and analytics have data.
+  // Final responses on both sides so the analytics sheets have data.
   for (const [assignmentId, code, value, codes] of [
     [a1AssignmentId, "A1-002", 0, a1Codes],
     [a2AssignmentId, "A2-016", 1, a2Codes],
@@ -164,43 +159,13 @@ beforeAll(async () => {
     expect(responseError, responseError?.message).toBeNull();
   }
 
-  // One APPROVED mapping (contributes to analytics) and one UNAPPROVED
-  // mapping over the same two questions (must contribute to nothing).
-  const mk = async (name: string, a1: string, a2: string) => {
-    const { data, error } = await professor.client.rpc("create_question_mapping", {
-      p_class_id: classId,
-      p_a1_question_ids: [a1Codes.get(a1)!],
-      p_a2_question_ids: [a2Codes.get(a2)!],
-      p_mapping_name: name,
-      p_mapping_type: "CONCEPTUAL_ONE_TO_ONE",
-      p_energy_source: "Solar",
-      p_mapping_status: "SUGGESTED",
-    });
-    expect(error, `${name}: ${error?.message}`).toBeNull();
-    return data as string;
-  };
-  approvedMappingId = await mk("Approved export mapping", "A1-002", "A2-016");
-  unapprovedMappingId = await mk(UNAPPROVED_NAME, "A1-004", "A2-017");
-
-  const { error: approveError } = await professor.client.rpc("set_mapping_approval", {
-    p_mapping_id: approvedMappingId,
-    p_approve: true,
-  });
-  expect(approveError, approveError?.message).toBeNull();
 }, 240_000);
 
 afterAll(async () => {
-  for (const cid of classIds) {
-    const { error } = await admin
-      .from("question_mappings")
-      .update({ professor_approved: false, mapping_status: "REJECTED" })
-      .eq("class_id", cid);
-    if (error) throw new Error(`mapping demotion failed: ${error.message}`);
-  }
   await cleanupTestData(admin, { classIds, userIds });
 }, 120_000);
 
-describe("ACCEPTANCE: the Excel export has all 10 sheets with correct headers and shape", () => {
+describe("ACCEPTANCE: the Excel export has every sheet with correct headers and shape", () => {
   it("builds a workbook that opens cleanly and contains every required sheet", async () => {
     const data = await gatherWorkbookData(professor.client, {
       classId,
@@ -263,20 +228,18 @@ describe("ACCEPTANCE: the Excel export has all 10 sheets with correct headers an
     expect(data.sheets["Assignment 2 Questions"].length).toBeGreaterThan(0);
     expect(data.sheets["Assignment 1 Responses"].length).toBe(1);
     expect(data.sheets["Assignment 2 Responses"].length).toBe(1);
-    expect(data.sheets["Question Mappings"].length).toBe(2);
     expect(data.sheets["Question Analytics"].length).toBeGreaterThan(0);
     expect(data.sheets["Import Validation"].length).toBeGreaterThan(0);
 
-    // The one approved mapping yields one transition row for one student.
-    expect(data.sheets["Response Transitions"].length).toBe(1);
-    const transition = data.sheets["Response Transitions"][0]!;
-    expect(transition[0]).toBe("Approved export mapping");
-    expect(transition[7]).toBe("0 — No"); // A1 answer, neutrally labelled
-    expect(transition[8]).toBe("1 — Yes"); // A2 answer
-    expect(transition[9]).toBe("0 → 1 (No → Yes)");
+    // Answers are labelled neutrally wherever they are printed.
+    const responseHeaders = SHEET_HEADERS["Assignment 1 Responses"];
+    const labelColumn = responseHeaders.indexOf("Response label");
+    expect(labelColumn).toBeGreaterThanOrEqual(0);
+    expect(data.sheets["Assignment 1 Responses"][0]![labelColumn]).toBe("0 — No");
+    expect(data.sheets["Assignment 2 Responses"][0]![labelColumn]).toBe("1 — Yes");
   }, 120_000);
 
-  it("embeds class, assignments, timestamp, filters, definitions and mapping versions", async () => {
+  it("embeds class, assignments, timestamp, filters and metric definitions", async () => {
     const metadata = await buildExportMetadata(professor.client, {
       classId,
       className: "Export Flow Class",
@@ -290,85 +253,9 @@ describe("ACCEPTANCE: the Excel export has all 10 sheets with correct headers an
     expect(Date.parse(lines["Generated at"]!)).not.toBeNaN();
     expect(lines["Generated by"]).toBe(professor.email);
     expect(lines["Active filters"]).toBeTruthy();
-    expect(lines["Metric definitions"]).toMatch(/Change rate/);
-    expect(lines["Approved mapping versions"]).toContain("Approved export mapping v1");
+    expect(lines["Metric definitions"]).toMatch(/Consensus|% choosing/);
     // Neutral-tone note travels with every export.
     expect(lines.Notes).toMatch(/never a grade|not a grade|no value here is a grade/i);
-  });
-});
-
-describe("ACCEPTANCE: exports never leak unapproved mapping data", () => {
-  it("the unapproved mapping appears in the inventory sheet but in no analytics sheet", async () => {
-    const data = await gatherWorkbookData(professor.client, {
-      classId,
-      className: "Export Flow Class",
-      generatedBy: professor.email,
-    });
-
-    // It IS in the professor's own mapping inventory, clearly flagged.
-    // Columns are located by header name, not by a hard-coded index — this
-    // assertion is about the flag, not about the sheet's column layout.
-    const inventory = data.sheets["Question Mappings"];
-    const mappingHeaders = SHEET_HEADERS["Question Mappings"];
-    const column = (header: string) => {
-      const index = mappingHeaders.indexOf(header);
-      expect(index, `"${header}" column should exist`).toBeGreaterThanOrEqual(0);
-      return index;
-    };
-    const unapprovedRow = inventory.find((r) => r[column("Mapping name")] === UNAPPROVED_NAME);
-    expect(unapprovedRow, "unapproved mapping should be in the inventory").toBeTruthy();
-    expect(unapprovedRow![column("Professor approved")]).toBe("No");
-    expect(String(unapprovedRow![column("Contributes to analytics")])).toMatch(
-      /contributes to no figure/i
-    );
-
-    // It is in NO analytics-bearing sheet, by name or by id.
-    const analyticsSheets = [
-      "Response Transitions",
-      "Question Analytics",
-      "Student Analytics",
-    ] as const;
-    for (const name of analyticsSheets) {
-      const flat = JSON.stringify(data.sheets[name]);
-      expect(flat, `${name} must not mention the unapproved mapping`).not.toContain(
-        UNAPPROVED_NAME
-      );
-      expect(flat, `${name} must not mention the unapproved mapping id`).not.toContain(
-        unapprovedMappingId
-      );
-    }
-  }, 120_000);
-
-  it("a builder query over paired transitions cannot surface the unapproved mapping", async () => {
-    const query: QueryDefinition = {
-      dataset: "PAIRED_TRANSITIONS",
-      measure: "PAIR_COUNT",
-      dimensions: ["MAPPING"],
-      filters: [],
-      chartType: "BAR",
-    };
-    const result = await executeQuery(professor.client, query, {
-      classId,
-      assignmentIdBySequence: { 1: a1AssignmentId, 2: a2AssignmentId },
-    });
-    const names = result.rows.map((r) => r.keys[0]);
-    expect(names).toContain("Approved export mapping");
-    expect(names).not.toContain(UNAPPROVED_NAME);
-  });
-
-  it("even filtering explicitly for the unapproved mapping returns nothing", async () => {
-    const query: QueryDefinition = {
-      dataset: "PAIRED_TRANSITIONS",
-      measure: "PAIR_COUNT",
-      dimensions: ["MAPPING"],
-      filters: [{ dimension: "MAPPING", value: UNAPPROVED_NAME }],
-      chartType: "BAR",
-    };
-    const result = await executeQuery(professor.client, query, {
-      classId,
-      assignmentIdBySequence: { 1: a1AssignmentId, 2: a2AssignmentId },
-    });
-    expect(result.rows).toEqual([]);
   });
 });
 
@@ -382,14 +269,13 @@ describe("ACCEPTANCE: exports respect RLS across professors", () => {
     for (const name of SHEET_NAMES) {
       expect(data.sheets[name], `${name} must be empty for a non-owner`).toEqual([]);
     }
-    expect(data.metadata.mappingVersions).toEqual([]);
   }, 120_000);
 
   it("a crafted builder query naming this class id returns nothing for another professor", async () => {
     const query: QueryDefinition = {
-      dataset: "PAIRED_TRANSITIONS",
-      measure: "PAIR_COUNT",
-      dimensions: ["MAPPING"],
+      dataset: "A1_RESPONSES",
+      measure: "PCT_ONE",
+      dimensions: ["ENERGY_SOURCE"],
       filters: [],
       chartType: "BAR",
     };
@@ -402,10 +288,10 @@ describe("ACCEPTANCE: exports respect RLS across professors", () => {
 
   it("a student cannot read any analytics view the builder uses", async () => {
     for (const view of [
-      "response_transitions_live",
-      "mapping_transition_summary",
-      "student_transition_summary",
       "question_response_summary",
+      "assignment_response_summary",
+      "energy_source_response_summary",
+      "criterion_response_summary",
     ]) {
       const { data, error } = await student.client.from(view).select("*").eq("class_id", classId);
       expect(error, `${view} should filter, not error`).toBeNull();
@@ -419,7 +305,7 @@ describe("ACCEPTANCE: exports respect RLS across professors", () => {
       class_id: classId,
       created_by: otherProfessor.id,
       name: "Crafted cross-class query",
-      definition: { dataset: "PAIRED_TRANSITIONS" },
+      definition: { dataset: "A1_RESPONSES" },
     });
     expect(error, "cross-class saved query should be rejected by RLS").not.toBeNull();
   });
@@ -428,9 +314,9 @@ describe("ACCEPTANCE: exports respect RLS across professors", () => {
 describe("saved queries, visualisations and dashboards persist for their owner", () => {
   it("round-trips a saved query, visualisation and dashboard", async () => {
     const definition: QueryDefinition = {
-      dataset: "PAIRED_TRANSITIONS",
-      measure: "CHANGE_RATE",
-      dimensions: ["MAPPING"],
+      dataset: "A1_RESPONSES",
+      measure: "PCT_ONE",
+      dimensions: ["ENERGY_SOURCE"],
       filters: [],
       chartType: "BAR",
     };
@@ -441,7 +327,7 @@ describe("saved queries, visualisations and dashboards persist for their owner",
       .select("id, definition")
       .single();
     expect(queryError, queryError?.message).toBeNull();
-    expect(savedQuery!.definition).toMatchObject({ measure: "CHANGE_RATE" });
+    expect(savedQuery!.definition).toMatchObject({ measure: "PCT_ONE" });
 
     const { data: savedVis, error: visError } = await professor.client
       .from("saved_visualisations")
@@ -498,13 +384,13 @@ describe("CSV and PDF exports carry the same provenance", () => {
       className: "Export Flow Class",
       generatedBy: professor.email,
     });
-    const csv = buildCsv(metadata, ["Mapping", "Valid pairs"], [["Approved export mapping", 1]]);
+    const csv = buildCsv(metadata, ["Energy source", "% choosing 1"], [["Solar", 1]]);
     const lines = csv.trim().split("\r\n");
     expect(lines[0]).toMatch(/^# Class: Export Flow Class/);
-    expect(lines.some((l) => l.startsWith("# Approved mapping versions:"))).toBe(true);
-    const headerIndex = lines.findIndex((l) => l === "Mapping,Valid pairs");
+    expect(lines.some((l) => l.startsWith("# Metric definitions:"))).toBe(true);
+    const headerIndex = lines.findIndex((l) => l === "Energy source,% choosing 1");
     expect(headerIndex).toBeGreaterThan(0);
-    expect(lines[headerIndex + 1]).toBe("Approved export mapping,1");
+    expect(lines[headerIndex + 1]).toBe("Solar,1");
   });
 
   it("PDF generates a real document with the metadata on it", async () => {
@@ -518,9 +404,9 @@ describe("CSV and PDF exports carry the same provenance", () => {
       title: "Analytics report",
       tables: [
         {
-          title: "Change rate by mapping",
-          columns: ["Mapping", "Change rate"],
-          rows: [["Approved export mapping", "100.0%"]],
+          title: "% choosing 1 by energy source",
+          columns: ["Energy source", "% choosing 1"],
+          rows: [["Solar", "100.0%"]],
         },
       ],
     });
@@ -535,7 +421,7 @@ describe("the server re-validates definitions it did not build", () => {
   it("refuses to execute an invalid saved definition", async () => {
     const crafted: QueryDefinition = {
       dataset: "A1_RESPONSES",
-      measure: "CHANGE_RATE", // not a measure of this dataset
+      measure: "CUMULATIVE_SUBMISSIONS", // not a measure of this dataset
       dimensions: ["QUESTION"],
       filters: [],
       chartType: "BAR",

@@ -13,7 +13,7 @@ partial version.
 - Automatic submission triggered by browser activity (tab switch, blur,
   refresh, disconnect, leaving the page)
 - Controlled/locked-down assignment sessions
-- Paid LLM dependency for any core workflow (mapping suggestions must use
+- Paid LLM dependency for any core workflow (any suggestion engine must use
   deterministic string/keyword matching only)
 - Natural-language-to-SQL in the first release
 - Facial recognition

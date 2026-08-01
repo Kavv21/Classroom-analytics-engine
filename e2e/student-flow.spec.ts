@@ -164,15 +164,15 @@ test("a student cannot reach professor-only pages or another user's data", async
   // content is, and it is what the student actually experiences.
   for (const path of [
     `/classes/${classId}/analytics`,
-    `/classes/${classId}/analytics/transitions`,
+    `/classes/${classId}/analytics/assignments`,
     `/classes/${classId}/analytics/students`,
-    `/classes/${classId}/mappings`,
+    `/classes/${classId}/analytics/builder`,
   ]) {
     await page.goto(path);
     await expect(page.getByText("This page could not be found")).toBeVisible();
     // And crucially: none of the professor's data leaked onto the page.
-    await expect(page.getByText("Valid response pairs")).toHaveCount(0);
-    await expect(page.getByText("Change rate")).toHaveCount(0);
+    await expect(page.getByText("Answered responses")).toHaveCount(0);
+    await expect(page.getByText("Average consensus")).toHaveCount(0);
   }
 
   // /classes has no role gate by design — it is simply empty for a student,

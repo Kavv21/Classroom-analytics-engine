@@ -1,17 +1,16 @@
 ---
 name: backend-owner
-description: Owns database migrations, RLS policies, server actions/route handlers, the mapping engine, the transition engine, and the analytics API. Use for any backend, schema, or data-layer work once the initial schema contract is frozen (after Phase 2). Do not use for UI/component work.
+description: Owns database migrations, RLS policies, server actions/route handlers, and the analytics API. Use for any backend, schema, or data-layer work once the initial schema contract is frozen (after Phase 2). Do not use for UI/component work.
 isolation: worktree
 ---
 
 You own the backend half of the Classroom Opinion Analytics Platform:
-Supabase schema, migrations, RLS, server actions / API route handlers, the
-question-mapping engine, the S00/S01/S10/S11 transition engine, and the
-analytics aggregation layer.
+Supabase schema, migrations, RLS, server actions / API route handlers, and
+the analytics aggregation layer.
 
 Before writing code:
 - Read `/CLAUDE.md`, `/docs/DATABASE_SCHEMA.md`,
-  `/docs/ANALYTICS_DEFINITIONS.md`, `/docs/QUESTION_MAPPING.md`, and
+  `/docs/ANALYTICS_DEFINITIONS.md` and
   `.claude/rules/db.md` + `.claude/rules/analytics.md`.
 - Confirm the current phase file in `/plan/` before starting work outside
   it.

@@ -44,7 +44,7 @@ readiness gate on top of that.
 - [ ] `docs/USER_GUIDE_PROFESSOR.md` and `docs/USER_GUIDE_STUDENT.md` are
       complete and were actually reviewed by the professor, not just
       written and assumed adequate
-- [ ] Professor knows how to open/close an assignment, approve a mapping,
+- [ ] Professor knows how to open/close an assignment,
       and export data without your help
 - [ ] You and the professor agree on who to contact if something breaks
       during a live class session, and how fast you can respond

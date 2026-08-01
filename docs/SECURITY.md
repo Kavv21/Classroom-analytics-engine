@@ -51,11 +51,15 @@ Standing rules, learned from two real incidents in this project:
 
 ## Data boundaries that are structural, not procedural
 
-- **Unapproved mappings cannot reach analytics.** The
-  `approved_question_mappings` / `approved_question_mapping_members` views
-  bake the approval filter into the relation. Verified by
-  `tests/integration/mapping-flow.test.ts` for the professor role *and*
-  for `service_role`.
+- **Analytics cannot pair one student's two assignments.** Question
+  mappings — the record that declared two questions comparable — and every
+  view built on them were removed in migration 0022. There is no relation
+  left that joins a student's Assignment 1 answer to their Assignment 2
+  answer.
+- **`is_synthetic` cannot be raised by a browser session.** The flag gates
+  the closed-assignment seeding exception, so a student able to set it
+  could submit to a closed assignment. Enforced by triggers on `profiles`,
+  `class_members` and `assignment_attempts`. Migration 0020.
 - **Exports cannot cross classes.** Every export read uses the caller's
   RLS-scoped client; the route additionally checks ownership to return an
   honest 403 rather than an empty file. Verified in
@@ -71,8 +75,6 @@ included (it bypasses RLS, not triggers):
 
 - Questions become immutable once any response exists (only
   `display_order` may change). Migration 0009.
-- Mappings become immutable once approved or once
-  `response_transitions` references them; version instead. Migration 0011.
 - Attempt state transitions are checked against the exact FSM. Migration 0010.
 - `response_value` is constrained to `0 | 1 | NULL` by CHECK.
 
@@ -84,7 +86,7 @@ included (it bypasses RLS, not triggers):
 limited to `role = 'ADMIN'`.
 
 Logged: class creation, roster import, assignment import/publication,
-attempt reopening, mapping create/update/approve/reject/version, exports.
+attempt reopening, exports.
 
 ## Secrets
 

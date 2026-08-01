@@ -3,8 +3,8 @@
  *
  * Creates: 1 admin, 1 professor, 1 class, 30 fictional students, the REAL
  * Assignment 1 and Assignment 2 question sets parsed from the source
- * spreadsheets, approved mappings, responses covering all four transition
- * states (S00/S01/S10/S11), and saved visualisations.
+ * spreadsheets, responses covering the full 0/1 range on both assignments,
+ * and saved visualisations.
  *
  * SAFETY — this script refuses to run against anything that doesn't look
  * like a local Supabase stack unless SEED_ALLOW_REMOTE=true is set
@@ -334,76 +334,28 @@ async function main() {
   }
   console.log(`✓ responses for ${studentIds.length} students × ${a1Codes.length * 2} questions`);
 
-  // ---------------------------------------------------------- mappings ---
-  // Pair A1-00n with A2-00n for the first 20, approved so analytics has
-  // data; plus one deliberately unapproved and one NOT_COMPARABLE so the
-  // demo shows the approval gate and the not-comparable handling.
-  let approvedCount = 0;
-  for (let i = 0; i < a1Codes.length; i++) {
-    const a1 = codeToId[1].get(a1Codes[i]!)!;
-    const a2 = codeToId[2].get(a2Codes[i]!)!;
-    // Mirror the real workflow exactly: a mapping is always created
-    // unapproved, gets its members while it is still editable, and is
-    // approved afterwards. Creating it pre-approved is a state the app
-    // cannot produce, and migration 0011's member-immutability trigger
-    // correctly rejects attaching members to an approved mapping.
-    const { data: mappingId, error } = await admin
-      .from("question_mappings")
-      .insert({
-        class_id: classId,
-        assignment_1_question_ids: [a1],
-        assignment_2_question_ids: [a2],
-        mapping_name: `Demo mapping ${String(i + 1).padStart(2, "0")}`,
-        mapping_type: "CONCEPTUAL_ONE_TO_ONE",
-        comparison_method: "seed",
-        mapping_status: "SUGGESTED",
-        professor_approved: false,
-        created_by: professorId,
-      })
-      .select("id")
-      .single();
-    die(`creating mapping ${i}`, error);
-
-    const { error: membersError } = await admin.from("question_mapping_members").insert([
-      { mapping_id: mappingId!.id, assignment_id: assignmentIds[1], question_id: a1, mapping_side: 1 },
-      { mapping_id: mappingId!.id, assignment_id: assignmentIds[2], question_id: a2, mapping_side: 2 },
-    ]);
-    die(`creating mapping members ${i}`, membersError);
-
-    // Leave the first one unapproved so the demo shows the approval gate.
-    if (i !== 0) {
-      const { error: approveError } = await admin
-        .from("question_mappings")
-        .update({ professor_approved: true, mapping_status: "APPROVED" })
-        .eq("id", mappingId!.id);
-      die(`approving mapping ${i}`, approveError);
-      approvedCount++;
-    }
-  }
-  console.log(`✓ ${approvedCount} approved mappings (+1 left unapproved to demo the gate)`);
-
   // --------------------------------------------- saved visualisations ---
   const savedItems = [
     {
-      name: "Change rate by mapping",
+      name: "% choosing 1 — Yes by energy source (Assignment 2)",
       chart_type: "BAR",
       query_definition: {
-        dataset: "PAIRED_TRANSITIONS",
-        measure: "CHANGE_RATE",
-        dimensions: ["MAPPING"],
+        dataset: "A2_RESPONSES",
+        measure: "PCT_ONE",
+        dimensions: ["ENERGY_SOURCE"],
         filters: [],
         chartType: "BAR",
       },
     },
     {
-      name: "Answer flows across both assignments",
-      chart_type: "SANKEY",
+      name: "Energy source × criterion (Assignment 1)",
+      chart_type: "HEATMAP",
       query_definition: {
-        dataset: "PAIRED_TRANSITIONS",
-        measure: "PAIR_COUNT",
-        dimensions: ["TRANSITION_STATE"],
+        dataset: "A1_RESPONSES",
+        measure: "PCT_ONE",
+        dimensions: ["ENERGY_SOURCE", "CRITERION"],
         filters: [],
-        chartType: "SANKEY",
+        chartType: "HEATMAP",
       },
     },
     {
@@ -445,10 +397,9 @@ async function main() {
 
   // ------------------------------------------------------------ report ---
   const { data: check } = await admin
-    .from("class_transition_summary")
-    .select("valid_paired, s00, s01, s10, s11, mappings_considered")
-    .eq("class_id", classId)
-    .maybeSingle();
+    .from("assignment_response_summary")
+    .select("assignment_id, answered_responses, respondents, avg_consensus")
+    .eq("class_id", classId);
 
   console.log("\n--- seed complete ---");
   console.log(`class_id:    ${classId}`);
@@ -456,10 +407,10 @@ async function main() {
   console.log(`professor:   ${PROFESSOR_EMAIL}`);
   console.log(`students:    student01..student${String(studentIds.length).padStart(2, "0")}@${STUDENT_DOMAIN}`);
   console.log(`passwords:   from SEED_*_PASSWORD env vars (not printed)`);
-  if (check) {
+  for (const row of check ?? []) {
     console.log(
-      `analytics:   ${check.valid_paired} valid pairs across ${check.mappings_considered} approved mappings ` +
-        `(S00=${check.s00} S01=${check.s01} S10=${check.s10} S11=${check.s11})`
+      `analytics:   assignment ${row.assignment_id} — ${row.answered_responses} answered ` +
+        `responses from ${row.respondents} students (avg consensus ${row.avg_consensus})`
     );
   }
   void adminId;

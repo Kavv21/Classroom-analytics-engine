@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  alluvialFromTransitionCounts,
   buildNetworkGraph,
   classicalMdsProjection,
   EXPLORATORY_CAVEAT,
@@ -157,45 +156,5 @@ describe("network graph shaping", () => {
     );
     expect(graph.nodes.map((n) => n.id)).toEqual(["s1", "s2", "s3"]);
     expect(graph.edges).toEqual([{ source: "s1", target: "s2", weight: 0.9 }]);
-  });
-});
-
-describe("alluvial data shaping", () => {
-  it("maps transition + missing counts to neutral-labelled flows", () => {
-    const data = alluvialFromTransitionCounts({
-      s00: 20,
-      s01: 30,
-      s10: 27,
-      s11: 23,
-      missingA2From0: 2,
-      missingA2From1: 1,
-      missingA1To0: 0,
-      missingA1To1: 3,
-      missingBoth: 4,
-    });
-    expect(data.links).toContainEqual({ source: "a1:0", target: "a2:1", value: 30 });
-    expect(data.links).toContainEqual({ source: "a1:1", target: "a2:missing", value: 1 });
-    expect(data.links).toContainEqual({ source: "a1:missing", target: "a2:1", value: 3 });
-    // Zero-value flows are dropped entirely.
-    expect(data.links.every((l) => l.value > 0)).toBe(true);
-    // Labels stay neutral — no assessment language anywhere.
-    for (const node of data.nodes) {
-      expect(node.label).not.toMatch(/correct|improve|better|learn|score|grade/i);
-    }
-  });
-
-  it("omits nodes with no flows", () => {
-    const data = alluvialFromTransitionCounts({
-      s00: 5,
-      s01: 0,
-      s10: 0,
-      s11: 5,
-      missingA2From0: 0,
-      missingA2From1: 0,
-      missingA1To0: 0,
-      missingA1To1: 0,
-      missingBoth: 0,
-    });
-    expect(data.nodes.map((n) => n.id).sort()).toEqual(["a1:0", "a1:1", "a2:0", "a2:1"]);
   });
 });

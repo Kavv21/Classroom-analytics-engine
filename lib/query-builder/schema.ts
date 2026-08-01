@@ -6,15 +6,19 @@
  * Everything here is data, not SQL. A builder query never becomes a
  * generated SQL string — `execute.ts` maps each (dataset, dimension) pair
  * to one of the Phase 7/8 PostgreSQL views and reads it through the
- * caller's own RLS. That keeps aggregation in the database, keeps the
- * approved-mapping filter structural, and means a crafted query has no
- * injection surface to reach.
+ * caller's own RLS. That keeps aggregation in the database and means a
+ * crafted query has no injection surface to reach.
+ *
+ * Every dataset here is scoped to ONE assignment or to the attempt/
+ * submission workflow. The paired-transitions dataset, its transition
+ * measures and dimensions, and the Sankey / transition-matrix chart types
+ * were removed with the question-mapping feature (migration 0022): they
+ * were defined only over an approved mapping's paired answers.
  */
 
 export type DatasetId =
   | "A1_RESPONSES"
   | "A2_RESPONSES"
-  | "PAIRED_TRANSITIONS"
   | "ATTEMPTS"
   | "SUBMISSIONS";
 
@@ -25,12 +29,6 @@ export type MeasureId =
   | "CONSENSUS"
   | "DISAGREEMENT"
   | "ENTROPY"
-  | "PAIR_COUNT"
-  | "VALID_PAIRS"
-  | "CHANGE_RATE"
-  | "STABILITY_RATE"
-  | "NET_MOVEMENT"
-  | "PCT_POINT_SHIFT"
   | "ATTEMPT_COUNT"
   | "SUBMISSION_COUNT"
   | "CUMULATIVE_SUBMISSIONS";
@@ -40,10 +38,6 @@ export type DimensionId =
   | "ENERGY_SOURCE"
   | "CRITERION"
   | "CONCEPT"
-  | "MAPPING"
-  | "STUDENT"
-  | "TRANSITION_STATE"
-  | "DATA_QUALITY"
   | "ASSIGNMENT"
   | "ATTEMPT_STATE"
   | "DATE";
@@ -53,8 +47,6 @@ export type ChartTypeId =
   | "STACKED_BAR"
   | "LINE"
   | "HEATMAP"
-  | "SANKEY"
-  | "TRANSITION_MATRIX"
   | "TABLE";
 
 export interface DatasetSpec {
@@ -103,20 +95,6 @@ export const DATASETS: Record<DatasetId, DatasetSpec> = {
     description: "Final submitted answers to the second assignment.",
     measures: ["RESPONSE_COUNT", "PCT_ONE", "PCT_ZERO", "CONSENSUS", "DISAGREEMENT", "ENTROPY"],
     dimensions: ["QUESTION", "ENERGY_SOURCE", "CRITERION", "CONCEPT"],
-  },
-  PAIRED_TRANSITIONS: {
-    id: "PAIRED_TRANSITIONS",
-    label: "Paired transitions",
-    description:
-      "Answer pairs across both assignments, for approved mappings only. Unapproved mappings are structurally invisible here.",
-    measures: [
-      "PAIR_COUNT", "VALID_PAIRS", "CHANGE_RATE", "STABILITY_RATE",
-      "NET_MOVEMENT", "PCT_POINT_SHIFT",
-    ],
-    dimensions: [
-      "MAPPING", "ENERGY_SOURCE", "CRITERION", "STUDENT",
-      "TRANSITION_STATE", "DATA_QUALITY",
-    ],
   },
   ATTEMPTS: {
     id: "ATTEMPTS",
@@ -177,48 +155,6 @@ export const MEASURES: Record<MeasureId, MeasureSpec> = {
     format: "decimal",
     isRate: true,
   },
-  PAIR_COUNT: {
-    id: "PAIR_COUNT",
-    label: "All pairs",
-    definition: "Every student-mapping pair considered, including missing and not-comparable ones.",
-    format: "count",
-    isRate: false,
-  },
-  VALID_PAIRS: {
-    id: "VALID_PAIRS",
-    label: "Valid paired responses",
-    definition: "Pairs where both assignments have a binary answer for an approved one-to-one mapping.",
-    format: "count",
-    isRate: false,
-  },
-  CHANGE_RATE: {
-    id: "CHANGE_RATE",
-    label: "Change rate",
-    definition: "(S01 + S10) / valid paired responses. Counts movement in both directions.",
-    format: "percent",
-    isRate: true,
-  },
-  STABILITY_RATE: {
-    id: "STABILITY_RATE",
-    label: "Stability rate",
-    definition: "(S00 + S11) / valid paired responses.",
-    format: "percent",
-    isRate: true,
-  },
-  NET_MOVEMENT: {
-    id: "NET_MOVEMENT",
-    label: "Net movement toward 1 — Yes",
-    definition: "S01 - S10. Distinct from change rate: it is the balance of movement, not its volume.",
-    format: "signed",
-    isRate: false,
-  },
-  PCT_POINT_SHIFT: {
-    id: "PCT_POINT_SHIFT",
-    label: "Percentage-point shift",
-    definition: "% selecting 1 in A2 minus % selecting 1 in A1, over valid pairs.",
-    format: "percent",
-    isRate: true,
-  },
   ATTEMPT_COUNT: {
     id: "ATTEMPT_COUNT",
     label: "Attempts",
@@ -247,10 +183,6 @@ export const DIMENSIONS: Record<DimensionId, DimensionSpec> = {
   ENERGY_SOURCE: { id: "ENERGY_SOURCE", label: "Energy source", ordered: false },
   CRITERION: { id: "CRITERION", label: "Criterion", ordered: false },
   CONCEPT: { id: "CONCEPT", label: "Concept", ordered: false },
-  MAPPING: { id: "MAPPING", label: "Mapping", ordered: false },
-  STUDENT: { id: "STUDENT", label: "Student", ordered: false },
-  TRANSITION_STATE: { id: "TRANSITION_STATE", label: "Transition state", ordered: false },
-  DATA_QUALITY: { id: "DATA_QUALITY", label: "Data quality", ordered: false },
   ASSIGNMENT: { id: "ASSIGNMENT", label: "Assignment", ordered: false },
   ATTEMPT_STATE: { id: "ATTEMPT_STATE", label: "Attempt state", ordered: false },
   DATE: { id: "DATE", label: "Date", ordered: true },
@@ -261,13 +193,6 @@ export const CHART_TYPES: Record<ChartTypeId, ChartTypeSpec> = {
   STACKED_BAR: { id: "STACKED_BAR", label: "Stacked bar", minDimensions: 2, maxDimensions: 2 },
   LINE: { id: "LINE", label: "Line", minDimensions: 1, maxDimensions: 2 },
   HEATMAP: { id: "HEATMAP", label: "Heatmap", minDimensions: 2, maxDimensions: 2 },
-  SANKEY: { id: "SANKEY", label: "Sankey (answer flows)", minDimensions: 1, maxDimensions: 1 },
-  TRANSITION_MATRIX: {
-    id: "TRANSITION_MATRIX",
-    label: "Transition matrix",
-    minDimensions: 1,
-    maxDimensions: 1,
-  },
   TABLE: { id: "TABLE", label: "Table", minDimensions: 0, maxDimensions: 2 },
 };
 
@@ -286,9 +211,9 @@ export interface QueryDefinition {
 }
 
 export const DEFAULT_QUERY: QueryDefinition = {
-  dataset: "PAIRED_TRANSITIONS",
-  measure: "CHANGE_RATE",
-  dimensions: ["MAPPING"],
+  dataset: "A1_RESPONSES",
+  measure: "PCT_ONE",
+  dimensions: ["ENERGY_SOURCE"],
   filters: [],
   chartType: "BAR",
 };

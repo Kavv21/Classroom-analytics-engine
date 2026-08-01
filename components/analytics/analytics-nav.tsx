@@ -4,24 +4,17 @@ import { cn } from "@/lib/utils";
 export type AnalyticsSection =
   | "overview"
   | "assignments"
-  | "transitions"
   | "students"
-  | "builder"
-  | "demo";
+  | "builder";
 
 const SECTIONS: Array<{ key: AnalyticsSection; label: string; path: string }> = [
   { key: "overview", label: "Overview", path: "" },
   { key: "assignments", label: "Assignment analytics", path: "/assignments" },
-  { key: "transitions", label: "Transition analytics", path: "/transitions" },
-  { key: "students", label: "Student analytics", path: "/students" },
+  { key: "students", label: "Students", path: "/students" },
   { key: "builder", label: "Visualisation builder", path: "/builder" },
-  // Labelled "demo data" in the navigation itself, so the synthetic
-  // provenance is visible before the page is even opened.
-  { key: "demo", label: "Demo data", path: "/demo" },
 ];
 
-/** Professor dashboard navigation (Section 19). Mapping studio is its own
- * page from Phase 6 and is linked alongside the analytics sections. */
+/** Professor dashboard navigation (Section 19). */
 export function AnalyticsNav({ classId, active }: { classId: string; active: AnalyticsSection }) {
   const base = `/classes/${classId}/analytics`;
   // Styled as a shadcn TabsList without using the Tabs primitive: these
@@ -52,9 +45,6 @@ export function AnalyticsNav({ classId, active }: { classId: string; active: Ana
           {s.label}
         </Link>
       ))}
-      <Link href={`/classes/${classId}/mappings`} className={linkClass(false)}>
-        Mapping studio
-      </Link>
     </nav>
   );
 }

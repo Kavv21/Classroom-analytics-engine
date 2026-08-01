@@ -7,7 +7,8 @@ the full project spec here.
 ## What this is
 
 A production web app that collects binary (0/1) student opinions across two
-sequential assignments and analyses how responses shift between them.
+sequential assignments and reports descriptive statistics about each
+assignment's responses.
 No grades, no correctness, no answer keys, no anti-cheat, no proctoring.
 See `/docs/EXCLUDED_FEATURES.md` for the full exclusion list — treat it as a
 hard boundary, not a suggestion.
@@ -48,8 +49,10 @@ considered done. Never declare a phase complete without running them.
    CHECK constraint, not just frontend validation.
 3. No RLS shortcuts. Every table with student data needs a policy before it
    ships, even in a draft PR. Frontend role checks are not a substitute.
-4. No question mapping is used in analytics until `professor_approved =
-   true` on that mapping record.
+4. Analytics never pairs one student's Assignment 1 answer with their
+   Assignment 2 answer. Question mappings and the transition engine were
+   removed in migration 0022; every figure describes a single assignment,
+   or compares the two in aggregate via shared energy-source labels.
 5. No feature from `/docs/EXCLUDED_FEATURES.md` gets built, even as a
    scaffold or disabled button.
 6. Destructive edits to questions that already have responses are
@@ -62,9 +65,8 @@ considered done. Never declare a phase complete without running them.
 ## Where to look before building something
 
 - Schema questions → `/docs/DATABASE_SCHEMA.md`
-- Metric formulas (change rate, stability, consensus, entropy) →
+- Metric formulas (consensus, disagreement, entropy, group count change) →
   `/docs/ANALYTICS_DEFINITIONS.md`
-- Mapping types and workflow → `/docs/QUESTION_MAPPING.md`
 - What phase am I on / what's the next task → `/plan/` (one file per phase,
   numbered in build order)
 - Anything explicitly out of scope → `/docs/EXCLUDED_FEATURES.md`

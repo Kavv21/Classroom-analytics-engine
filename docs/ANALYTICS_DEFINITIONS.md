@@ -4,40 +4,24 @@ These are descriptive statistics about opinions, not grades or correctness
 judgements. Never label higher consensus as "correct" or lower consensus as
 "failure." Display these definitions via tooltips in the UI.
 
-## Response transition states
+## Removed: response transition states (migration 0022)
 
-For a professor-approved comparable paired response:
+This document previously defined S00/S01/S10/S11, change rate, stability
+rate, net movement toward 1, and percentage-point shift over paired
+responses. All of them were defined **per professor-approved question
+mapping** — the record that declared an Assignment 1 question and an
+Assignment 2 question to be about the same thing.
 
-```
-S00 = 0 → 0
-S01 = 0 → 1
-S10 = 1 → 0
-S11 = 1 → 1
-```
+Question mappings were removed in migration 0022, so there is no longer
+any basis for pairing one student's two answers, and none of those metrics
+is defined any more. They are not "temporarily unavailable" — the input
+they were computed from does not exist. Do not reintroduce them without
+first defining, here, what makes two questions comparable.
 
-For student i and mapping j: `T(i,j) = (A1(i,j), A2(i,j))` — both values
-must be binary to produce S00–S11.
-
-Missing/non-comparable data gets its own status, never forced into a
-transition bucket:
-```
-MISSING_A1
-MISSING_A2
-MISSING_BOTH
-NOT_COMPARABLE
-```
-
-## Core metrics
-
-- Changed count: `S01 + S10`
-- Unchanged count: `S00 + S11`
-- Change rate: `(S01 + S10) / valid paired responses`
-- Stability rate: `(S00 + S11) / valid paired responses`
-- Net movement toward 1: `S01 - S10`
-- Percentage-point shift: `% selecting 1 in A2 − % selecting 1 in A1`
-
-Change rate and net shift are different things — don't conflate them.
-Example: S01 = 30%, S10 = 27% → change rate = 57%, net shift = +3pp.
+What survives is everything computable from a **single assignment**
+(consensus, disagreement, entropy, response counts) plus the
+**group count change** below, which compares the two assignments through
+their shared energy-source labels rather than through a mapping.
 
 ## Group count change (migration 0017)
 
@@ -85,9 +69,11 @@ through unchanged.
 
 ## Levels analytics must be computed at
 
-Class, assignment, question, student, energy-source, criterion. See the
-project plan (`/plan/phase-7-analytics.md`) for the exact metric list per
-level — don't recompute from memory, copy from there.
+Assignment, question, energy-source, criterion — each within a single
+assignment. See the project plan (`/plan/phase-7-analytics.md`) for the
+exact metric list per level — don't recompute from memory, copy from
+there, and disregard any per-mapping or per-student-transition level it
+still lists (removed in migration 0022).
 
 ## Implementation (Phase 7, migration 0012)
 
@@ -96,21 +82,15 @@ Everything above is implemented as PostgreSQL views computed on read
 docs/DATABASE_SCHEMA.md "Analytics views (migration 0012)" for the view
 list and the freshness contract. The TypeScript mirrors of the formulas
 live in `lib/types/domain.ts` and are cross-checked against the SQL views
-by the worked-example test in `tests/unit/analytics-definitions.test.ts`
-so neither can drift.
+by the test in `tests/unit/analytics-definitions.test.ts` so neither can
+drift.
 
-Two rules the implementation pins down explicitly:
+One rule the implementation pins down explicitly:
 
-- T(i,j) needs exactly one binary value per side. Only the two one-to-one
-  mapping types have that shape, so only they produce S00–S11. No collapse
-  formula for multi-question sides is defined in this document — until one
-  is added here, ONE_TO_MANY / MANY_TO_ONE / GROUPED_CONCEPT pairs are
-  reported as `data_quality_status = NOT_COMPARABLE`, never guessed into a
-  transition bucket.
-- Rates over zero valid pairs are NULL (unknown), never 0.
+- Rates over an empty denominator are NULL (unknown), never 0.
 
 Section 18 material (Jaccard, Hamming, clustering, Phi, mutual
-information, projection, network graph, alluvial) is exploratory only:
+information, projection, network graph) is exploratory only:
 views carry an `_exploratory` suffix, `lib/analytics` wraps results in
 `{ exploratory: true, caveat }`, and the caveat must reach the UI —
 similarity, cluster membership, or projection position is never a grade.

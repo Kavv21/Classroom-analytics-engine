@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption } from "echarts";
-import { csvEscape } from "@/lib/mappings/export";
+import { csvEscape } from "@/lib/exports/csv";
 
 /**
  * The shared frame around every Phase 8 chart. Guarantees, uniformly:

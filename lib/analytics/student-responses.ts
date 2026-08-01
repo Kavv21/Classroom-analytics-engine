@@ -20,9 +20,9 @@ import { detectOrientation, orderGridQuestions } from "@/lib/exports/response-gr
  * responses for their own classes, and the caller has already been checked
  * against the class.
  *
- * It also covers EVERY question, not just the ~11 with an approved mapping.
- * Mapping-based transition analytics stay on the profile's other tab; a
- * question with no mapping still has an answer, and this is where it shows.
+ * It covers EVERY question on the assignment. Since the question-mapping
+ * feature was removed, this is the only per-student answer surface in the
+ * app — there is no curated subset beside it.
  */
 
 /** Neutral labels — 0 and 1 are two options, neither is preferred. */

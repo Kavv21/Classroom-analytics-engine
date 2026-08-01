@@ -4,7 +4,6 @@ import { Fragment, useMemo, useState } from "react";
 import { QuestionLabel } from "@/components/questions/question-label";
 import { focusRing } from "@/components/analytics/chart-card";
 import { FilterRow, FilterSearch, FilterSelect, ResetFiltersButton } from "@/components/analytics/filter-row";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -14,186 +13,45 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { BINARY_LABELS, QUALITY_LABELS, TRANSITION_STATE_LABELS } from "@/lib/analytics/chart-data";
-import type {
-  ResponseTransitionLiveRow,
-  StudentTransitionSummary,
-} from "@/lib/analytics/queries";
+import { BINARY_LABELS } from "@/lib/analytics/chart-data";
 import {
   responseValueLabel,
   type StudentAssignmentResponses,
 } from "@/lib/analytics/student-responses";
-import { formatPct } from "@/lib/charts/theme";
 
 /**
- * One student's profile, in two tabs.
+ * One student's FULL responses: every question on both assignments with the
+ * 0/1 they actually recorded. Since the assignment grid became
+ * aggregate-only, this is the single place an individual answer is shown.
  *
- *  - OPINION SHIFT is the mapping-based view: the ~11 approved mappings and
- *    how this student's answer moved between the paired questions. It is a
- *    small, curated subset by design — a mapping only exists where the
- *    professor approved one.
- *  - FULL RESPONSES is the raw view: every question on both assignments with
- *    the 0/1 the student actually recorded, whether or not it is mapped.
- *    Since the assignment grid became aggregate-only, this is the single
- *    place an individual answer is shown.
+ * The "Opinion shift" tab that used to sit beside this one was removed with
+ * the question-mapping feature: it showed how one student's answer moved
+ * between a mapped pair of questions, and without an approved mapping there
+ * is no record of which Assignment 1 question a given Assignment 2 question
+ * corresponds to.
  *
- * Neither tab labels an answer right or wrong. 0 and 1 are two options.
+ * Nothing here labels an answer right or wrong. 0 and 1 are two options.
  */
 
 interface StudentProfileProps {
   studentName: string;
-  summary: StudentTransitionSummary | null;
-  transitions: ResponseTransitionLiveRow[];
   assignments: StudentAssignmentResponses[];
 }
 
-function valueLabel(v: 0 | 1 | null): string {
-  if (v === null) return "no answer";
-  return v === 0 ? BINARY_LABELS.zero : BINARY_LABELS.one;
-}
-
-export function StudentProfile({
-  studentName,
-  summary,
-  transitions,
-  assignments,
-}: StudentProfileProps) {
+export function StudentProfile({ studentName, assignments }: StudentProfileProps) {
   return (
-    <Tabs defaultValue="shift" className="mt-6">
-      <TabsList>
-        <TabsTrigger value="shift">Opinion shift</TabsTrigger>
-        <TabsTrigger value="raw">Full responses</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="shift" className="mt-4 space-y-4">
-        <OpinionShift studentName={studentName} summary={summary} transitions={transitions} />
-      </TabsContent>
-
-      <TabsContent value="raw" className="mt-4 space-y-6">
-        <p className="text-sm text-ink-secondary">
-          Everything {studentName} recorded, question by question, on both assignments — not only
-          the questions that carry an approved mapping. Answers come from each assignment&apos;s
-          final submitted attempt.
-        </p>
-        {assignments.map((assignment) => (
-          <RawResponses key={assignment.assignmentId} assignment={assignment} />
-        ))}
-        {assignments.length === 0 && (
-          <p className="text-sm text-ink-muted">This class has no assignments yet.</p>
-        )}
-      </TabsContent>
-    </Tabs>
-  );
-}
-
-// ---------------------------------------------------------------- opinion shift
-
-function OpinionShift({
-  studentName,
-  summary,
-  transitions,
-}: {
-  studentName: string;
-  summary: StudentTransitionSummary | null;
-  transitions: ResponseTransitionLiveRow[];
-}) {
-  const rows = useMemo(
-    () => [...transitions].sort((a, b) => a.mapping_name.localeCompare(b.mapping_name)),
-    [transitions]
-  );
-
-  if (!summary && rows.length === 0) {
-    return (
-      <p className="text-sm text-ink-muted">
-        No mapping-based data for {studentName} yet — it appears once mappings are approved and
-        both assignments have answers.
+    <div className="mt-6 space-y-6">
+      <p className="text-sm text-ink-secondary">
+        Everything {studentName} recorded, question by question, on both assignments. Answers come
+        from each assignment&apos;s final submitted attempt.
       </p>
-    );
-  }
-
-  return (
-    <>
-      {summary && (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-ink-secondary md:grid-cols-5">
-          <div>
-            <dt className="text-ink-muted">Valid pairs</dt>
-            <dd className="font-medium tabular-nums">{summary.valid_paired}</dd>
-          </div>
-          <div>
-            <dt className="text-ink-muted">Changed</dt>
-            <dd className="font-medium tabular-nums">{summary.changed_count}</dd>
-          </div>
-          <div>
-            <dt className="text-ink-muted">Change rate</dt>
-            <dd className="font-medium tabular-nums">{formatPct(summary.change_rate)}</dd>
-          </div>
-          <div>
-            <dt className="text-ink-muted">Stability</dt>
-            <dd className="font-medium tabular-nums">{formatPct(summary.stability_rate)}</dd>
-          </div>
-          <div>
-            <dt className="text-ink-muted">Net movement toward {BINARY_LABELS.one}</dt>
-            <dd className="font-medium tabular-nums">
-              {summary.net_movement_toward_1 > 0 ? "+" : ""}
-              {summary.net_movement_toward_1}
-            </dd>
-          </div>
-        </dl>
+      {assignments.map((assignment) => (
+        <RawResponses key={assignment.assignmentId} assignment={assignment} />
+      ))}
+      {assignments.length === 0 && (
+        <p className="text-sm text-ink-muted">This class has no assignments yet.</p>
       )}
-
-      <div className="overflow-x-auto rounded border border-hairline">
-        <Table>
-          <TableCaption className="sr-only">
-            All approved-mapping transitions for {studentName}
-          </TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Mapping</TableHead>
-              <TableHead>Energy source</TableHead>
-              <TableHead>Assignment 1 answer</TableHead>
-              <TableHead>Assignment 2 answer</TableHead>
-              <TableHead>Transition</TableHead>
-              <TableHead>Data quality</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.mapping_id}>
-                <TableCell>
-                  {r.mapping_name} <span className="text-ink-muted">v{r.mapping_version}</span>
-                </TableCell>
-                <TableCell>{r.energy_source ?? "—"}</TableCell>
-                <TableCell>{valueLabel(r.assignment_1_value)}</TableCell>
-                <TableCell>{valueLabel(r.assignment_2_value)}</TableCell>
-                <TableCell>
-                  {r.transition_state ? TRANSITION_STATE_LABELS[r.transition_state] : "—"}
-                </TableCell>
-                <TableCell className="text-ink-muted">
-                  {r.data_quality_status
-                    ? QUALITY_LABELS[
-                        r.data_quality_status.toLowerCase() as keyof typeof QUALITY_LABELS
-                      ]
-                    : "Valid pair"}
-                </TableCell>
-              </TableRow>
-            ))}
-            {rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-ink-muted">
-                  No approved mappings produce a row for this student yet.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <p className="text-xs text-ink-muted">
-        Change describes opinion movement between the two assignments. It is not a score, and
-        neither answer is the preferred one. Only questions covered by an approved mapping appear
-        here — see the <strong>Full responses</strong> tab for every question.
-      </p>
-    </>
+    </div>
   );
 }
 

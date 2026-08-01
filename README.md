@@ -31,13 +31,11 @@ been a while since this README was last touched.
    verified against the real source files, not invented).
 2. Professor publishes each assignment; students answer with 0/1 via
    Google Workspace SSO (`@ahduni.edu.in` accounts only).
-3. Professor maps related questions between the two assignments (e.g.
-   "is Solar renewable?" on both sides) and approves those mappings.
-4. For every approved mapping, the app classifies each student's paired
-   answers into one of four states — no change (S00/S11) or a genuine
-   shift (S01/S10) — plus change rate, net shift, consensus, and entropy
-   at the class/question/student/energy-source/criterion level.
-5. All of it renders as 14 interactive chart types, a custom query
+3. The app reports each assignment's response distribution, consensus,
+   disagreement and entropy at the assignment/question/energy-source/
+   criterion level, plus a per-energy-source comparison of the two
+   assignments through the source labels they share.
+4. All of it renders as interactive chart types, a custom query
    builder, and CSV/Excel/PDF exports — see
    [`docs/ANALYTICS_DEFINITIONS.md`](docs/ANALYTICS_DEFINITIONS.md) for
    the exact formulas behind every number on screen.
@@ -62,8 +60,7 @@ every session. Otherwise, start here depending on what you need:
 | [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md) | You want to understand the architecture and data flow in plain language — start here if you're new to the project |
 | [`docs/MAINTAINER_GUIDE.md`](docs/MAINTAINER_GUIDE.md) | You're operating this day-to-day: adding users, starting a new semester, fixing something that broke |
 | [`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md) | You need the exact table/view/RPC list and what each one does |
-| [`docs/ANALYTICS_DEFINITIONS.md`](docs/ANALYTICS_DEFINITIONS.md) | You need the exact math behind change rate, consensus, entropy, etc. |
-| [`docs/QUESTION_MAPPING.md`](docs/QUESTION_MAPPING.md) | You're working on how Assignment 1 and 2 questions relate to each other |
+| [`docs/ANALYTICS_DEFINITIONS.md`](docs/ANALYTICS_DEFINITIONS.md) | You need the exact math behind consensus, entropy, group count change, etc. |
 | [`docs/AUTH_SSO.md`](docs/AUTH_SSO.md) | You're touching login, roles, or roster provisioning |
 | [`docs/EXCLUDED_FEATURES.md`](docs/EXCLUDED_FEATURES.md) | You want the list of things this app will never do, on purpose |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | You're setting up staging/production environments |
@@ -118,8 +115,8 @@ this build.
 app/                    Next.js pages (App Router)
 components/              Shared React components
 lib/                     Business logic: classes, roster, assignments,
-                          mappings, analytics, Supabase clients, shared
-                          domain types and formulas
+                          analytics, Supabase clients, shared domain
+                          types and formulas
 supabase/migrations/     Every database schema change, in order —
                           read before applying, never edit an old one
 data/                    Extracted question manifests (JSON) from the

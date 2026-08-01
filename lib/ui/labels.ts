@@ -1,8 +1,6 @@
 import type {
   AssignmentStatus,
   AttemptState,
-  MappingStatus,
-  MappingType,
   UserRole,
 } from "@/lib/types/domain";
 
@@ -61,46 +59,4 @@ export const ATTEMPT_STATE_LABELS: Record<AttemptState, string> = {
 
 export function attemptStateLabel(state: string): string {
   return ATTEMPT_STATE_LABELS[state as AttemptState] ?? state;
-}
-
-export const MAPPING_TYPE_LABELS: Record<MappingType, string> = {
-  EXACT_ONE_TO_ONE: "Exact match",
-  CONCEPTUAL_ONE_TO_ONE: "Same concept",
-  ONE_TO_MANY: "One to many",
-  MANY_TO_ONE: "Many to one",
-  GROUPED_CONCEPT: "Grouped concept",
-  NOT_COMPARABLE: "Not comparable",
-  UNMAPPED: "Not mapped",
-};
-
-export function mappingTypeLabel(type: string): string {
-  return MAPPING_TYPE_LABELS[type as MappingType] ?? type;
-}
-
-export const MAPPING_STATUS_LABELS: Record<MappingStatus, string> = {
-  DRAFT: "Draft",
-  SUGGESTED: "Suggested",
-  NEEDS_PROFESSOR_REVIEW: "Needs your review",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  SUPERSEDED: "Replaced by a newer version",
-};
-
-export function mappingStatusLabel(status: string): string {
-  return MAPPING_STATUS_LABELS[status as MappingStatus] ?? status;
-}
-
-export function mappingStatusTone(status: string): string {
-  switch (status) {
-    case "APPROVED":
-      return "badge badge-good";
-    case "NEEDS_PROFESSOR_REVIEW":
-      return "badge badge-warning";
-    case "REJECTED":
-      return "badge badge-critical";
-    case "SUGGESTED":
-      return "badge badge-info";
-    default:
-      return "badge";
-  }
 }

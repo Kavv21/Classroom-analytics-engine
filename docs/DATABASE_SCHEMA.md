@@ -18,9 +18,6 @@ questions
 question_options
 assignment_attempts
 responses
-question_mappings
-question_mapping_members
-response_transitions
 saved_queries
 saved_visualisations
 dashboards
@@ -160,60 +157,24 @@ CHECK (response_value IN (0, 1) OR response_value IS NULL)
 ```
 Unique constraint on (attempt_id, question_id) — no duplicate responses.
 
-## question_mappings
-id, class_id, assignment_1_question_ids[], assignment_2_question_ids[],
-mapping_name, common_concept, energy_source, criterion, mapping_type,
-comparison_method, professor_notes, mapping_status, professor_approved,
-version, previous_version_id, superseded_by_id, created_by, created_at,
-updated_at
+## Removed: question_mappings / question_mapping_members / response_transitions (migration 0022)
 
-Mapping types: EXACT_ONE_TO_ONE, CONCEPTUAL_ONE_TO_ONE, ONE_TO_MANY,
-MANY_TO_ONE, GROUPED_CONCEPT, NOT_COMPARABLE, UNMAPPED
+These three tables, their RLS policies, their indexes, their immutability
+triggers (`question_mappings_immutable_when_load_bearing`,
+`mapping_members_immutable_when_load_bearing`), their RPCs
+(`create_question_mapping`, `update_question_mapping`,
+`set_mapping_approval`, `create_mapping_version`, `preview_mapping_pairs`,
+`validate_mapping_questions`, `mapping_has_dependents`) and the three enum
+types they alone used (`mapping_type`, `transition_state`,
+`data_quality_status`) were dropped in migration 0022.
 
-`mapping_status` (CHECK, migration 0011): DRAFT | SUGGESTED |
-NEEDS_PROFESSOR_REVIEW | APPROVED | REJECTED | SUPERSEDED. A second CHECK
-keeps the flag and label coherent: `professor_approved = true` requires
-`mapping_status = 'APPROVED'`.
-
-**Versioning** (migration 0011): a version chain is a linked list —
-`previous_version_id` points back, `superseded_by_id` points forward.
-`create_mapping_version` copies content + members into a fresh DRAFT
-(version + 1) and stamps `superseded_by_id` on the old tip, which freezes
-it against re-approval and against forking a second version. The old
-version stays approved/live until the new one is approved;
-`set_mapping_approval(new, true)` then retires every earlier version
-(professor_approved = false, SUPERSEDED).
-
-**Destructive-edit blocking** (same category as the questions trigger):
-`question_mappings_immutable_when_load_bearing` +
-`mapping_members_immutable_when_load_bearing` (migration 0011) fire for
-every role, service_role included. Once a mapping is `professor_approved`
-OR referenced by `response_transitions` (`mapping_has_dependents()`
-security-definer helper), DELETE is rejected and UPDATE may only change
-the lifecycle fields (professor_notes, mapping_status, professor_approved,
-superseded_by_id, updated_at); member rows are frozen entirely. Version
-the mapping instead.
-
-## question_mapping_members
-Junction table supporting one-to-many / many-to-one:
-id, mapping_id, assignment_id, question_id, mapping_side, weight, created_at
-
-Unique on (mapping_id, question_id) — migration 0011. `mapping_side` 1 is
-the class's sequence_number-1 assignment, side 2 is sequence 2; sides are
-derived server-side in the RPCs, never trusted from the client.
-
-## response_transitions
-id, class_id, student_id, mapping_id, assignment_1_value,
-assignment_2_value, transition_state, data_quality_status, calculated_at
-
-transition_state: S00, S01, S10, S11 (only when both values are binary)
-data_quality_status: MISSING_A1, MISSING_A2, MISSING_BOTH, NOT_COMPARABLE
-
-**Phase 7 note:** live analytics does NOT read this table — transitions
-are computed on read by the `response_transitions_live` view (migration
-0012, see "Analytics views" below). The table is retained as a durable
-snapshot target (exports/audit, future use); any rows written to it still
-arm the 0011 `mapping_has_dependents` immutability boundary.
+They existed so a professor could declare an Assignment 1 question and an
+Assignment 2 question comparable, which is what let the transition engine
+pair one student's two answers. With no such declaration, the pairing has
+no defined basis, so every view built on it went too (see "Removed
+analytics views" below). Do not reintroduce a transition metric without
+first defining in ANALYTICS_DEFINITIONS.md what makes two questions
+comparable.
 
 ## saved_queries / saved_visualisations / dashboards / dashboard_items
 
@@ -243,8 +204,8 @@ security-definer helper, per the 0008 rule.
 
 ## audit_logs
 Logs: login (where appropriate), class creation, roster imports, assignment
-import, assignment publication/closure, attempt reopening, mapping
-approval, exports, admin changes.
+import, assignment publication/closure, attempt reopening, exports, admin
+changes.
 No anti-cheat or browser-violation event tables — see EXCLUDED_FEATURES.md.
 
 ## Row-Level Security (enforced at the DB layer, not just frontend)
@@ -253,11 +214,11 @@ Students: read own profile; read classes they're enrolled in; read open
 assignments for their classes; read/write only their own draft responses;
 submit only their own attempts; read only their own submission receipts.
 Students may NOT read another student's responses, class analytics, alter
-submitted data, approve mappings, or export class datasets.
+submitted data, or export class datasets.
 
 Professors: manage their own classes, students, and assignments; read class
-responses for their own classes; approve mappings; view analytics; export
-their own class data. `profiles_professor_class_students_select` (migration
+responses for their own classes; view analytics; export their own class
+data. `profiles_professor_class_students_select` (migration
 0005, rewritten in 0008 — see below) is the policy backing "read own
 students" — scoped to profiles that are a `class_members` row in one of
 that professor's classes; it grants read only, never write.
@@ -308,8 +269,7 @@ circuits per row instead of materialising a set to probe with `IN (...)`.
 Every policy that reached `classes` or `class_members` through a raw
 correlated subquery was rewritten to call these helpers instead — not only
 the two that formed the cycle. `assignments`, `questions`,
-`assignment_attempts`, `responses`, `question_mappings`,
-`question_mapping_members`, `response_transitions`, `imports`,
+`assignment_attempts`, `responses`, `imports`,
 `import_rows`, and `roster_entries` all join through `classes` and/or
 `class_members` the same way; none of them formed a cycle on their own
 (each only ever reached one side of the `classes`/`class_members` pair), but
@@ -387,34 +347,11 @@ errors); EXECUTE is revoked from anon on all four:
   REOPENED with reopened_at/reopened_by; clears responses.is_final;
   audit-logged. RESUBMITTED is terminal and cannot be reopened.
 
-Migration 0011 (Phase 6) adds the mapping-studio RPCs. All are `security
-invoker` (RLS + `is_professor_of_class` ownership check for clear errors);
-EXECUTE revoked from anon on every one:
-
-- `validate_mapping_questions(p_class_id, p_a1_question_ids,
-  p_a2_question_ids, p_mapping_type)` — shared validation: every id must
-  belong to the class's sequence-1/-2 assignment respectively, and the
-  side counts must fit the mapping type (1:1 types need exactly 1+1,
-  ONE_TO_MANY 1+2..., MANY_TO_ONE 2...+1, GROUPED_CONCEPT ≥1 each side;
-  NOT_COMPARABLE/UNMAPPED may be one-sided).
-- `create_question_mapping(...)` — insert mapping + member rows in one
-  transaction. New mappings may only start as
-  DRAFT/SUGGESTED/NEEDS_PROFESSOR_REVIEW — there is no auto-approval path.
-- `update_question_mapping(...)` — full edit (fields + members) of a
-  non-load-bearing, non-superseded mapping; editing a REJECTED mapping
-  moves it back to DRAFT.
-- `set_mapping_approval(p_mapping_id, p_approve)` — approve (rejecting
-  supersession-tips only) or reject; approving retires every earlier
-  version in the chain. Audit-logged (MAPPING_APPROVED/MAPPING_REJECTED).
-- `create_mapping_version(p_mapping_id)` — see versioning above.
-- `preview_mapping_pairs(p_mapping_id)` — the pre-approval analytics
-  preview, aggregated in the database: per-question respondent counts and
-  per-(A1×A2)-pair combination counts (pair00/01/10/11 + missing buckets)
-  over final responses of active student members. Deliberately neutral
-  vocabulary — S00-S11 transition states belong to approved-mapping
-  analytics (Phase 7), never to previews.
-- `mapping_has_dependents(p_mapping_id)` — `security definer` boolean
-  helper for the 0011 triggers (does response_transitions reference it).
+Migration 0011's mapping-studio RPCs (`validate_mapping_questions`,
+`create_question_mapping`, `update_question_mapping`,
+`set_mapping_approval`, `create_mapping_version`, `preview_mapping_pairs`,
+`mapping_has_dependents`) were dropped in migration 0022 together with the
+tables they wrote to.
 
 ## Views (migration 0009)
 
@@ -425,28 +362,25 @@ EXECUTE revoked from anon on every one:
   The querying user's own RLS applies; explicit SELECT grants to
   authenticated/service_role.
 
-## Views (migration 0011) — the approved-only mapping surface
+## Removed analytics views (migration 0022)
 
-- `approved_question_mappings` / `approved_question_mapping_members`
-  (`security_invoker = on`) — the ONLY relations downstream features
-  (transition engine, analytics, dashboards) may read mappings from.
-  `professor_approved = true and mapping_status = 'APPROVED'` is baked
-  into the view definition, so an unapproved mapping is structurally
-  invisible no matter who queries — including service_role, which
-  bypasses RLS but not the view's filter. TS access goes through
-  `lib/mappings/queries.ts` (`getApprovedMappings`). Verified by
-  tests/integration/mapping-flow.test.ts ("ACCEPTANCE" block).
+Dropped with the mapping tables above, because each read
+`approved_question_mappings` or `response_transitions_live`:
+`approved_question_mappings`, `approved_question_mapping_members`,
+`response_transitions_live`, `mapping_transition_summary`,
+`class_transition_summary`, `student_transition_summary`,
+`energy_source_transition_summary`, `criterion_transition_summary`,
+`mapping_association_exploratory`.
+
+Everything single-assignment survived untouched — see the next section.
 
 ## Analytics views (migration 0012) — Phase 7
 
-**DECISION: transitions and every aggregate are COMPUTED ON READ** (plain
-views), not written by a recompute job when a mapping is approved. Why:
+**DECISION: every aggregate is COMPUTED ON READ** (plain views), not
+written by a recompute job. Why:
 
 - responses keep arriving while assignments are OPEN, so any snapshot
-  taken at approval time is stale by the next student submission;
-- Phase 6 versioning flips which mapping version is live at approval
-  time, and the phase-7 definition of done requires approval changes to
-  reach aggregates with **no manual recompute step**;
+  taken at write time is stale by the next student submission;
 - the data volumes here (tens of students × hundreds of questions) make
   on-read aggregation cheap.
 
@@ -457,30 +391,10 @@ these views are too slow, convert them to materialised views + a refresh
 step — but that changes this contract and must be re-documented here.
 
 All views are `security_invoker = on` with explicit SELECT grants to
-authenticated/service_role. Mappings enter only via
-`approved_question_mappings` (the 0011 structural filter). Formulas are
-docs/ANALYTICS_DEFINITIONS.md verbatim; rates are NULL (never 0) when
-there is no valid data. TS access goes through `lib/analytics/queries.ts`.
+authenticated/service_role. Formulas are docs/ANALYTICS_DEFINITIONS.md
+verbatim; rates are NULL (never 0) when there is no valid data. TS access
+goes through `lib/analytics/queries.ts`.
 
-- `response_transitions_live` — one row per (approved mapping × active
-  student member). Only EXACT_ONE_TO_ONE / CONCEPTUAL_ONE_TO_ONE
-  mappings (whose sides are exactly one question each) can produce
-  S00–S11: ANALYTICS_DEFINITIONS.md defines T(i,j) on a single binary
-  value per side, and no collapse formula for multi-question sides is
-  documented — so ONE_TO_MANY / MANY_TO_ONE / GROUPED_CONCEPT (and
-  explicit NOT_COMPARABLE / UNMAPPED) pairs are reported as
-  `data_quality_status = NOT_COMPARABLE`, never forced into a transition
-  bucket. A final-but-blank answer (NULL response_value) counts as
-  missing (MISSING_A1 / MISSING_A2 / MISSING_BOTH).
-- Transition aggregates, one per grain, all with s00/s01/s10/s11,
-  valid_paired, missing buckets, changed/unchanged counts, change_rate,
-  stability_rate, net_movement_toward_1, pct_point_shift:
-  `mapping_transition_summary` (also carries missing_a2_from_0/1 and
-  missing_a1_to_0/1 splits for alluvial diagrams),
-  `class_transition_summary`, `student_transition_summary`,
-  `energy_source_transition_summary`, `criterion_transition_summary`
-  (the last two group by the mapping's energy_source/criterion field and
-  skip NULLs).
 - Response-distribution aggregates (consensus / disagreement / entropy
   over final responses of active members):
   `question_response_summary`, `assignment_response_summary` (per-question
@@ -508,22 +422,27 @@ there is no valid data. TS access goes through `lib/analytics/queries.ts`.
   projection in `lib/analytics/exploratory.ts`, chosen over UMAP because
   UMAP is stochastic), `question_pair_association_exploratory` (2×2
   contingency + Phi + mutual information per question pair within an
-  assignment), `mapping_association_exploratory` (Phi + mutual
-  information on each approved mapping's A1↔A2 table). Alluvial-diagram
-  data comes from `mapping_transition_summary` via
-  `alluvialFromTransitionCounts`.
+  assignment).
 
 ## Synthetic demo data (migration 0017)
 
 `is_synthetic boolean not null default false` on **profiles**,
 **class_members**, **assignment_attempts** and **responses**. True only for
-the fictional cohort written by `scripts/seed-demo-analytics.ts`; every
-pre-existing row is real by default, which is the safe direction — this
-migration can never reclassify a real row as demo data.
+a fictional seeded cohort; every pre-existing row is real by default, which
+is the safe direction — this migration can never reclassify a real row as
+demo data.
 
-`classes`, `assignments`, `questions` and `question_mappings` deliberately
-carry no such flag: the demo cohort reuses the already-imported assignments
-and the existing approved mappings and creates or alters none of them.
+`classes`, `assignments` and `questions` deliberately carry no such flag: a
+seeded cohort reuses the already-imported assignments and creates or alters
+none of them.
+
+**The seeded 150-student cohort was deleted in migration 0022** along with
+the demo dashboard it existed to populate. The COLUMN, its indexes, the
+`enforce_synthetic_flag_authority` triggers (migration 0020) and
+`class_synthetic_census` all remain: `is_synthetic` gates the
+closed-assignment seeding exception in `save_attempt_responses` /
+`submit_attempt`, so it is a protected security boundary, not demo
+scaffolding.
 
 Synthetic rows obey every real constraint — the `response_value` CHECK, the
 `(attempt_id, question_id)` unique constraint, and the
@@ -536,8 +455,8 @@ Two views ship with it, both `security_invoker = on` with explicit grants,
 same computed-on-read contract as the 0012 views:
 
 - `class_synthetic_census` — per class, active student count split into
-  synthetic and non-synthetic. Lets the demo dashboard state the mixture
-  honestly rather than describing a partly-real class as a demo.
+  synthetic and non-synthetic. Lets any surface state the mixture honestly
+  rather than describing a partly-real class as a demo.
 - `energy_source_assignment_change` — per energy source, Assignment 1 vs
   Assignment 2 totals with absolute and relative change plus percentage-
   point shift. Built on top of `energy_source_response_summary` (it does

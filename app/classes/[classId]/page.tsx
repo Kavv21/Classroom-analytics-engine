@@ -108,16 +108,9 @@ export default async function ClassDetailPage({
           cta: "Manage assignments",
         },
         {
-          title: "Question mapping",
-          description:
-            "Declare which Assignment 1 and Assignment 2 questions are comparable, then approve them for analytics.",
-          href: `/classes/${classId}/mappings`,
-          cta: "Open mapping studio",
-        },
-        {
           title: "Analytics",
           description:
-            "See how opinions shifted between the two assignments. Always current — nothing to refresh.",
+            "Response distributions, consensus and entropy for each assignment. Always current — nothing to refresh.",
           href: `/classes/${classId}/analytics`,
           cta: "View analytics",
         },

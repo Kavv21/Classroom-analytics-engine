@@ -9,20 +9,21 @@ import { requireProfessorClassPage } from "@/lib/analytics/page-data";
  * The live response grid — the same layout as the Excel grid sheet, kept in
  * step by both being built from `gatherResponseGrid`.
  *
- * THIS VIEW IS AGGREGATE-ONLY. It shows each question's class totals in the
- * source spreadsheet's column order plus a subtotal per energy source, and
- * carries no student rows, no names and no individual answers. One student's
- * full submission is on their profile page under Analytics → Students, which
- * is the single surface for raw per-person data.
+ * THIS VIEW IS AGGREGATE-ONLY. It reproduces the source spreadsheet's own
+ * grid — same rows, same columns, same order — with each answer cell
+ * showing one number: how many students answered 1 there. It carries no
+ * student rows, no names and no individual answers. One student's full
+ * submission is on their profile page under Analytics → Students, which is
+ * the single surface for raw per-person data.
  *
  * The honest distinction this page has to make, and states in its own copy:
  * this view re-queries on every load, the .xlsx does not. A downloaded
  * workbook is frozen at its download time and no spreadsheet formula can
  * make it call back here.
  *
- * Every number comes from the analytics views (question_response_summary,
- * energy_source_response_summary) — .claude/rules/analytics.md is explicit
- * that aggregates belong in PostgreSQL rather than app memory.
+ * Every number comes from an analytics view (question_response_summary) —
+ * .claude/rules/analytics.md is explicit that aggregates belong in
+ * PostgreSQL rather than app memory.
  */
 
 export default async function ResponseGridPage({
@@ -50,8 +51,9 @@ export default async function ResponseGridPage({
           <p className="eyebrow mb-1">{classRow.name}</p>
           <h1 className="title-md">Response totals — {grid.assignmentTitle}</h1>
           <p className="mt-1 max-w-3xl text-sm text-ink-secondary">
-            Class totals for every question, laid out the way the source spreadsheet reads —{" "}
-            {orientationDescription(grid.orientation)} — with a subtotal for each energy source.
+            The source spreadsheet&apos;s own grid — {orientationDescription(grid.orientation)}.
+            Each cell holds one number: how many students answered 1 there. The closing TOTAL row
+            sums straight down each column.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -76,9 +78,9 @@ export default async function ResponseGridPage({
           .
         </p>
         <p className="mt-1 text-ink-secondary">
-          The Excel workbook contains these same totals as an added sheet, with real{" "}
-          <code>SUM</code> formulas across each energy source&apos;s questions — but a downloaded
-          file is a <strong>point-in-time snapshot</strong> and cannot refresh itself. Download it
+          The Excel workbook contains this same grid as an added sheet, with a real <code>SUM</code>{" "}
+          formula behind every figure in the TOTAL row — but a downloaded file is a{" "}
+          <strong>point-in-time snapshot</strong> and cannot refresh itself. Download it
           again after new submissions to bring it up to date. For charts, use the PNG and PDF
           exports on the{" "}
           <Link href={`/classes/${classId}/analytics`} className="link">
@@ -88,14 +90,24 @@ export default async function ResponseGridPage({
         </p>
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-ink-secondary md:grid-cols-6">
+      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-ink-secondary md:grid-cols-4 lg:grid-cols-7">
+        <div>
+          <dt className="text-ink-muted">Grid</dt>
+          <dd className="font-medium tabular-nums">
+            {grid.matrix.rows.length} × {grid.matrix.columns.length}
+          </dd>
+        </div>
         <div>
           <dt className="text-ink-muted">Questions</dt>
           <dd className="font-medium tabular-nums">{grid.columns.length}</dd>
         </div>
         <div>
           <dt className="text-ink-muted">Energy sources</dt>
-          <dd className="font-medium tabular-nums">{grid.sourceSubtotals.length}</dd>
+          <dd className="font-medium tabular-nums">{grid.energySourceCount}</dd>
+        </div>
+        <div>
+          <dt className="text-ink-muted">Criteria</dt>
+          <dd className="font-medium tabular-nums">{grid.criterionCount}</dd>
         </div>
         <div>
           <dt className="text-ink-muted">Students enrolled</dt>

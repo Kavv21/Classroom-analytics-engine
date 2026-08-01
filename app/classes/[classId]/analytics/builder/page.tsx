@@ -9,17 +9,13 @@ import type {
   SavedQuerySummary,
   SavedVisualisationSummary,
 } from "@/lib/query-builder/actions";
-import {
-  getMappingTransitionSummaries,
-  getQuestionResponseSummaries,
-} from "@/lib/analytics/queries";
+import { getQuestionResponseSummaries } from "@/lib/analytics/queries";
 import { getClassAssignments } from "@/lib/analytics/page-data";
 
 /**
  * Visualisation Builder (Phase 9). Everything the professor can select is
  * derived from the same Phase 7 views the rest of analytics reads, so a
- * built query can never reach data the dashboards couldn't — including
- * unapproved mappings, which are structurally absent from those views.
+ * built query can never reach data the dashboards couldn't.
  */
 export default async function VisualisationBuilderPage({
   params,
@@ -103,25 +99,15 @@ export default async function VisualisationBuilderPage({
   }));
 
   // Filter option lists, from the same views the builder queries.
-  const [mappingSummaries, a1Questions] = await Promise.all([
-    getMappingTransitionSummaries(supabase, classId),
-    a1 ? getQuestionResponseSummaries(supabase, a1.id) : Promise.resolve([]),
-  ]);
+  const a1Questions = a1 ? await getQuestionResponseSummaries(supabase, a1.id) : [];
 
   const distinct = (values: Array<string | null>) =>
     [...new Set(values.filter((v): v is string => !!v))].sort();
 
   const filterOptions: Record<string, string[]> = {
-    ENERGY_SOURCE: distinct([
-      ...mappingSummaries.map((m) => m.energy_source),
-      ...a1Questions.map((q) => q.energy_source),
-    ]),
-    CRITERION: distinct([
-      ...mappingSummaries.map((m) => m.criterion),
-      ...a1Questions.map((q) => q.criterion),
-    ]),
+    ENERGY_SOURCE: distinct(a1Questions.map((q) => q.energy_source)),
+    CRITERION: distinct(a1Questions.map((q) => q.criterion)),
     CONCEPT: distinct(a1Questions.map((q) => q.concept)),
-    MAPPING: distinct(mappingSummaries.map((m) => m.mapping_name)),
   };
 
   return (

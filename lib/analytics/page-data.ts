@@ -81,6 +81,79 @@ export async function getSyntheticStudentIds(
   return new Set((data ?? []).map((r) => r.user_id));
 }
 
+export interface StudentRosterRow {
+  studentId: string;
+  name: string;
+  email: string | null;
+  studentIdentifier: string | null;
+  isSynthetic: boolean;
+  status: string;
+  /** Attempt state per assignment id — absent means never started. */
+  attemptStateByAssignment: Record<string, string>;
+}
+
+/**
+ * The class's students with their per-assignment attempt state — the index
+ * that leads to each student's full-responses profile.
+ *
+ * This reads `assignment_attempts` (one row per student per assignment, so
+ * tens to hundreds of rows), never `responses`. Per-answer data belongs to
+ * one student's own profile page, reached one student at a time.
+ */
+export async function getClassStudentRoster(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<StudentRosterRow[]> {
+  const { data: members, error: membersError } = await supabase
+    .from("class_members")
+    .select("user_id, status, is_synthetic, profiles(full_name, email, student_identifier)")
+    .eq("class_id", classId)
+    .eq("member_role", "STUDENT")
+    .returns<
+      Array<{
+        user_id: string;
+        status: string;
+        is_synthetic: boolean;
+        profiles: {
+          full_name: string | null;
+          email: string;
+          student_identifier: string | null;
+        } | null;
+      }>
+    >();
+  if (membersError) {
+    throw new Error(`Could not load students: ${membersError.message}`);
+  }
+
+  const { data: attempts, error: attemptsError } = await supabase
+    .from("assignment_attempts")
+    .select("student_id, assignment_id, attempt_state, assignments!inner(class_id)")
+    .eq("assignments.class_id", classId)
+    .returns<Array<{ student_id: string; assignment_id: string; attempt_state: string }>>();
+  if (attemptsError) {
+    throw new Error(`Could not load attempts: ${attemptsError.message}`);
+  }
+
+  const stateByStudent = new Map<string, Record<string, string>>();
+  for (const a of attempts ?? []) {
+    const forStudent = stateByStudent.get(a.student_id) ?? {};
+    forStudent[a.assignment_id] = a.attempt_state;
+    stateByStudent.set(a.student_id, forStudent);
+  }
+
+  return (members ?? [])
+    .map((m) => ({
+      studentId: m.user_id,
+      name: m.profiles?.full_name ?? m.profiles?.email ?? `Student ${m.user_id.slice(0, 8)}`,
+      email: m.profiles?.email ?? null,
+      studentIdentifier: m.profiles?.student_identifier ?? null,
+      isSynthetic: m.is_synthetic,
+      status: m.status,
+      attemptStateByAssignment: stateByStudent.get(m.user_id) ?? {},
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export interface AssignmentRow {
   id: string;
   title: string;

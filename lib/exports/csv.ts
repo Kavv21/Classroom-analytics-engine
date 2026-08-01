@@ -1,5 +1,15 @@
-import { csvEscape } from "@/lib/mappings/export";
 import { metadataLines, type ExportMetadata } from "@/lib/exports/metadata";
+
+/**
+ * RFC 4180 quoting: a field is only quoted when it has to be, and an
+ * embedded quote is doubled. Shared by every CSV surface in the app.
+ */
+export function csvEscape(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
 
 /**
  * CSV export with the provenance block written as leading `#` comment

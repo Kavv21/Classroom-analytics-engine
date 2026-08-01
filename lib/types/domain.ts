@@ -134,31 +134,6 @@ export const VALID_ATTEMPT_TRANSITIONS: Record<AttemptState, AttemptState[]> = {
 /** 0, 1, or unanswered — never anything else. */
 export type ResponseValue = 0 | 1 | null;
 
-export type MappingType =
-  | "EXACT_ONE_TO_ONE"
-  | "CONCEPTUAL_ONE_TO_ONE"
-  | "ONE_TO_MANY"
-  | "MANY_TO_ONE"
-  | "GROUPED_CONCEPT"
-  | "NOT_COMPARABLE"
-  | "UNMAPPED";
-
-export type MappingStatus =
-  | "DRAFT"
-  | "SUGGESTED"
-  | "NEEDS_PROFESSOR_REVIEW"
-  | "APPROVED"
-  | "REJECTED"
-  | "SUPERSEDED";
-
-export type TransitionState = "S00" | "S01" | "S10" | "S11";
-
-export type DataQualityStatus =
-  | "MISSING_A1"
-  | "MISSING_A2"
-  | "MISSING_BOTH"
-  | "NOT_COMPARABLE";
-
 export interface Question {
   id: string;
   assignmentId: string;
@@ -176,56 +151,16 @@ export interface Question {
   isActive: boolean;
 }
 
-export interface QuestionMapping {
-  id: string;
-  classId: string;
-  assignment1QuestionIds: string[];
-  assignment2QuestionIds: string[];
-  mappingName: string;
-  commonConcept: string | null;
-  energySource: string | null;
-  criterion: string | null;
-  mappingType: MappingType;
-  comparisonMethod: string | null;
-  professorNotes: string | null;
-  mappingStatus: MappingStatus;
-  professorApproved: boolean;
-  version: number;
-  previousVersionId: string | null;
-  supersededById: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ResponseTransition {
-  id: string;
-  classId: string;
-  studentId: string;
-  mappingId: string;
-  assignment1Value: ResponseValue;
-  assignment2Value: ResponseValue;
-  transitionState: TransitionState | null;
-  dataQualityStatus: DataQualityStatus | null;
-}
-
 /**
  * Pure formula helpers — copy of /docs/ANALYTICS_DEFINITIONS.md.
  * Do not reimplement these inline elsewhere; import from here.
+ *
+ * These are all single-assignment, per-question descriptive statistics.
+ * The cross-assignment transition formulas (change rate, stability rate,
+ * net movement) were removed with the question-mapping feature: they were
+ * only defined over an approved mapping's paired answers, and with no
+ * mappings there is no pair to compute them from.
  */
-export function changeRate(s01: number, s10: number, validPaired: number): number {
-  if (validPaired === 0) return NaN;
-  return (s01 + s10) / validPaired;
-}
-
-export function stabilityRate(s00: number, s11: number, validPaired: number): number {
-  if (validPaired === 0) return NaN;
-  return (s00 + s11) / validPaired;
-}
-
-export function netMovementToward1(s01: number, s10: number): number {
-  return s01 - s10;
-}
-
 export function simpleConsensus(pctZero: number, pctOne: number): number {
   return Math.max(pctZero, pctOne);
 }

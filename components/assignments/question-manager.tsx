@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { QuestionLabel } from "@/components/questions/question-label";
 import { questionLabel } from "@/lib/ui/question-label";
+import { groupQuestionsBySource } from "@/lib/questions/group-by-source";
 
 export interface QuestionRow {
   id: string;
@@ -55,38 +56,32 @@ export function QuestionManager({
   const [oneLabel, setOneLabel] = useState("");
 
   const ordered = [...questions].sort((a, b) => a.display_order - b.display_order);
-  const globalIndex = new Map(ordered.map((q, i) => [q.id, i]));
+  const displayIndex = new Map(ordered.map((q, i) => [q.id, i]));
 
-  // Grouped purely for readability — display order (and therefore the
-  // up/down reorder controls) is untouched; a group is just a heading
-  // inserted between runs of rows that already sit together by source.
-  interface QuestionGroup {
-    key: string;
-    label: string | null;
-    rows: QuestionRow[];
-  }
-  const groups: QuestionGroup[] = [];
-  for (const q of ordered) {
-    const label = (q.energy_source ?? "").trim() || null;
-    const key = label ?? "__ungrouped__";
-    const last = groups[groups.length - 1];
-    if (last && last.key === key) {
-      last.rows.push(q);
-    } else {
-      groups.push({ key, label, rows: [q] });
-    }
-  }
+  // One section per energy source. Grouping keys off the source name rather
+  // than off adjacent rows, so it holds for both spreadsheet orientations
+  // (see lib/questions/group-by-source.ts).
+  const groups = groupQuestionsBySource(ordered);
   const showGroupHeadings = groups.some((g) => g.label !== null) && groups.length > 1;
+
+  // For a criterion-major assignment the rendered order is not the display
+  // order, so ↑/↓ act on the neighbour the professor actually sees; the swap
+  // itself still just exchanges the two questions' display_order values.
+  const rendered = groups.flatMap((g) => g.rows);
+  const renderedIndex = new Map(rendered.map((q, i) => [q.id, i]));
 
   async function swap(index: number, direction: -1 | 1) {
     const target = index + direction;
-    if (target < 0 || target >= ordered.length) return;
-    const ids = ordered.map((q) => q.id);
-    const a = ids[index];
-    const b = ids[target];
+    if (target < 0 || target >= rendered.length) return;
+    const a = rendered[index];
+    const b = rendered[target];
     if (a === undefined || b === undefined) return;
-    ids[index] = b;
-    ids[target] = a;
+    const aAt = displayIndex.get(a.id);
+    const bAt = displayIndex.get(b.id);
+    if (aAt === undefined || bAt === undefined) return;
+    const ids = ordered.map((q) => q.id);
+    ids[aAt] = b.id;
+    ids[bAt] = a.id;
     setBusy(true);
     const result = await reorderQuestions(assignmentId, ids);
     setBusy(false);
@@ -166,7 +161,7 @@ export function QuestionManager({
                   </TableRow>
                 )}
                 {group.rows.map((q) => {
-                  const i = globalIndex.get(q.id) ?? 0;
+                  const i = renderedIndex.get(q.id) ?? 0;
                   return (
               <TableRow key={q.id}>
                 <TableCell className="text-ink-muted tabular-nums">{q.display_order}</TableCell>
@@ -246,7 +241,7 @@ export function QuestionManager({
                           criterion: q.criterion,
                           code: q.external_question_code,
                         })}” down`}
-                        disabled={busy || i === ordered.length - 1}
+                        disabled={busy || i === rendered.length - 1}
                         onClick={() => swap(i, 1)}
                         className="px-2"
                       >

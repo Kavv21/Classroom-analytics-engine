@@ -22,19 +22,6 @@ describe("valid combinations are accepted", () => {
     expect(validateQuery(DEFAULT_QUERY).valid).toBe(true);
   });
 
-  it("accepts a Sankey on paired transitions grouped by transition state", () => {
-    const result = validateQuery(
-      q({
-        dataset: "PAIRED_TRANSITIONS",
-        measure: "PAIR_COUNT",
-        dimensions: ["TRANSITION_STATE"],
-        chartType: "SANKEY",
-      })
-    );
-    expect(result.issues).toEqual([]);
-    expect(result.valid).toBe(true);
-  });
-
   it("accepts a heatmap with exactly two groupings", () => {
     expect(
       validateQuery(
@@ -63,51 +50,18 @@ describe("valid combinations are accepted", () => {
 });
 
 describe("ACCEPTANCE: incompatible combinations are rejected with a clear message", () => {
-  it("rejects a Sankey with no transition dimension selected", () => {
-    const result = validateQuery(
-      q({
-        dataset: "PAIRED_TRANSITIONS",
-        measure: "PAIR_COUNT",
-        dimensions: ["MAPPING"],
-        chartType: "SANKEY",
-      })
-    );
-    expect(result.valid).toBe(false);
-    const message = summariseIssues(result);
-    expect(message).toMatch(/Sankey/i);
-    expect(message).toMatch(/Transition state/i);
-    // The message must say what to do, not just that it failed.
-    expect(message).toMatch(/Add it|choose a bar chart/i);
-    expect(result.issues[0]!.field).toBe("dimensions");
-  });
-
-  it("rejects a Sankey on a dataset that has no transitions at all", () => {
-    const result = validateQuery(
-      q({
-        dataset: "A1_RESPONSES",
-        measure: "PCT_ONE",
-        dimensions: ["QUESTION"],
-        chartType: "SANKEY",
-      })
-    );
-    expect(result.valid).toBe(false);
-    const message = summariseIssues(result);
-    expect(message).toMatch(/Paired transitions dataset/i);
-    expect(message).toMatch(/Assignment 1 responses/i);
-  });
-
   it("rejects a measure that does not belong to the dataset, and lists the valid ones", () => {
     const result = validateQuery(
       q({
         dataset: "A1_RESPONSES",
-        measure: "CHANGE_RATE",
+        measure: "CUMULATIVE_SUBMISSIONS",
         dimensions: ["QUESTION"],
         chartType: "BAR",
       })
     );
     expect(result.valid).toBe(false);
     const issue = result.issues.find((i) => i.field === "measure")!;
-    expect(issue.message).toMatch(/Change rate/);
+    expect(issue.message).toMatch(/Cumulative submissions/);
     expect(issue.message).toMatch(/not available for Assignment 1 responses/i);
     // Names an alternative that actually is available.
     expect(issue.message).toMatch(/Consensus|% choosing/);
@@ -118,25 +72,12 @@ describe("ACCEPTANCE: incompatible combinations are rejected with a clear messag
       q({
         dataset: "A1_RESPONSES",
         measure: "PCT_ONE",
-        dimensions: ["STUDENT"],
+        dimensions: ["DATE"],
         chartType: "BAR",
       })
     );
     expect(result.valid).toBe(false);
-    expect(summariseIssues(result)).toMatch(/cannot be grouped by .Student./i);
-  });
-
-  it("rejects a transition matrix outside the paired dataset", () => {
-    const result = validateQuery(
-      q({
-        dataset: "ATTEMPTS",
-        measure: "ATTEMPT_COUNT",
-        dimensions: ["ASSIGNMENT"],
-        chartType: "TRANSITION_MATRIX",
-      })
-    );
-    expect(result.valid).toBe(false);
-    expect(summariseIssues(result)).toMatch(/Paired transitions dataset/i);
+    expect(summariseIssues(result)).toMatch(/cannot be grouped by .Date./i);
   });
 
   it("rejects a line chart over unordered categories", () => {
@@ -181,37 +122,9 @@ describe("ACCEPTANCE: incompatible combinations are rejected with a clear messag
     expect(summariseIssues(result)).toMatch(/heatmap or table/i);
   });
 
-  it("rejects a rate grouped by transition state — it would always be 100% or 0%", () => {
-    const result = validateQuery(
-      q({
-        dataset: "PAIRED_TRANSITIONS",
-        measure: "CHANGE_RATE",
-        dimensions: ["TRANSITION_STATE"],
-        chartType: "BAR",
-      })
-    );
-    expect(result.valid).toBe(false);
-    const message = summariseIssues(result);
-    expect(message).toMatch(/only ever return 100% or 0%/i);
-    expect(message).toMatch(/All pairs|Valid paired responses/);
-  });
-
-  it("rejects a rate grouped by data quality — undefined, not zero", () => {
-    const result = validateQuery(
-      q({
-        dataset: "PAIRED_TRANSITIONS",
-        measure: "STABILITY_RATE",
-        dimensions: ["DATA_QUALITY"],
-        chartType: "BAR",
-      })
-    );
-    expect(result.valid).toBe(false);
-    expect(summariseIssues(result)).toMatch(/undefined for missing and not-comparable/i);
-  });
-
   it("rejects a duplicated grouping", () => {
     const result = validateQuery(
-      q({ dimensions: ["MAPPING", "MAPPING"], chartType: "HEATMAP" })
+      q({ dimensions: ["ENERGY_SOURCE", "ENERGY_SOURCE"], chartType: "HEATMAP" })
     );
     expect(result.valid).toBe(false);
     expect(summariseIssues(result)).toMatch(/selected twice/i);

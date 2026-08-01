@@ -38,20 +38,19 @@ explicit override, because the hosted project holds real data.
 | Playwright e2e | 3 | 15 |
 
 Unit coverage includes: binary/response validation, attempt-transition
-FSM, transition-state generation, every Section 12/16 formula (with the
-worked example), mapping validation and the deterministic suggestion
-engine, the spreadsheet parser, export formatting, chart-data shaping,
-query-builder compatibility rules, and the exploratory statistics.
+FSM, every Section 16 formula, question grouping by energy source across
+both spreadsheet orientations, the spreadsheet parser, export formatting
+and CSV quoting, chart-data shaping, query-builder compatibility rules,
+and the exploratory statistics.
 
 Integration coverage includes: class creation through RLS, roster import,
 assignment import (including atomic rollback on a bad row), question
 approval and publication, draft saving, submission, reopening,
-resubmission, mapping approval and versioning, analytics generation
-against the real views, the 10-sheet Excel export, and RLS access across
-professors/students.
+resubmission, analytics generation against the real views, the Excel
+export, and RLS access across professors/students.
 
 E2E covers the three workflows end to end in a browser: professor (class →
-assignment → publish → approve mapping → analytics → export), student
+assignment → publish → analytics → export), student
 (answer → **refresh mid-way** → submit → receipt → reopened → resubmit),
 and admin (audit-log access, absence of an admin UI, student
 deactivation).
@@ -94,7 +93,9 @@ batching independent reads with `Promise.all` in:
 saved answers) were left sequential.
 
 **2. Stale planner statistics mattered more than missing indexes.** A
-controlled experiment on `response_transitions_live` at seed scale:
+controlled experiment at seed scale (measured on `response_transitions_live`,
+a view since removed in migration 0022 — the finding is about planner
+statistics, not that view):
 
 | Condition | Execution time |
 |---|---|
@@ -108,7 +109,7 @@ Autovacuum handles this in steady state; the risk window is immediately
 after a bulk import.
 
 **3. Indexes (migration 0015) are worth keeping but are not the fix.** At
-300-student scale `response_transitions_live` improved 37.6 → 29.3 ms
+300-student scale the measured view improved 37.6 → 29.3 ms
 (~22%). They also close genuine gaps: `responses` had no
 `assignment_id` index and `import_rows` had only a primary key. Point
 lookups were already covered by existing indexes.

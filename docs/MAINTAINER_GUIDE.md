@@ -235,7 +235,6 @@ failures.
 
 **Second assignment:**
 - [ ] Import Assignment 2, review, publish
-- [ ] Once responses come in, approve mappings in the Mapping Studio
 - [ ] Check the Analytics page shows real data
 
 **End of semester:**

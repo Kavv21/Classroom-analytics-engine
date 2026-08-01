@@ -64,32 +64,18 @@ export async function POST(
   }
 
   try {
-    const [assignments, members, profile] = await Promise.all([
+    const [assignments, profile] = await Promise.all([
       supabase
         .from("assignments")
         .select("id, title, sequence_number")
         .eq("class_id", classId)
         .order("sequence_number"),
-      supabase
-        .from("class_members")
-        .select("user_id, profiles(full_name, email)")
-        .eq("class_id", classId)
-        .eq("member_role", "STUDENT")
-        .returns<
-          Array<{ user_id: string; profiles: { full_name: string | null; email: string } | null }>
-        >(),
       supabase.from("profiles").select("full_name, email").eq("id", user.id).maybeSingle(),
     ]);
 
     if (assignments.error) {
       return NextResponse.json(
         { error: `Could not load assignments: ${assignments.error.message}` },
-        { status: 500 }
-      );
-    }
-    if (members.error) {
-      return NextResponse.json(
-        { error: `Could not load students: ${members.error.message}` },
         { status: 500 }
       );
     }
@@ -100,15 +86,9 @@ export async function POST(
       assignmentIdBySequence[a.sequence_number] = a.id;
       assignmentTitles[a.id] = a.title;
     }
-    const studentNames: Record<string, string> = {};
-    for (const m of members.data ?? []) {
-      if (m.profiles) studentNames[m.user_id] = m.profiles.full_name ?? m.profiles.email;
-    }
-
     const result = await executeQuery(supabase, query, {
       classId,
       assignmentIdBySequence,
-      studentNames,
       assignmentTitles,
     });
 

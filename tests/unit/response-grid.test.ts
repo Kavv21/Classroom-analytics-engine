@@ -1,17 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildGridMatrix,
+  defaultTotalsPosition,
   detectOrientation,
   orderGridQuestions,
   orientationDescription,
-  rollUpSources,
   type GridColumn,
 } from "@/lib/exports/response-grid";
 
 /**
- * Orientation detection and column ordering — the pure logic behind both
- * the Excel grid sheet and the live grid page. If this is wrong, a
- * student's answer appears under the wrong question heading, which is the
- * worst failure either surface could have.
+ * Orientation detection, column ordering and grid reconstruction — the pure
+ * logic behind both the Excel grid sheet and the live grid page. If this is
+ * wrong, a class total appears against the wrong energy source or criterion,
+ * which is the worst failure either surface could have.
  *
  * The fixtures mirror the real source workbooks: Assignment 1 lists energy
  * sources down the rows with two criteria across the columns; Assignment 2
@@ -167,79 +168,179 @@ describe("orderGridQuestions", () => {
   });
 });
 
-describe("rollUpSources", () => {
-  const column = (
-    energySource: string,
-    ones: number | null,
-    zeros: number | null,
-    answered: number | null
-  ): GridColumn => ({
-    questionId: `${energySource}-${ones}-${zeros}-${answered}-${Math.random()}`,
-    code: "Q",
-    questionText: "Some wording",
-    energySource,
-    criterion: "A criterion",
-    originalCell: "D6",
+describe("buildGridMatrix", () => {
+  const column = (q: Q, ones: number | null): GridColumn => ({
+    questionId: q.id,
+    code: q.external_question_code,
+    questionText: `${q.energy_source} — ${q.criterion}`,
+    energySource: q.energy_source!,
+    criterion: q.criterion!,
+    originalCell: `${q.original_column_reference}${q.original_row_reference}`,
+    originalRow: q.original_row_reference,
+    originalColumn: q.original_column_reference,
     ones,
-    zeros,
-    answered,
+    zeros: ones === null ? null : 20 - ones,
+    answered: ones === null ? null : 20,
   });
 
-  const columns: GridColumn[] = [
-    column("Solar", 10, 5, 15),
-    column("Solar", 8, 7, 15),
-    column("Wind", 3, 12, 15),
-  ];
+  /** The grid as a professor reads it: row label, then the row's numbers. */
+  const asText = (columns: GridColumn[], orientation: "SOURCES_IN_ROWS" | "SOURCES_IN_COLUMNS") => {
+    const m = buildGridMatrix(columns, orientation);
+    return {
+      header: [m.rowAxisHeading, ...m.columns.map((c) => c.label)],
+      rows: m.rows.map((r) => [r.label, ...r.cells.map((c) => c?.total ?? null)]),
+      total: m.columnTotals,
+      totalsPosition: m.totalsPosition,
+    };
+  };
 
-  it("prefers the database rollup when the view covers the group", () => {
-    // Deliberately different from the sum of the columns: whichever number
-    // this returns tells us which source it came from.
-    const view = new Map([
-      ["Solar", { question_count: 2, ones: 99, zeros: 1, answered: 100 }],
-      ["Wind", { question_count: 1, ones: 3, zeros: 12, answered: 15 }],
+  it("reproduces Assignment 1's grid: energy sources down the rows, criteria across", () => {
+    // Solar/Wind/Hydro x Conventional/Renewable, exactly as the source file.
+    const ones = [11, 2, 3, 14, 5, 6];
+    const grid = asText(
+      orderGridQuestions(A1, "SOURCES_IN_ROWS").map((q, i) => column(q, ones[i]!)),
+      "SOURCES_IN_ROWS"
+    );
+    expect(grid.header).toEqual(["Energy source", "Conventional", "Renewable over 25 years"]);
+    expect(grid.rows).toEqual([
+      ["Solar", 11, 2],
+      ["Wind", 3, 14],
+      ["Hydro", 5, 6],
     ]);
-    const [solar, wind] = rollUpSources(columns, view);
-    expect(solar).toMatchObject({ energySource: "Solar", ones: 99, derived: false });
-    expect(wind).toMatchObject({ energySource: "Wind", ones: 3, derived: false });
+    // One number per criterion column, summed straight down.
+    expect(grid.total).toEqual([19, 22]);
+    // Assignment 1's source file closes with its blank "TOTAL" at C21.
+    expect(grid.totalsPosition).toBe("BOTTOM");
   });
 
-  it("rolls the group up here, flagged, when the view has no row for it", () => {
-    const [solar] = rollUpSources(columns, new Map());
-    expect(solar).toMatchObject({
-      energySource: "Solar",
-      questionCount: 2,
-      ones: 18,
-      zeros: 12,
-      answered: 30,
-      derived: true,
-    });
-  });
-
-  it("falls back rather than trusting a view row that covers a different question count", () => {
-    // A stale or differently-filtered view row must not be presented as this
-    // group's total — the columns on screen are the contract.
-    const view = new Map([["Solar", { question_count: 5, ones: 99, zeros: 1, answered: 100 }]]);
-    const [solar] = rollUpSources(columns, view);
-    expect(solar).toMatchObject({ ones: 18, derived: true });
-  });
-
-  it("treats a question with no summary row as contributing nothing, not as NaN", () => {
-    const [group] = rollUpSources([column("Solar", null, null, null), columns[0]!], new Map());
-    expect(group).toMatchObject({ questionCount: 2, ones: 10, zeros: 5, answered: 15 });
-  });
-
-  it("keeps groups in column order and records the ranges each one spans", () => {
-    const split = [columns[0]!, columns[2]!, columns[1]!];
-    const groups = rollUpSources(split, new Map());
-    expect(groups.map((g) => g.energySource)).toEqual(["Solar", "Wind"]);
-    // Solar is split across two runs; both must be summed, and the Wind
-    // column between them must not be swept in.
-    expect(groups[0]!.columnRanges).toEqual([
-      [0, 0],
-      [2, 2],
+  it("reproduces Assignment 2's transposed grid: criteria down the rows, sources across", () => {
+    const ones = [1, 2, 3, 4, 5, 6];
+    const ordered = orderGridQuestions(A2, "SOURCES_IN_COLUMNS");
+    const grid = asText(
+      ordered.map((q, i) => column(q, ones[i]!)),
+      "SOURCES_IN_COLUMNS"
+    );
+    expect(grid.header).toEqual(["Criterion", "Solar", "Wind", "Hydro"]);
+    // Solar owns A2-001 (row 7) and A2-004 (row 8); after ordering those are
+    // the first two entries, so they carry ones = 1 and 2.
+    expect(grid.rows).toEqual([
+      ["Is it available all the time?", 1, 3, 5],
+      ["Is it renewable?", 2, 4, 6],
     ]);
-    expect(groups[0]!.ones).toBe(18);
-    expect(groups[1]!.columnRanges).toEqual([[1, 1]]);
+    // One grand total per energy source.
+    expect(grid.total).toEqual([3, 7, 11]);
+    // Assignment 2's source file carries "Total score" at C6, above the
+    // criteria rows — the opposite end from Assignment 1, on purpose.
+    expect(grid.totalsPosition).toBe("TOP");
+  });
+
+  it("puts each assignment's totals row where its own source file has it", () => {
+    // The position is not a second rule to keep in step with the layout —
+    // it comes out of the orientation the detector already reports.
+    expect(defaultTotalsPosition("SOURCES_IN_ROWS")).toBe("BOTTOM");
+    expect(defaultTotalsPosition("SOURCES_IN_COLUMNS")).toBe("TOP");
+
+    const a1 = buildGridMatrix(A1.map((q) => column(q, 1)), "SOURCES_IN_ROWS");
+    const a2 = buildGridMatrix(A2.map((q) => column(q, 1)), "SOURCES_IN_COLUMNS");
+    expect(a1.totalsPosition).toBe("BOTTOM");
+    expect(a2.totalsPosition).toBe("TOP");
+  });
+
+  it("takes an explicit position for a source file that puts its totals elsewhere", () => {
+    const m = buildGridMatrix(A1.map((q) => column(q, 2)), "SOURCES_IN_ROWS", "TOP");
+    expect(m.totalsPosition).toBe("TOP");
+    // Moving the row changes nothing about the arithmetic or the grid.
+    expect(m.columnTotals).toEqual([6, 6]);
+    expect(m.rows.map((r) => r.label)).toEqual(["Solar", "Wind", "Hydro"]);
+  });
+
+  it("places cells by their source references, not by the order they arrive in", () => {
+    const shuffled = [A1[3]!, A1[0]!, A1[4]!, A1[1]!, A1[5]!, A1[2]!];
+    const byCode = new Map([
+      ["A1-001", 10], ["A1-002", 20], ["A1-003", 30],
+      ["A1-004", 40], ["A1-005", 50], ["A1-006", 60],
+    ]);
+    const grid = asText(
+      shuffled.map((q) => column(q, byCode.get(q.external_question_code)!)),
+      "SOURCES_IN_ROWS"
+    );
+    expect(grid.rows).toEqual([
+      ["Solar", 10, 20],
+      ["Wind", 30, 40],
+      ["Hydro", 50, 60],
+    ]);
+  });
+
+  it("leaves a hole rather than shifting cells when the source grid is incomplete", () => {
+    // Wind's "Conventional" question is missing from the assignment.
+    const kept = A1.filter((q) => q.external_question_code !== "A1-003");
+    const m = buildGridMatrix(
+      kept.map((q, i) => column(q, i + 1)),
+      "SOURCES_IN_ROWS"
+    );
+    const wind = m.rows.find((r) => r.label === "Wind")!;
+    expect(wind.cells[0]).toBeNull();
+    expect(wind.cells[1]?.total).toBe(3);
+  });
+
+  it("shows a column nobody has answered as no total, not as a real zero", () => {
+    const m = buildGridMatrix(
+      orderGridQuestions(A1, "SOURCES_IN_ROWS").map((q) =>
+        column(q, q.original_column_reference === "E" ? null : 4)
+      ),
+      "SOURCES_IN_ROWS"
+    );
+    expect(m.columnTotals).toEqual([12, null]);
+  });
+
+  it("counts a partially answered column from the cells that do have answers", () => {
+    const m = buildGridMatrix(
+      orderGridQuestions(A1, "SOURCES_IN_ROWS").map((q, i) => column(q, i === 0 ? null : 2)),
+      "SOURCES_IN_ROWS"
+    );
+    // Column D loses only Solar's cell; it is not NaN and not the full 6.
+    expect(m.columnTotals[0]).toBe(4);
+  });
+
+  it("surfaces a question that collides on a source cell instead of dropping it", () => {
+    const clash: Q = { ...A1[0]!, id: "clash", external_question_code: "A1-999" };
+    const m = buildGridMatrix(
+      [...A1, clash].map((q, i) => column(q, i + 1)),
+      "SOURCES_IN_ROWS"
+    );
+    expect(m.unplaced.map((c) => c.code)).toEqual(["A1-999"]);
+    // The first-placed question keeps the cell, and the stray total is not
+    // silently folded into the TOTAL row.
+    expect(m.rows[0]!.cells[0]!.code).toBe("A1-001");
+    expect(m.columnTotals[0]).toBe(1 + 3 + 5);
+  });
+
+  it("labels the row axis with whichever field is constant along a row", () => {
+    expect(buildGridMatrix(A1.map((q) => column(q, 1)), "SOURCES_IN_ROWS").rowAxis).toBe(
+      "ENERGY_SOURCE"
+    );
+    expect(buildGridMatrix(A2.map((q) => column(q, 1)), "SOURCES_IN_COLUMNS").rowAxis).toBe(
+      "CRITERION"
+    );
+  });
+
+  it("has no student-shaped data anywhere in the matrix", () => {
+    const m = buildGridMatrix(A1.map((q) => column(q, 7)), "SOURCES_IN_ROWS");
+    const keys = new Set(Object.keys(m.rows[0]!.cells[0]!));
+    for (const forbidden of ["studentId", "studentName", "responses", "students"]) {
+      expect(keys.has(forbidden)).toBe(false);
+    }
+    // Every cell is one aggregate number plus the labels that identify it.
+    expect([...keys].sort()).toEqual([
+      "answered",
+      "code",
+      "criterion",
+      "energySource",
+      "originalCell",
+      "questionId",
+      "questionText",
+      "total",
+    ]);
   });
 });
 

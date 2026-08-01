@@ -64,43 +64,16 @@ Assignment page → **Student attempts** → **Reopen** next to the student.
 They can then edit and resubmit; their submission version increments. Only
 you can do this — students cannot reopen their own work.
 
-## 7. Map the two assignments
+## 7. Read the analytics
 
-Class → **Open mapping studio**.
+Class → **View analytics**. Four sections:
 
-This is the step that makes comparison possible. Assignment 1's questions
-are on the left, Assignment 2's on the right. Search or filter either side
-by wording, energy source, criterion, or concept.
-
-**Generate suggestions** proposes matches using plain text and keyword
-matching — no AI, and nothing is approved automatically.
-
-Select questions on each side, give the mapping a name and type, and
-create it. Then:
-
-- **Preview** shows what the mapping *would* report, before you approve it.
-- **Approve** makes it live in analytics.
-- **Reject** sets it aside.
-
-**Nothing appears in analytics until you approve it.** This is enforced in
-the database, not just hidden in the interface.
-
-Approved mappings cannot be edited — use **New version**. The old version
-stays live until you approve the new one, so analytics never goes blank
-mid-change.
-
-## 8. Read the analytics
-
-Class → **View analytics**. Five sections:
-
-- **Overview** — headline counts and rates.
+- **Overview** — per-assignment headline counts, average consensus and
+  entropy, plus the submission snapshot.
 - **Assignment analytics** — response distributions, agreement, submission
   progress and timeline.
-- **Transition analytics** — how answers moved between the assignments,
-  including the drill-down: energy source → criterion → question →
-  transition → the students in it → one student's full profile.
-- **Student analytics** — per-student movement, and a link from each row to
-  that student's **full profile**.
+- **Students** — everyone enrolled and where they are in each assignment,
+  with a link from each row to that student's **full responses**.
 - **Visualisation builder** — build your own chart.
 
 ### Where individual answers live
@@ -112,35 +85,29 @@ Two views, and the split is deliberate:
   a subtotal per energy source. It contains no student rows, no names and no
   individual answers. The Excel workbook's `Grid — …` sheets show the same
   thing, with live `SUM` formulas across each energy source's questions.
-- **Analytics → Students → a student's full profile** is the one place an
-  individual's answers appear. It has two tabs: **Opinion shift** (the
-  approved mappings and how that student moved between the paired questions)
-  and **Full responses** (every question on both assignments — all 30 on
-  Assignment 1 and all 255 on Assignment 2 — with the 0/1 they recorded,
-  grouped by energy source, whether or not the question is mapped).
+- **Analytics → Students → a student's full responses** is the one place an
+  individual's answers appear: every question on both assignments — all 30
+  on Assignment 1 and all 255 on Assignment 2 — with the 0/1 they recorded,
+  grouped by energy source.
 
-Two things worth knowing:
-
-- **Change rate and shift are different.** Change rate counts all movement
-  in both directions; shift is the net balance. A group can have a high
-  change rate and a shift of zero.
-- **Missing and not-comparable answers are reported separately** and are
-  never counted as if they were a change or a non-change.
+One thing worth knowing: **this tool does not compare one student's
+Assignment 1 answer with their Assignment 2 answer.** Doing so would need a
+record declaring which question corresponds to which, and that feature was
+removed. The two assignments are compared only in aggregate, per energy
+source.
 
 Nothing here is a grade. There are no right answers in this data.
 
-## 9. Export
+## 8. Export
 
-- **Export full workbook (Excel)** from the builder page — 10 sheets
-  covering students, questions, responses, mappings, transitions, and
-  analytics.
+- **Export full workbook (Excel)** from the builder page — sheets covering
+  students, questions, responses, per-question analytics, the response
+  grids, and import validation.
 - **CSV / PDF** for whatever the builder is currently showing.
-- **CSV / JSON** of the mapping table from the mapping studio.
 
 Every export records the class, assignments, when it was generated, the
-filters in effect, the metric definitions, and which mapping versions were
-approved at the time — so a file opened months later can still be read
-correctly.
+filters in effect and the metric definitions — so a file opened months
+later can still be read correctly.
 
 ## What this tool does not do
 

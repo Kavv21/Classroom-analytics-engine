@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { EChartsOption } from "echarts";
 import { ChartCard, focusRing } from "@/components/analytics/chart-card";
 import { FilterRow, FilterSearch, ResetFiltersButton } from "@/components/analytics/filter-row";
@@ -26,6 +27,7 @@ import {
 } from "@/lib/charts/theme";
 
 interface StudentAnalyticsProps {
+  classId: string;
   studentSummaries: StudentTransitionSummary[];
   liveRows: ResponseTransitionLiveRow[];
   studentNames: Record<string, string>;
@@ -40,6 +42,7 @@ function valueLabel(v: 0 | 1 | null): string {
 }
 
 export function StudentAnalytics({
+  classId,
   studentSummaries,
   liveRows,
   studentNames,
@@ -222,7 +225,8 @@ export function StudentAnalytics({
         <h3 className="heading">Students ({tableRows.length})</h3>
         <p className="mt-0.5 text-xs text-ink-secondary">
           Per-student transition summary across all approved mappings. Change describes opinion
-          movement — it is not a score. Click a row for the full profile.
+          movement — it is not a score. Click a name for the mapping breakdown, or open the full
+          profile for that student&apos;s complete raw submission on both assignments.
         </p>
         <div className="mt-3 overflow-x-auto rounded border border-hairline">
           <table className="w-full text-left text-xs">
@@ -236,6 +240,7 @@ export function StudentAnalytics({
                 <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">0→1 / 1→0</th>
                 <th scope="col" className="px-2 py-1.5">{headerButton("missing", "Missing")}</th>
                 <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">Not comparable</th>
+                <th scope="col" className="px-2 py-1.5 font-medium text-ink-secondary">Full profile</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-hairline tabular-nums">
@@ -259,11 +264,19 @@ export function StudentAnalytics({
                   <td className="px-2 py-1.5">{r.s01} / {r.s10}</td>
                   <td className="px-2 py-1.5">{r.missing_a1 + r.missing_a2 + r.missing_both}</td>
                   <td className="px-2 py-1.5">{r.not_comparable}</td>
+                  <td className="px-2 py-1.5">
+                    <Link
+                      href={`/classes/${classId}/analytics/students/${r.student_id}`}
+                      className={`link ${focusRing}`}
+                    >
+                      All responses
+                    </Link>
+                  </td>
                 </tr>
               ))}
               {pageRows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-2 py-3 text-ink-muted">
+                  <td colSpan={8} className="px-2 py-3 text-ink-muted">
                     No students match the current filters.
                   </td>
                 </tr>
@@ -311,6 +324,15 @@ export function StudentAnalytics({
                 {BINARY_LABELS.one}: {profileSummary.net_movement_toward_1 > 0 ? "+" : ""}
                 {profileSummary.net_movement_toward_1}
               </p>
+              {/* The mappings below cover only the approved subset. Every
+                  question this student answered — mapped or not — is on the
+                  full profile, which is the one place raw answers live. */}
+              <Link
+                href={`/classes/${classId}/analytics/students/${profileId}`}
+                className={`link mt-1 inline-block text-xs ${focusRing}`}
+              >
+                Open full profile — every question on both assignments →
+              </Link>
             </div>
             <button
               type="button"

@@ -58,6 +58,16 @@ a view's WHERE clause.
 fixed set of views by lookup table (`lib/query-builder/execute.ts`), so
 there is no injection surface and RLS always applies.
 
+**Individual answers have exactly one surface.** The assignment response
+grid (`lib/exports/response-grid.ts`, the `/grid` page, and the `Grid — …`
+Excel sheets) is aggregate-only: per-question class totals in the source
+spreadsheet's column order, plus a per-energy-source rollup, all read from
+`question_response_summary` / `energy_source_response_summary`. It holds no
+student rows. One student's raw 0/1 answers are read by
+`lib/analytics/student-responses.ts` and shown only on that student's
+profile page (`/classes/:id/analytics/students/:studentId`) — the single
+place in the app a per-person answer appears.
+
 **Invariants live in the database.** Attempt-state transitions, question
 immutability after responses, mapping immutability once load-bearing, and
 the `response_value ∈ {0,1,NULL}` constraint are all enforced by triggers

@@ -99,8 +99,25 @@ Class → **View analytics**. Five sections:
 - **Transition analytics** — how answers moved between the assignments,
   including the drill-down: energy source → criterion → question →
   transition → the students in it → one student's full profile.
-- **Student analytics** — per-student movement.
+- **Student analytics** — per-student movement, and a link from each row to
+  that student's **full profile**.
 - **Visualisation builder** — build your own chart.
+
+### Where individual answers live
+
+Two views, and the split is deliberate:
+
+- **Assignment → View response totals** is **aggregate-only**. It shows each
+  question's class totals in the source spreadsheet's own column order, plus
+  a subtotal per energy source. It contains no student rows, no names and no
+  individual answers. The Excel workbook's `Grid — …` sheets show the same
+  thing, with live `SUM` formulas across each energy source's questions.
+- **Analytics → Students → a student's full profile** is the one place an
+  individual's answers appear. It has two tabs: **Opinion shift** (the
+  approved mappings and how that student moved between the paired questions)
+  and **Full responses** (every question on both assignments — all 30 on
+  Assignment 1 and all 255 on Assignment 2 — with the 0/1 they recorded,
+  grouped by energy source, whether or not the question is mapped).
 
 Two things worth knowing:
 

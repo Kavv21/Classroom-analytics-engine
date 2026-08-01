@@ -55,6 +55,7 @@ export default async function StudentAnalyticsPage({
           .</AlertDescription></Alert>
       ) : (
         <StudentAnalytics
+          classId={classId}
           studentSummaries={studentSummaries}
           liveRows={liveRows}
           studentNames={studentNames}

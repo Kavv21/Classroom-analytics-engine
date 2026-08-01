@@ -176,7 +176,7 @@ export default async function AssignmentDetailPage({
             href={`/classes/${classId}/assignments/${assignmentId}/grid`}
             className="btn btn-secondary"
           >
-            View response grid
+            View response totals
           </Link>
         )}
       </div>

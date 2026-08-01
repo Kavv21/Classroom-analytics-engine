@@ -156,8 +156,11 @@ export function TransitionDrilldown({
             <p className="mt-0.5 text-xs text-ink-secondary">
               Every approved mapping for this student. Answers are opinions — a change is a change,
               not an improvement.{" "}
-              <Link href={`/classes/${classId}/analytics/students`} className="underline">
-                Open student analytics
+              <Link
+                href={`/classes/${classId}/analytics/students/${drill.studentId}`}
+                className="underline"
+              >
+                Open full profile — every question on both assignments
               </Link>
             </p>
             <div className="mt-2 overflow-x-auto rounded border border-hairline">

@@ -558,21 +558,31 @@ function writeSheet(
 
 /**
  * The added per-assignment grid sheet: the source spreadsheet's own layout,
- * with one row per student underneath a live column-total row.
+ * carrying each question's ANSWER TOTALS and a rolled-up subtotal for every
+ * energy-source group.
  *
- * Three things here are deliberate:
+ * NO STUDENT ROWS. This sheet is aggregate-only — no names, no per-person
+ * answers. An individual student's full submission lives on the per-student
+ * profile page in the app, which is the one surface that shows it.
  *
- *  - THE TOTALS ARE REAL FORMULAS, `=SUM(B<first>:B<first+999>)`, not
- *    baked-in numbers. A professor who adds a row, deletes a student, or
- *    corrects a cell sees the totals move, which is the whole point of
- *    handing them a spreadsheet rather than a picture. The range runs a
- *    thousand rows past the last student so appended rows are counted.
+ * Four things here are deliberate:
+ *
+ *  - THE SUBTOTALS ARE REAL FORMULAS, `=SUM(B12:AE12)` across each energy
+ *    source's own question columns, not baked-in numbers. A professor who
+ *    corrects a question total sees every subtotal and the grand total move,
+ *    which is the whole point of handing them a spreadsheet rather than a
+ *    picture. (The per-question counts themselves are counts of student
+ *    answers from the database — there are no rows left underneath them to
+ *    sum, so a formula there would only ever sum an empty range.)
  *  - THE COLUMN ORDER MIRRORS THE SOURCE SHEET (see response-grid.ts), so
- *    the grid reads the way the original workbook does, and each column
- *    header carries its original cell reference.
+ *    the grid reads the way the original workbook does, each source's
+ *    questions stay adjacent, and each column header carries its original
+ *    cell reference.
  *  - IT IS A SNAPSHOT AND SAYS SO. An .xlsx cannot re-query this database;
  *    the header block states the generation time and says plainly that the
  *    file will not update itself.
+ *  - NEITHER ANSWER IS SHADED AS BETTER. The colour scale runs across the
+ *    question totals, never over an answer value.
  *
  * No native Excel chart is written. ExcelJS's chart support is partial and
  * a malformed chart part makes the whole workbook unopenable — a far worse
@@ -585,11 +595,17 @@ function writeGridSheet(
   metadata: ExportMetadata
 ): void {
   const notes: Array<[string, string]> = [
-    ["Sheet", `Response grid — ${grid.assignmentTitle}`],
+    ["Sheet", `Response totals — ${grid.assignmentTitle}`],
     ["Assignment", `${grid.assignmentTitle} (sequence ${grid.sequenceNumber})`],
     ["Source worksheet", grid.worksheet ?? "—"],
     ["Layout", orientationDescription(grid.orientation)],
     ["Generated at", grid.generatedAt],
+    [
+      "What this sheet shows",
+      "Class totals per question, in the source spreadsheet's own column order, plus a " +
+        "subtotal for each energy source. It holds no individual student rows — a single " +
+        "student's full submission is on their profile page in the app.",
+    ],
     [
       "POINT-IN-TIME SNAPSHOT",
       "This file cannot refresh itself. It shows the responses as they were at the " +
@@ -604,7 +620,9 @@ function writeGridSheet(
       "This sheet carries no chart. Use the PNG/PDF export buttons on the analytics pages for charts.",
     ],
     ["Class", metadata.className],
-    ["Students in grid", String(grid.students.length)],
+    ["Questions", String(grid.columns.length)],
+    ["Students enrolled", String(grid.totalStudentCount)],
+    ["Of which synthetic", String(grid.syntheticStudentCount)],
     ["Notes", metadata.notes.join(" ")],
   ];
 
@@ -617,13 +635,14 @@ function writeGridSheet(
     row.commit();
   });
 
-  // Three stacked header rows so a column is identifiable by its energy
-  // source, its criterion, and its original cell — the grid is wide, and a
-  // bare question code would make it unreadable.
+  // Stacked header rows so a column is identifiable by its energy source,
+  // its criterion, its wording and its original cell — the grid is wide, and
+  // a bare question code would make it unreadable (lib/ui/question-label.ts).
   const headerTop = notes.length + 2;
   const labelRows: Array<[string, (c: (typeof grid.columns)[number]) => string]> = [
     ["Energy source", (c) => c.energySource],
     ["Criterion", (c) => c.criterion],
+    ["Question", (c) => c.questionText ?? ""],
     ["Original cell", (c) => c.originalCell],
     ["Question code", (c) => c.code],
   ];
@@ -639,41 +658,37 @@ function writeGridSheet(
     row.commit();
   });
 
-  const totalRow = headerTop + labelRows.length;
-  const firstStudentRow = totalRow + 1;
-  const formulaLastRow = firstStudentRow + Math.max(999, grid.students.length + 500);
-
-  const totals = sheet.getRow(totalRow);
-  totals.getCell(1).value = 'Total answering "1"';
-  totals.getCell(1).font = { bold: true };
-  grid.columns.forEach((_, ci) => {
-    const letter = colLetter(ci + 2);
-    const cell = totals.getCell(ci + 2);
-    cell.value = { formula: `SUM(${letter}${firstStudentRow}:${letter}${formulaLastRow})` };
-    cell.font = { bold: true };
-  });
-  totals.commit();
-
-  grid.students.forEach((student, si) => {
-    const row = sheet.getRow(firstStudentRow + si);
-    row.getCell(1).value = student.studentIdentifier
-      ? `${student.studentIdentifier} — ${student.name}`
-      : student.name;
-    student.values.forEach((value, ci) => {
-      row.getCell(ci + 2).value = value === null ? null : value;
+  // Three total rows, one per number, so a column stays six characters wide.
+  const totalRows: Array<[string, (c: (typeof grid.columns)[number]) => number | null]> = [
+    ['Total answering "1" (Yes)', (c) => c.ones],
+    ['Total answering "0" (No)', (c) => c.zeros],
+    ["Students who answered", (c) => c.answered],
+  ];
+  const firstTotalRow = headerTop + labelRows.length;
+  totalRows.forEach(([label, pick], i) => {
+    const row = sheet.getRow(firstTotalRow + i);
+    row.getCell(1).value = label;
+    row.getCell(1).font = { bold: i === 0 };
+    grid.columns.forEach((c, ci) => {
+      const cell = row.getCell(ci + 2);
+      cell.value = pick(c);
+      cell.font = { bold: i === 0 };
     });
     row.commit();
   });
+  const onesRow = firstTotalRow;
+  const zerosRow = firstTotalRow + 1;
+  const answeredRow = firstTotalRow + 2;
 
-  // Conditional formatting on the totals row only: a 3-colour scale across
-  // the column totals, so which energy sources drew the most and fewest
-  // "1" answers is visible at a glance. Applied to the totals rather than
-  // the 0/1 cells on purpose — shading individual answers would make one
-  // answer look better than the other, which this platform does not do.
+  // Conditional formatting on the "1" totals row only: a 3-colour scale
+  // across the question totals, so which energy sources drew the most and
+  // fewest "1" answers is visible at a glance. Applied to the totals rather
+  // than to answer values on purpose — shading an answer would make one of
+  // the two look better than the other, which this platform does not do.
   if (grid.columns.length > 0) {
     const lastLetter = colLetter(grid.columns.length + 1);
     sheet.addConditionalFormatting({
-      ref: `B${totalRow}:${lastLetter}${totalRow}`,
+      ref: `B${onesRow}:${lastLetter}${onesRow}`,
       rules: [
         {
           type: "colorScale",
@@ -689,9 +704,70 @@ function writeGridSheet(
     });
   }
 
+  // ---- energy-source subtotals, as live SUM formulas ----------------------
+  // Each subtotal sums that source's own question columns on the rows above,
+  // so the block recomputes if a professor edits a question total.
+  const sumOver = (row: number, ranges: Array<[number, number]>) =>
+    ranges
+      .map(([from, to]) => `${colLetter(from + 2)}${row}:${colLetter(to + 2)}${row}`)
+      .join(",");
+
+  const subtotalTop = answeredRow + 2;
+  const subtotalHeader = sheet.getRow(subtotalTop);
+  // Wrapped, on a taller row: the subtotal block shares the question grid's
+  // narrow columns, and a clipped header would be worse than a two-line one.
+  subtotalHeader.height = 30;
+  ["Energy source", "Questions", 'Answered "1"', 'Answered "0"', "Answers given", 'Share "1"'].forEach(
+    (label, ci) => {
+      const cell = subtotalHeader.getCell(ci + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.alignment = { wrapText: true, vertical: "bottom" };
+    }
+  );
+  subtotalHeader.commit();
+
+  grid.sourceSubtotals.forEach((subtotal, si) => {
+    const r = subtotalTop + 1 + si;
+    const row = sheet.getRow(r);
+    row.getCell(1).value = subtotal.energySource;
+    row.getCell(2).value = subtotal.questionCount;
+    row.getCell(3).value = { formula: `SUM(${sumOver(onesRow, subtotal.columnRanges)})` };
+    row.getCell(4).value = { formula: `SUM(${sumOver(zerosRow, subtotal.columnRanges)})` };
+    row.getCell(5).value = { formula: `SUM(${sumOver(answeredRow, subtotal.columnRanges)})` };
+    row.getCell(6).value = { formula: `IF(E${r}=0,"",C${r}/E${r})` };
+    row.getCell(6).numFmt = "0.0%";
+    row.commit();
+  });
+
+  const grandRow = subtotalTop + 1 + grid.sourceSubtotals.length;
+  if (grid.columns.length > 0) {
+    const lastLetter = colLetter(grid.columns.length + 1);
+    const row = sheet.getRow(grandRow);
+    row.getCell(1).value = "All energy sources";
+    row.getCell(2).value = grid.columns.length;
+    row.getCell(3).value = { formula: `SUM(B${onesRow}:${lastLetter}${onesRow})` };
+    row.getCell(4).value = { formula: `SUM(B${zerosRow}:${lastLetter}${zerosRow})` };
+    row.getCell(5).value = { formula: `SUM(B${answeredRow}:${lastLetter}${answeredRow})` };
+    row.getCell(6).value = { formula: `IF(E${grandRow}=0,"",C${grandRow}/E${grandRow})` };
+    row.getCell(6).numFmt = "0.0%";
+    for (let c = 1; c <= 6; c++) row.getCell(c).font = { bold: true };
+    row.commit();
+  }
+
+  const footer = sheet.getRow(grandRow + 2);
+  footer.getCell(1).value = "How to read this";
+  footer.getCell(1).font = { bold: true, size: 9 };
+  footer.getCell(2).value =
+    '0 and 1 are the two options — neither is a preferred answer. "Students who answered" counts ' +
+    "students with a non-blank final answer to that question; a student who left it blank is in " +
+    "neither total. The subtotal block below uses live SUM formulas over the question totals above.";
+  footer.getCell(2).font = { size: 9 };
+  footer.commit();
+
   sheet.getColumn(1).width = 32;
-  for (let c = 2; c <= grid.columns.length + 1; c++) sheet.getColumn(c).width = 6;
-  sheet.views = [{ state: "frozen", xSplit: 1, ySplit: totalRow }];
+  for (let c = 2; c <= Math.max(6, grid.columns.length + 1); c++) sheet.getColumn(c).width = 9;
+  sheet.views = [{ state: "frozen", xSplit: 1, ySplit: answeredRow }];
 }
 
 /** 1-based column index → spreadsheet letters (1 → A, 27 → AA). */

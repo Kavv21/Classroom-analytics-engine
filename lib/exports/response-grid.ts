@@ -2,7 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * The response grid: one column per question laid out in the ORIGINAL
- * spreadsheet's reading order, one row per student, and a totals row.
+ * spreadsheet's reading order, carrying that question's ANSWER TOTALS —
+ * plus a rolled-up subtotal for each energy-source group.
+ *
+ * THIS VIEW IS AGGREGATE-ONLY. It holds no student rows, no names, and no
+ * individual answers. An individual student's full submission lives on the
+ * per-student profile page (/classes/:id/analytics/students/:studentId),
+ * which is the one surface that shows raw per-person answers.
  *
  * ONE SOURCE FOR TWO SURFACES. The Excel sheet (lib/exports/workbook.ts)
  * and the live page (/classes/:id/assignments/:id/grid) both call
@@ -10,14 +16,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * totals, so the downloaded snapshot and the live screen cannot drift into
  * showing different things.
  *
- * TOTALS COME FROM A DATABASE VIEW, NOT FROM THE ROWS BELOW THEM.
- * `question_response_summary` (migration 0012) already counts 1s per
- * question over final responses of active student members, and
+ * EVERY NUMBER COMES FROM A DATABASE VIEW. `question_response_summary`
+ * (migration 0012) counts 0s, 1s and respondents per question over final
+ * responses of active student members, and
+ * `energy_source_response_summary` rolls those up per energy source —
  * .claude/rules/analytics.md requires aggregates to be computed in
- * PostgreSQL rather than by looping in app memory. Using it here also means
- * the totals on this grid are the same numbers the rest of analytics uses.
- * The per-student cells are a separate, paginated read — the live page only
- * ever materialises the page of students it is showing.
+ * PostgreSQL rather than by looping in app memory. Using both here also
+ * means the totals on this grid are the same numbers the rest of analytics
+ * uses.
  */
 
 export type GridOrientation = "SOURCES_IN_ROWS" | "SOURCES_IN_COLUMNS";
@@ -25,19 +31,39 @@ export type GridOrientation = "SOURCES_IN_ROWS" | "SOURCES_IN_COLUMNS";
 export interface GridColumn {
   questionId: string;
   code: string;
+  /** Verbatim wording from the manifest (CLAUDE.md rule 1), never composed. */
+  questionText: string | null;
   energySource: string;
   criterion: string;
   /** The cell this question occupied in the source workbook, e.g. "D6". */
   originalCell: string;
+  /** Students answering "1". Null when the question has no summary row. */
+  ones: number | null;
+  /** Students answering "0". */
+  zeros: number | null;
+  /** Students with a non-blank final answer to this question. */
+  answered: number | null;
 }
 
-export interface GridStudentRow {
-  studentId: string;
-  name: string;
-  studentIdentifier: string | null;
-  isSynthetic: boolean;
-  /** Aligned to `columns`; null where the student has no final answer. */
-  values: Array<0 | 1 | null>;
+/**
+ * A rolled-up total across every question belonging to one energy source.
+ *
+ * `columnRanges` are inclusive 0-based index pairs into `columns`. Ordering
+ * keeps each source's questions adjacent, so a source is normally one run —
+ * but the ranges are a list rather than a single pair so that a source split
+ * across the sheet still sums correctly instead of silently covering the
+ * questions in between.
+ */
+export interface GridSourceSubtotal {
+  energySource: string;
+  questionCount: number;
+  ones: number;
+  zeros: number;
+  answered: number;
+  columnRanges: Array<[number, number]>;
+  /** True when this row was rolled up in app code rather than read from
+   *  energy_source_response_summary — see `rollUpSources`. */
+  derived: boolean;
 }
 
 export interface ResponseGrid {
@@ -48,10 +74,8 @@ export interface ResponseGrid {
   orientation: GridOrientation;
   worksheet: string | null;
   columns: GridColumn[];
-  students: GridStudentRow[];
-  /** Count of "1" answers per column, from question_response_summary. */
-  totals: Array<number | null>;
-  /** Students answering this assignment at all, regardless of paging. */
+  sourceSubtotals: GridSourceSubtotal[];
+  /** Students enrolled on this assignment's class, for context on the totals. */
   totalStudentCount: number;
   syntheticStudentCount: number;
   generatedAt: string;
@@ -60,6 +84,7 @@ export interface ResponseGrid {
 interface QuestionRow {
   id: string;
   external_question_code: string;
+  question_text: string | null;
   original_row_reference: string | null;
   original_column_reference: string | null;
   original_worksheet: string | null;
@@ -99,7 +124,9 @@ function rowIndex(ref: string | null): number {
  * "is energy source constant along each row" therefore separates the two,
  * and matches parse-grid.ts's SOURCES_IN_ROWS / SOURCES_IN_COLUMNS.
  */
-export function detectOrientation(questions: QuestionRow[]): GridOrientation {
+export function detectOrientation(
+  questions: Array<Pick<QuestionRow, "original_row_reference" | "energy_source">>
+): GridOrientation {
   const sourcesPerRow = new Map<number, Set<string>>();
   for (const q of questions) {
     const r = rowIndex(q.original_row_reference);
@@ -119,15 +146,15 @@ export function detectOrientation(questions: QuestionRow[]): GridOrientation {
  * criteria stay adjacent exactly as they are in the original grid — whether
  * that axis is rows (Assignment 1) or columns (Assignment 2).
  */
-export function orderGridQuestions(
-  questions: QuestionRow[],
-  orientation: GridOrientation
-): QuestionRow[] {
-  const sourceAxis = (q: QuestionRow) =>
+export function orderGridQuestions<T extends Pick<
+  QuestionRow,
+  "original_row_reference" | "original_column_reference" | "display_order"
+>>(questions: T[], orientation: GridOrientation): T[] {
+  const sourceAxis = (q: T) =>
     orientation === "SOURCES_IN_ROWS"
       ? rowIndex(q.original_row_reference)
       : columnIndex(q.original_column_reference);
-  const criterionAxis = (q: QuestionRow) =>
+  const criterionAxis = (q: T) =>
     orientation === "SOURCES_IN_ROWS"
       ? columnIndex(q.original_column_reference)
       : rowIndex(q.original_row_reference);
@@ -138,6 +165,65 @@ export function orderGridQuestions(
       criterionAxis(a) - criterionAxis(b) ||
       a.display_order - b.display_order
   );
+}
+
+/**
+ * Group the ordered columns into per-energy-source subtotals.
+ *
+ * The numbers come from `energy_source_response_summary` wherever that view
+ * has a row, which is the PostgreSQL-side rollup of exactly these questions.
+ * The view excludes questions whose `energy_source` is NULL, so the
+ * "(no energy source)" bucket — and any group the view somehow has no row
+ * for — is summed here instead and flagged `derived: true` so neither
+ * surface can present an app-side rollup as if it came from the view.
+ */
+export function rollUpSources(
+  columns: GridColumn[],
+  fromView: Map<string, { question_count: number; ones: number; zeros: number; answered: number }>
+): GridSourceSubtotal[] {
+  const order: string[] = [];
+  const ranges = new Map<string, Array<[number, number]>>();
+
+  columns.forEach((column, index) => {
+    const key = column.energySource;
+    let runs = ranges.get(key);
+    if (!runs) {
+      runs = [];
+      ranges.set(key, runs);
+      order.push(key);
+    }
+    const last = runs[runs.length - 1];
+    if (last && last[1] === index - 1) last[1] = index;
+    else runs.push([index, index]);
+  });
+
+  return order.map((energySource) => {
+    const columnRanges = ranges.get(energySource)!;
+    const members = columnRanges.flatMap(([from, to]) => columns.slice(from, to + 1));
+    const view = fromView.get(energySource);
+    if (view && view.question_count === members.length) {
+      return {
+        energySource,
+        questionCount: view.question_count,
+        ones: view.ones,
+        zeros: view.zeros,
+        answered: view.answered,
+        columnRanges,
+        derived: false,
+      };
+    }
+    const sum = (pick: (c: GridColumn) => number | null) =>
+      members.reduce((total, c) => total + (pick(c) ?? 0), 0);
+    return {
+      energySource,
+      questionCount: members.length,
+      ones: sum((c) => c.ones),
+      zeros: sum((c) => c.zeros),
+      answered: sum((c) => c.answered),
+      columnRanges,
+      derived: true,
+    };
+  });
 }
 
 /** Paged read — Supabase caps a plain select at 1000 rows. */
@@ -158,16 +244,9 @@ async function selectAllPaged<T>(
   return out;
 }
 
-export interface GatherGridOptions {
-  /** Max students to materialise. Omit for all (the export path). */
-  studentLimit?: number;
-  studentOffset?: number;
-}
-
 export async function gatherResponseGrid(
   supabase: SupabaseClient,
-  assignmentId: string,
-  options: GatherGridOptions = {}
+  assignmentId: string
 ): Promise<ResponseGrid> {
   // ---- assignment ----
   const { data: assignment, error: assignmentError } = await supabase
@@ -185,7 +264,7 @@ export async function gatherResponseGrid(
       supabase
         .from("questions")
         .select(
-          "id, external_question_code, original_row_reference, original_column_reference, original_worksheet, energy_source, criterion, display_order"
+          "id, external_question_code, question_text, original_row_reference, original_column_reference, original_worksheet, energy_source, criterion, display_order"
         )
         .eq("assignment_id", assignmentId)
         .eq("is_active", true)
@@ -197,114 +276,89 @@ export async function gatherResponseGrid(
 
   const orientation = detectOrientation(questions);
   const ordered = orderGridQuestions(questions, orientation);
-  const columns: GridColumn[] = ordered.map((q) => ({
-    questionId: q.id,
-    code: q.external_question_code,
-    energySource: q.energy_source?.trim() || NO_SOURCE,
-    criterion: q.criterion?.trim() || NO_CRITERION,
-    originalCell: `${q.original_column_reference ?? ""}${q.original_row_reference ?? ""}` || "—",
-  }));
-  const columnIndexById = new Map(columns.map((c, i) => [c.questionId, i]));
 
-  // ---- totals, from the analytics view (not from the rows below) ----
-  const summaryRows = await selectAllPaged<{ question_id: string; ones: number }>(
-    supabase,
-    (from, to) =>
-      supabase
-        .from("question_response_summary")
-        .select("question_id, ones")
-        .eq("assignment_id", assignmentId)
-        .range(from, to)
-        .returns<Array<{ question_id: string; ones: number }>>(),
-    "question_response_summary"
-  );
-  const onesByQuestion = new Map(summaryRows.map((r) => [r.question_id, r.ones]));
-  const totals = columns.map((c) => onesByQuestion.get(c.questionId) ?? null);
-
-  // ---- students (active members of this assignment's class) ----
-  const members = await selectAllPaged<{
-    user_id: string;
-    is_synthetic: boolean;
-    profiles: { full_name: string | null; email: string; student_identifier: string | null } | null;
+  // ---- per-question totals, from the analytics view ----
+  const summaryRows = await selectAllPaged<{
+    question_id: string;
+    answered: number;
+    zeros: number;
+    ones: number;
   }>(
     supabase,
     (from, to) =>
       supabase
+        .from("question_response_summary")
+        .select("question_id, answered, zeros, ones")
+        .eq("assignment_id", assignmentId)
+        .range(from, to)
+        .returns<Array<{ question_id: string; answered: number; zeros: number; ones: number }>>(),
+    "question_response_summary"
+  );
+  const summaryByQuestion = new Map(summaryRows.map((r) => [r.question_id, r]));
+
+  const columns: GridColumn[] = ordered.map((q) => {
+    const summary = summaryByQuestion.get(q.id);
+    return {
+      questionId: q.id,
+      code: q.external_question_code,
+      questionText: q.question_text,
+      energySource: q.energy_source?.trim() || NO_SOURCE,
+      criterion: q.criterion?.trim() || NO_CRITERION,
+      originalCell: `${q.original_column_reference ?? ""}${q.original_row_reference ?? ""}` || "—",
+      ones: summary?.ones ?? null,
+      zeros: summary?.zeros ?? null,
+      answered: summary?.answered ?? null,
+    };
+  });
+
+  // ---- per-energy-source subtotals, from the analytics view ----
+  const sourceRows = await selectAllPaged<{
+    energy_source: string;
+    question_count: number;
+    answered: number;
+    zeros: number;
+    ones: number;
+  }>(
+    supabase,
+    (from, to) =>
+      supabase
+        .from("energy_source_response_summary")
+        .select("energy_source, question_count, answered, zeros, ones")
+        .eq("assignment_id", assignmentId)
+        .range(from, to)
+        .returns<
+          Array<{
+            energy_source: string;
+            question_count: number;
+            answered: number;
+            zeros: number;
+            ones: number;
+          }>
+        >(),
+    "energy_source_response_summary"
+  );
+  const sourceSubtotals = rollUpSources(
+    columns,
+    new Map(sourceRows.map((r) => [r.energy_source.trim(), r]))
+  );
+
+  // ---- enrolment counts, for context on the totals ----
+  // Ids and the synthetic flag only. This view names no student, so nothing
+  // here reads a profile.
+  const members = await selectAllPaged<{ user_id: string; is_synthetic: boolean }>(
+    supabase,
+    (from, to) =>
+      supabase
         .from("class_members")
-        .select("user_id, is_synthetic, profiles(full_name, email, student_identifier)")
+        .select("user_id, is_synthetic")
         .eq("class_id", assignment.class_id)
         .eq("member_role", "STUDENT")
         .eq("status", "ACTIVE")
         .order("user_id")
         .range(from, to)
-        .returns<
-          Array<{
-            user_id: string;
-            is_synthetic: boolean;
-            profiles: {
-              full_name: string | null;
-              email: string;
-              student_identifier: string | null;
-            } | null;
-          }>
-        >(),
+        .returns<Array<{ user_id: string; is_synthetic: boolean }>>(),
     "class_members"
   );
-
-  const allStudents = members
-    .map((m) => ({
-      studentId: m.user_id,
-      name: m.profiles?.full_name ?? m.profiles?.email ?? `Student ${m.user_id.slice(0, 8)}`,
-      studentIdentifier: m.profiles?.student_identifier ?? null,
-      isSynthetic: m.is_synthetic,
-    }))
-    .sort((a, b) =>
-      (a.studentIdentifier ?? a.name).localeCompare(b.studentIdentifier ?? b.name, undefined, {
-        numeric: true,
-      })
-    );
-
-  const offset = options.studentOffset ?? 0;
-  const page =
-    options.studentLimit === undefined
-      ? allStudents
-      : allStudents.slice(offset, offset + options.studentLimit);
-  const pageIds = new Set(page.map((s) => s.studentId));
-
-  // ---- cells ----
-  const responses =
-    page.length === 0
-      ? []
-      : await selectAllPaged<{ student_id: string; question_id: string; response_value: 0 | 1 | null }>(
-          supabase,
-          (from, to) =>
-            supabase
-              .from("responses")
-              .select("student_id, question_id, response_value")
-              .eq("assignment_id", assignmentId)
-              .eq("is_final", true)
-              .in("student_id", [...pageIds])
-              .order("student_id")
-              .range(from, to)
-              .returns<
-                Array<{ student_id: string; question_id: string; response_value: 0 | 1 | null }>
-              >(),
-          "responses"
-        );
-
-  const rowByStudent = new Map<string, GridStudentRow>();
-  for (const s of page) {
-    rowByStudent.set(s.studentId, {
-      ...s,
-      values: new Array<0 | 1 | null>(columns.length).fill(null),
-    });
-  }
-  for (const r of responses) {
-    const row = rowByStudent.get(r.student_id);
-    const column = columnIndexById.get(r.question_id);
-    if (!row || column === undefined) continue;
-    row.values[column] = r.response_value;
-  }
 
   return {
     assignmentId,
@@ -314,10 +368,9 @@ export async function gatherResponseGrid(
     orientation,
     worksheet: ordered[0]?.original_worksheet ?? null,
     columns,
-    students: page.map((s) => rowByStudent.get(s.studentId)!),
-    totals,
-    totalStudentCount: allStudents.length,
-    syntheticStudentCount: allStudents.filter((s) => s.isSynthetic).length,
+    sourceSubtotals,
+    totalStudentCount: members.length,
+    syntheticStudentCount: members.filter((m) => m.is_synthetic).length,
     generatedAt: new Date().toISOString(),
   };
 }

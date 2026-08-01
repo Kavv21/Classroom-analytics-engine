@@ -3,6 +3,8 @@ import {
   detectOrientation,
   orderGridQuestions,
   orientationDescription,
+  rollUpSources,
+  type GridColumn,
 } from "@/lib/exports/response-grid";
 
 /**
@@ -162,6 +164,82 @@ describe("orderGridQuestions", () => {
     const ordered = orderGridQuestions(messy, "SOURCES_IN_ROWS");
     expect(ordered).toHaveLength(3);
     expect(ordered.map((q) => q.id)).toContain("m1");
+  });
+});
+
+describe("rollUpSources", () => {
+  const column = (
+    energySource: string,
+    ones: number | null,
+    zeros: number | null,
+    answered: number | null
+  ): GridColumn => ({
+    questionId: `${energySource}-${ones}-${zeros}-${answered}-${Math.random()}`,
+    code: "Q",
+    questionText: "Some wording",
+    energySource,
+    criterion: "A criterion",
+    originalCell: "D6",
+    ones,
+    zeros,
+    answered,
+  });
+
+  const columns: GridColumn[] = [
+    column("Solar", 10, 5, 15),
+    column("Solar", 8, 7, 15),
+    column("Wind", 3, 12, 15),
+  ];
+
+  it("prefers the database rollup when the view covers the group", () => {
+    // Deliberately different from the sum of the columns: whichever number
+    // this returns tells us which source it came from.
+    const view = new Map([
+      ["Solar", { question_count: 2, ones: 99, zeros: 1, answered: 100 }],
+      ["Wind", { question_count: 1, ones: 3, zeros: 12, answered: 15 }],
+    ]);
+    const [solar, wind] = rollUpSources(columns, view);
+    expect(solar).toMatchObject({ energySource: "Solar", ones: 99, derived: false });
+    expect(wind).toMatchObject({ energySource: "Wind", ones: 3, derived: false });
+  });
+
+  it("rolls the group up here, flagged, when the view has no row for it", () => {
+    const [solar] = rollUpSources(columns, new Map());
+    expect(solar).toMatchObject({
+      energySource: "Solar",
+      questionCount: 2,
+      ones: 18,
+      zeros: 12,
+      answered: 30,
+      derived: true,
+    });
+  });
+
+  it("falls back rather than trusting a view row that covers a different question count", () => {
+    // A stale or differently-filtered view row must not be presented as this
+    // group's total — the columns on screen are the contract.
+    const view = new Map([["Solar", { question_count: 5, ones: 99, zeros: 1, answered: 100 }]]);
+    const [solar] = rollUpSources(columns, view);
+    expect(solar).toMatchObject({ ones: 18, derived: true });
+  });
+
+  it("treats a question with no summary row as contributing nothing, not as NaN", () => {
+    const [group] = rollUpSources([column("Solar", null, null, null), columns[0]!], new Map());
+    expect(group).toMatchObject({ questionCount: 2, ones: 10, zeros: 5, answered: 15 });
+  });
+
+  it("keeps groups in column order and records the ranges each one spans", () => {
+    const split = [columns[0]!, columns[2]!, columns[1]!];
+    const groups = rollUpSources(split, new Map());
+    expect(groups.map((g) => g.energySource)).toEqual(["Solar", "Wind"]);
+    // Solar is split across two runs; both must be summed, and the Wind
+    // column between them must not be swept in.
+    expect(groups[0]!.columnRanges).toEqual([
+      [0, 0],
+      [2, 2],
+    ]);
+    expect(groups[0]!.ones).toBe(18);
+    expect(groups[1]!.columnRanges).toEqual([[1, 1]]);
   });
 });
 

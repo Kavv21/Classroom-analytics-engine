@@ -362,6 +362,40 @@ export async function getResponseTransitionsLive(
   return selectAll(supabase, "response_transitions_live", { class_id: classId }, "mapping_name");
 }
 
+/** One student's transition rows — the profile page's own read, so it never
+ *  pulls the whole class's rows to display one person's. */
+export async function getStudentResponseTransitionsLive(
+  supabase: SupabaseClient,
+  classId: string,
+  studentId: string
+): Promise<ResponseTransitionLiveRow[]> {
+  return selectAll(
+    supabase,
+    "response_transitions_live",
+    { class_id: classId, student_id: studentId },
+    "mapping_name"
+  );
+}
+
+/** One student's transition summary row, or null when they have no valid
+ *  pairs yet (a student with no approved-mapping data is not an error). */
+export async function getStudentTransitionSummary(
+  supabase: SupabaseClient,
+  classId: string,
+  studentId: string
+): Promise<StudentTransitionSummary | null> {
+  const { data, error } = await supabase
+    .from("student_transition_summary")
+    .select("*")
+    .eq("class_id", classId)
+    .eq("student_id", studentId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`could not read student_transition_summary: ${error.message}`);
+  }
+  return data as StudentTransitionSummary | null;
+}
+
 // ============================================================
 // Section 18 exploratory fetchers. Rows come back wrapped in explicit
 // exploratory metadata — Phase 8 must carry the caveat to the UI.

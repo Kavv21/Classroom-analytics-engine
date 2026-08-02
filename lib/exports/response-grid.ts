@@ -179,6 +179,48 @@ const NO_CRITERION = "(no criterion)";
 /** The label on the reproduced TOTAL row — the source sheets' own word. */
 export const GRID_TOTAL_LABEL = "TOTAL";
 
+/** The stored question fields the grid geometry is recovered from. */
+export type GridQuestionFields = Pick<
+  QuestionRow,
+  | "id"
+  | "external_question_code"
+  | "question_text"
+  | "original_row_reference"
+  | "original_column_reference"
+  | "energy_source"
+  | "criterion"
+>;
+
+/**
+ * One question, as a grid column.
+ *
+ * Exported because two surfaces build a grid out of the same stored fields
+ * and must not disagree about how: the professor's aggregate response grid
+ * (counts per cell) and the student's editable answer grid (no counts at
+ * all, `lib/attempts/answer-grid.ts`). The counts are the only difference,
+ * so they are the only argument — everything about WHERE a question sits
+ * and what labels it is decided here, once.
+ */
+export function gridColumnFromQuestion(
+  question: GridQuestionFields,
+  counts?: { ones: number | null; zeros: number | null; answered: number | null }
+): GridColumn {
+  return {
+    questionId: question.id,
+    code: question.external_question_code,
+    questionText: question.question_text,
+    energySource: question.energy_source?.trim() || NO_SOURCE,
+    criterion: question.criterion?.trim() || NO_CRITERION,
+    originalCell:
+      `${question.original_column_reference ?? ""}${question.original_row_reference ?? ""}` || "—",
+    originalRow: question.original_row_reference,
+    originalColumn: question.original_column_reference,
+    ones: counts?.ones ?? null,
+    zeros: counts?.zeros ?? null,
+    answered: counts?.answered ?? null,
+  };
+}
+
 /** Spreadsheet column letters → a sortable number ("D" → 4, "AA" → 27). */
 function columnIndex(ref: string | null): number {
   if (!ref) return Number.MAX_SAFE_INTEGER;
@@ -429,22 +471,9 @@ export async function gatherResponseGrid(
   );
   const summaryByQuestion = new Map(summaryRows.map((r) => [r.question_id, r]));
 
-  const columns: GridColumn[] = ordered.map((q) => {
-    const summary = summaryByQuestion.get(q.id);
-    return {
-      questionId: q.id,
-      code: q.external_question_code,
-      questionText: q.question_text,
-      energySource: q.energy_source?.trim() || NO_SOURCE,
-      criterion: q.criterion?.trim() || NO_CRITERION,
-      originalCell: `${q.original_column_reference ?? ""}${q.original_row_reference ?? ""}` || "—",
-      originalRow: q.original_row_reference,
-      originalColumn: q.original_column_reference,
-      ones: summary?.ones ?? null,
-      zeros: summary?.zeros ?? null,
-      answered: summary?.answered ?? null,
-    };
-  });
+  const columns: GridColumn[] = ordered.map((q) =>
+    gridColumnFromQuestion(q, summaryByQuestion.get(q.id))
+  );
 
   // ---- enrolment counts, for context on the totals ----
   // Ids and the synthetic flag only. This view names no student, so nothing

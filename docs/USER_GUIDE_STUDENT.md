@@ -24,35 +24,39 @@ Choose **Start** or **Continue**.
 
 ## Answering
 
-One question at a time. Each has two choices, labelled by your professor —
-usually something like "No (0)" and "Yes (1)". Pick the one that matches
-your view.
+The whole assignment is one grid on the page — the same spreadsheet your
+professor uploaded, with the same rows and columns in the same order. You
+fill it in here. There is nothing to download, nothing to upload, and no
+other program to open.
 
 **There are no right or wrong answers.** This is collecting opinions, not
 testing knowledge. Nothing you choose is marked or graded.
 
-- **Clear this answer** removes your choice if you'd rather leave it blank.
-- **Jump to a question** at the bottom moves you anywhere in the list. A
-  tick means you've answered that one.
-- The counter shows how many you've answered and how many are left.
+Each cell holds one of three things: blank, `0` or `1`. What 0 and 1 mean
+is written above the grid, in your professor's own wording — usually
+something like "No (0)" and "Yes (1)".
 
-Every question is shown in words. The short code underneath it (like
-`A1-017`) is only there so you can match the question to a column of the
-answer sheet if you use that route.
+- **Click a cell** to change it: blank → 0 → 1 → blank.
+- **Arrow keys** move between cells, and so do **Tab** and **Shift+Tab**.
+  **Home** and **End** jump to the ends of a row; hold **Ctrl** for the
+  ends of the whole grid.
+- **Press 0 or 1** to fill the cell you're on straight away, and
+  **Delete** or **Backspace** to clear it.
+- **Enter** or **Space** does the same as clicking.
 
-### If you answer on a spreadsheet instead
+Cells cannot hold anything else — there is no typing a "2" or a "yes" and
+finding out later that it wasn't allowed.
 
-Some assignments let you download an answer sheet, fill it in, and upload
-it. The answer sheet's first row holds those short codes, because that is
-what the upload matches your answers against — **don't rename or reorder
-those columns**. Underneath each code, the same file repeats the question in
-words. There is also a **question key** download (and the same table on
-screen) listing every code with its full question, energy source and
-criterion, so you can check what you're answering as you go.
+Row and column headings say what each cell is about (for example, the
+"Solar" row and the "Conventional" column). If you use a screen reader,
+each cell announces itself the same way, along with its current value. The
+counter under the grid shows how many cells you've answered and how many
+are still blank.
 
 ## Your work saves itself
 
-Answers save automatically a moment after you choose. The indicator near
+Answers save automatically a moment after you fill a cell — a few cells
+filled quickly are saved together, not one request each. The indicator near
 the top says **Saved** when your work is stored.
 
 **It is safe to close the tab, refresh, or lose connection.** Your answers
@@ -65,9 +69,10 @@ leaving the page does not submit and is not recorded.
 
 ## Submitting
 
-When you're ready, choose **Review your answers**. You'll see everything
-you've chosen and a warning if any questions are unanswered. You can go
-back or submit anyway — unanswered questions are simply recorded as
+When you're ready, choose **Review & submit**. The review step tells you
+how many cells you've answered and how many are still blank, and lists
+every blank one by its row and column so you can find it. You can go back
+to the grid or submit anyway — blank cells are simply recorded as
 unanswered.
 
 Choose **Submit assignment**, then confirm. After that you'll see a

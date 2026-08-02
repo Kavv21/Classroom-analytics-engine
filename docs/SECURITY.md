@@ -110,9 +110,17 @@ a build-specific hash and is not stable enough to key on.
 
 | Bucket | Path | Limit | Why |
 |---|---|---|---|
-| `autosave` | `/assignments/{id}` | 120 / min | Client debounces at 800 ms and batches every pending answer into one call, so even a student answering as fast as they can read stays well under 75/min. 120 leaves ~2× headroom for rapid clicking plus the offline retry queue flushing on reconnect, while still cutting off a runaway loop. |
-| `submit` | `/assignments/{id}/review` | 20 / min | A student submits once, occasionally twice after a professor reopens. The database already rejects a second submission with `ALREADY_SUBMITTED`; this only stops a hot loop. |
+| `attempt` | `/assignments/{id}` | 120 / min | Autosave **and** submission. The client debounces at 800 ms and batches every pending cell into one call, so even a student filling the grid as fast as they can read stays well under 75/min. 120 leaves ~2× headroom for rapid clicking plus the offline retry queue flushing on reconnect, while still cutting off a runaway loop. |
 | `general` | everything else | 300 / min | Professor writes — importing a roster legitimately fires several in a row. |
+
+Submission had its own tighter bucket (20/min at `/assignments/{id}/review`)
+until the live answer grid moved the review step onto the attempt page
+itself. Both Server Actions now POST to the same path, so no path-based
+rule can tell them apart, and they share the bucket above. The protection
+that mattered is unchanged: submission is still capped, and the database
+rejects a repeat submission with `ALREADY_SUBMITTED` whatever the rate —
+the tighter limit only ever existed to stop a hot loop, which 120/min also
+stops.
 
 Exceeding a limit returns **429** with `Retry-After` and a message in the
 interface's own voice (the autosave message says answers are safe in the
@@ -136,9 +144,9 @@ This is sized for *accident*, not *abuse*. If a global guarantee is
 needed, swap `hit()` for an Upstash/Vercel KV implementation — the
 interface is deliberately narrow so that is a one-file change.
 
-Covered by 12 unit tests in `tests/unit/rate-limit.test.ts`, including
-that one user cannot throttle another and that autosave cannot exhaust
-the submit budget.
+Covered by 11 unit tests in `tests/unit/rate-limit.test.ts`, including
+that one user cannot throttle another and that a student filling their
+grid cannot exhaust a professor's write budget.
 
 ## Administrator console
 

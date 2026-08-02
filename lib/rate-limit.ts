@@ -95,48 +95,51 @@ export function resetAllLimits(): void {
 // ---------------------------------------------------------------- rules --
 
 /**
- * Autosave. The client debounces at 800ms and batches every pending
- * answer into one call, so a student answering as fast as they can read
- * generates well under 1 request/second. 120/minute leaves roughly a 2x
- * margin over the worst honest case (rapid clicking plus the retry queue
- * flushing after a reconnect) while still cutting off a runaway loop.
+ * The student's attempt page — autosave AND the final submission.
+ *
+ * The client debounces at 800ms and batches every pending cell into one
+ * call, so a student filling the grid as fast as they can read generates
+ * well under 1 request/second. 120/minute leaves roughly a 2x margin over
+ * the worst honest case (rapid clicking plus the retry queue flushing
+ * after a reconnect) while still cutting off a runaway loop.
+ *
+ * SUBMISSION SHARES THIS BUCKET, and used to have its own tighter one
+ * (20/min) when the review step was a separate route,
+ * `/assignments/{id}/review`. The live answer grid moved review into the
+ * attempt page, so both Server Actions now POST to the same path and no
+ * path-based rule can tell them apart. Nothing is unprotected by it: the
+ * submission is still capped by this bucket, and a repeat submission is
+ * rejected by the database with ALREADY_SUBMITTED regardless of rate —
+ * the tighter limit only ever existed to stop a hot loop, which 120/min
+ * also stops.
  */
-export const AUTOSAVE_RULE: RateLimitRule = { limit: 120, windowMs: 60_000 };
-
-/**
- * Submission. A student submits once, occasionally twice after a
- * professor reopens. The database already rejects a second submission
- * with ALREADY_SUBMITTED, so this only exists to stop a hot loop.
- */
-export const SUBMIT_RULE: RateLimitRule = { limit: 20, windowMs: 60_000 };
+export const ATTEMPT_RULE: RateLimitRule = { limit: 120, windowMs: 60_000 };
 
 /**
  * Everything else a signed-in user can POST (creating classes, importing,
- * approving mappings, running builder queries). Generous, because a
- * professor importing a roster legitimately fires several in a row.
+ * running builder queries). Generous, because a professor importing a
+ * roster legitimately fires several in a row.
  */
 export const GENERAL_WRITE_RULE: RateLimitRule = { limit: 300, windowMs: 60_000 };
 
-export type RateLimitBucket = "autosave" | "submit" | "general";
+export type RateLimitBucket = "attempt" | "general";
 
 /**
  * Which bucket a request falls into, from its path.
  *
  * Autosave and submission are Next.js Server Actions, so they arrive as
  * POSTs to the page they were invoked from rather than to a dedicated
- * endpoint — `/assignments/{id}` for autosave and `/assignments/{id}/review`
- * for submission. Matching on the path is therefore how a Server Action
- * is identified in middleware; the `Next-Action` header carries only a
- * build-specific hash, which is not stable enough to key on.
+ * endpoint — `/assignments/{id}` for both. Matching on the path is
+ * therefore how a Server Action is identified in middleware; the
+ * `Next-Action` header carries only a build-specific hash, which is not
+ * stable enough to key on.
  */
 export function bucketForPath(pathname: string): RateLimitBucket {
-  if (/^\/assignments\/[^/]+\/review\/?$/.test(pathname)) return "submit";
-  if (/^\/assignments\/[^/]+\/?$/.test(pathname)) return "autosave";
+  if (/^\/assignments\/[^/]+\/?$/.test(pathname)) return "attempt";
   return "general";
 }
 
 export const RULES: Record<RateLimitBucket, RateLimitRule> = {
-  autosave: AUTOSAVE_RULE,
-  submit: SUBMIT_RULE,
+  attempt: ATTEMPT_RULE,
   general: GENERAL_WRITE_RULE,
 };

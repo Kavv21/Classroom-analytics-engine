@@ -92,26 +92,33 @@ test("answers persist across a mid-assignment refresh, then submit and get a rec
   await signIn(context, STUDENT_EMAIL, STUDENT_PASSWORD);
   await page.goto(`/assignments/${a1Id}`);
 
-  await expect(page.getByText("Question 1 of 30")).toBeVisible();
+  // The whole assignment is one grid: Assignment 1 is 15 energy sources
+  // down the rows against 2 criteria across, exactly as the source
+  // spreadsheet — 30 editable cells, no download, no upload.
+  const cells = page.locator("button.cell-toggle");
+  await expect(cells).toHaveCount(30);
+  await expect(page.getByRole("columnheader").first()).toHaveText("Energy source");
 
-  // Answer question 1 as "1 — Yes" (the right-hand control).
-  await page.getByRole("button", { name: /^1\s/ }).click();
-  await expect(page.getByText("Selected ✓")).toBeVisible();
+  // Fill the first cell as 1 (two clicks: blank → 0 → 1).
+  await cells.nth(0).click();
+  await cells.nth(0).click();
+  await expect(cells.nth(0)).toHaveAttribute("data-answer", "1");
   // Wait for the debounced autosave to report success.
   await expect(page.getByRole("status")).toHaveText("Saved", { timeout: 15_000 });
 
-  await page.getByRole("button", { name: "Next →" }).click();
-  await page.getByRole("button", { name: /^0\s/ }).click();
+  // Fill the second cell as 0, this time from the keyboard.
+  await cells.nth(1).press("0");
+  await expect(cells.nth(1)).toHaveAttribute("data-answer", "0");
   await expect(page.getByRole("status")).toHaveText("Saved", { timeout: 15_000 });
 
   // THE REFRESH: reload mid-assignment; both answers must survive.
   await page.reload();
-  await expect(page.getByText("Answered 2 · Unanswered 28")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Review & submit \(2 of 30 answered\)/ })).toBeVisible();
 
-  // Submit through the review page (the only submission path).
+  // Submit through the review step (the only submission path).
   await page.getByRole("button", { name: /Review & submit/ }).click();
   await expect(page.getByRole("heading", { name: "Review your answers" })).toBeVisible();
-  await expect(page.getByText(/28 questions are still unanswered/)).toBeVisible();
+  await expect(page.getByText(/28 cells are still blank/)).toBeVisible();
 
   await page.getByRole("button", { name: "Submit assignment" }).click();
   await page.getByRole("button", { name: "Yes, submit now" }).click();
@@ -140,7 +147,8 @@ test("professor reopens the attempt and the student resubmits", async ({ page, c
   await expect(page.getByText(/Reopened — submit again/)).toBeVisible();
 
   await page.goto(`/assignments/${a1Id}`);
-  await page.getByRole("button", { name: /^1\s/ }).click();
+  // The reopened attempt keeps its answers; change a third cell and resubmit.
+  await page.locator("button.cell-toggle").nth(2).press("1");
   await expect(page.getByRole("status")).toHaveText("Saved", { timeout: 15_000 });
 
   await page.getByRole("button", { name: /Review & submit/ }).click();

@@ -31,7 +31,7 @@ script. No page or action uses it.
 | Domain types & formulas | `lib/types/domain.ts` | Metric formulas live here, mirrored by SQL views |
 | Import parsing | `lib/imports/parse-grid.ts` | Pure; fails loudly on ambiguous rows |
 | Roster | `lib/roster/` | Parse, classify, commit |
-| Attempts | `lib/attempts/` | Autosave batching + local draft store |
+| Attempts | `lib/attempts/` | Grid layout, answer validation/commit, autosave batching + local draft store |
 | Analytics | `lib/analytics/` | View readers + pure chart shaping |
 | Query builder | `lib/query-builder/` | Catalogue, validation, execution |
 | Exports | `lib/exports/` | Excel / CSV / PDF + provenance |
@@ -53,6 +53,21 @@ which compares the two assignments through their shared energy-source
 labels — no per-student pairing of an A1 answer with an A2 answer exists
 anywhere. See `ANALYTICS_DEFINITIONS.md` → "Removed: response transition
 states".
+
+**One answering surface: the live grid.** Students fill in the source
+spreadsheet's own grid in the browser (`components/attempts/answer-grid.tsx`).
+The two earlier routes — a one-question-at-a-time runner and a CSV
+download/upload wizard with a parse-preview screen — were removed, not kept
+alongside it. The grid does not re-derive its layout: it imports
+`detectOrientation` / `buildGridMatrix` from `lib/exports/response-grid.ts`,
+the same functions the professor's aggregate response grid and the .xlsx
+export use, so all three surfaces show one geometry per assignment.
+A cell is a button cycling blank → 0 → 1 → blank, which is why an invalid
+`response_value` is unreachable from the UI rather than rejected after the
+fact. `lib/attempts/commit-answers.ts` holds the validate-everything /
+commit-only-if-fully-valid core that the CSV path used to own; the seeding
+script still reaches it through `commit-csv-submission.ts`, which is now a
+parser and nothing more.
 
 **The query builder generates no SQL.** A builder query selects one of a
 fixed set of views by lookup table (`lib/query-builder/execute.ts`), so

@@ -128,8 +128,10 @@ This is the story of what happens as your app gets used for real:
 
 1. **A professor imports Assignment 1 and Assignment 2** — each question
    from the Excel files becomes a row in the `questions` table.
-2. **A student answers Assignment 1**, one 0/1 answer per question,
-   saved as rows in `responses`. They submit — this locks in their
+2. **A student answers Assignment 1** by filling in the professor's own
+   spreadsheet, live on the page: the same rows and columns as the
+   uploaded file, one 0/1 (or blank) per cell, saved as rows in
+   `responses`. They review the sheet and submit — this locks in their
    answers as final.
 3. Time passes ("the professor teaches outside the platform").
 4. **The same student answers Assignment 2.**
@@ -180,7 +182,10 @@ number describes what people *said*, never whether they were *right*.
 2. **Foundation** — the database schema + login system.
 3. **Classes & rosters** — professor creates a class, imports a student list.
 4. **Assignments** — professor publishes Assignment 1 / Assignment 2.
-5. **Student responses** — the actual screen students use to answer.
+5. **Student responses** — the actual screen students use to answer: the
+   source spreadsheet's grid, editable in the browser. *An earlier
+   one-question-at-a-time screen and a CSV download/upload route were both
+   replaced by it.*
 6. **Mapping studio** — linked A1 questions to A2 questions. *Removed in
    migration 0022, along with everything downstream of it: the transition
    engine, 6 chart types, and the demo dashboard.*

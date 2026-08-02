@@ -529,6 +529,56 @@
     color: var(--text-inverse);
   }
 
+  /* ---------- Answer cell ----------------------------------------------
+     One cell of the student's live answer grid
+     (components/attempts/answer-grid.tsx): a button that cycles blank → 0
+     → 1 → blank, sized to sit inside a table cell of the reproduced
+     spreadsheet.
+
+     THE VALUE IS THE GLYPH. A filled cell is distinguished from a blank one
+     by tone, but 0 and 1 are never distinguished from each other by
+     anything except the digit itself — no colour pair, no fill, no icon.
+     Meaning conveyed by colour alone would fail WCAG 1.4.1, and a 0/1
+     colour scheme would also read as a right/wrong pair, which this app
+     does not have (CLAUDE.md: no correctness).
+
+     Focus is spelled out here rather than left to the global
+     :focus-visible rule: the grid moves focus programmatically as arrow
+     keys walk it, and the ring has to be visible for that too. It is drawn
+     inset so a focused cell at the edge of a scrolling table is not
+     clipped. */
+  .cell-toggle {
+    @apply flex w-full items-center justify-center text-sm font-medium;
+    font-variant-numeric: tabular-nums;
+    min-width: 2.5rem;
+    min-height: 2rem;
+    background-color: var(--surface-page);
+    border: 1px solid transparent;
+    color: var(--text-muted);
+  }
+  .cell-toggle[data-answer="0"],
+  .cell-toggle[data-answer="1"] {
+    background-color: var(--surface-raised);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+    @apply font-semibold;
+  }
+  .cell-toggle:hover:not([aria-disabled="true"]) {
+    background-color: var(--surface-sunken);
+  }
+  .cell-toggle:focus,
+  .cell-toggle:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: -3px;
+    position: relative;
+    z-index: 5;
+  }
+  .cell-toggle[aria-disabled="true"] {
+    background-color: var(--surface-sunken);
+    color: var(--text-secondary);
+    @apply cursor-not-allowed;
+  }
+
   .input,
   .select,
   .textarea {

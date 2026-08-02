@@ -1,26 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  AUTOSAVE_RULE,
-  bucketForPath,
-  hit,
-  resetAllLimits,
-  RULES,
-  SUBMIT_RULE,
-} from "@/lib/rate-limit";
+import { ATTEMPT_RULE, bucketForPath, hit, resetAllLimits, RULES } from "@/lib/rate-limit";
 
 beforeEach(() => resetAllLimits());
 
 describe("bucket selection from path", () => {
-  it("routes the attempt page to the autosave bucket", () => {
-    expect(bucketForPath("/assignments/abc-123")).toBe("autosave");
-    expect(bucketForPath("/assignments/abc-123/")).toBe("autosave");
+  it("routes the attempt page — autosave and submission alike — to the attempt bucket", () => {
+    expect(bucketForPath("/assignments/abc-123")).toBe("attempt");
+    expect(bucketForPath("/assignments/abc-123/")).toBe("attempt");
   });
 
-  it("routes the review page to the submit bucket", () => {
-    expect(bucketForPath("/assignments/abc-123/review")).toBe("submit");
-  });
-
-  it("does not mistake the receipt page for either", () => {
+  it("does not mistake the receipt page for the attempt page", () => {
     expect(bucketForPath("/assignments/abc-123/receipt")).toBe("general");
   });
 
@@ -55,36 +44,38 @@ describe("fixed-window counting", () => {
 
   it("counts each user separately — one student cannot throttle another", () => {
     const rule = { limit: 1, windowMs: 60_000 };
-    expect(hit("studentA:autosave", rule, 1_000).allowed).toBe(true);
-    expect(hit("studentA:autosave", rule, 1_100).allowed).toBe(false);
+    expect(hit("studentA:attempt", rule, 1_000).allowed).toBe(true);
+    expect(hit("studentA:attempt", rule, 1_100).allowed).toBe(false);
     // A different student is unaffected, which is the whole point of
     // keying on user id rather than shared university IP.
-    expect(hit("studentB:autosave", rule, 1_200).allowed).toBe(true);
+    expect(hit("studentB:attempt", rule, 1_200).allowed).toBe(true);
   });
 
-  it("counts each bucket separately — autosave cannot exhaust submit", () => {
+  it("counts each bucket separately — a student's grid cannot exhaust the professor's writes", () => {
     const rule = { limit: 1, windowMs: 60_000 };
-    expect(hit("u4:autosave", rule, 1_000).allowed).toBe(true);
-    expect(hit("u4:autosave", rule, 1_100).allowed).toBe(false);
-    expect(hit("u4:submit", rule, 1_200).allowed).toBe(true);
+    expect(hit("u4:attempt", rule, 1_000).allowed).toBe(true);
+    expect(hit("u4:attempt", rule, 1_100).allowed).toBe(false);
+    expect(hit("u4:general", rule, 1_200).allowed).toBe(true);
   });
 });
 
 describe("the configured limits leave room for honest use", () => {
-  it("autosave tolerates a fast student plus a retry flush", () => {
+  it("the attempt bucket tolerates a fast student plus a retry flush", () => {
     // Client debounces at 800ms, so ~75 saves/min is already unrealistic;
     // the limit must sit comfortably above that.
-    expect(AUTOSAVE_RULE.limit).toBeGreaterThan(75);
-    expect(AUTOSAVE_RULE.windowMs).toBe(60_000);
+    expect(ATTEMPT_RULE.limit).toBeGreaterThan(75);
+    expect(ATTEMPT_RULE.windowMs).toBe(60_000);
   });
 
-  it("submit is tight but allows a reopen-and-resubmit cycle", () => {
-    expect(SUBMIT_RULE.limit).toBeGreaterThanOrEqual(2);
-    expect(SUBMIT_RULE.limit).toBeLessThan(AUTOSAVE_RULE.limit);
+  it("still leaves room for a submission, and for a reopen-and-resubmit cycle", () => {
+    // Submission shares this bucket now that the review step lives on the
+    // attempt page. A student who has filled the whole grid has spent a
+    // handful of batched saves, nowhere near the limit.
+    expect(ATTEMPT_RULE.limit).toBeGreaterThan(75 + 2);
   });
 
   it("every bucket has a rule", () => {
-    for (const bucket of ["autosave", "submit", "general"] as const) {
+    for (const bucket of ["attempt", "general"] as const) {
       expect(RULES[bucket]?.limit).toBeGreaterThan(0);
     }
   });

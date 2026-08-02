@@ -1,21 +1,31 @@
 /**
  * HARD REQUIREMENT (EXCLUDED_FEATURES.md, spec section 10 — zero tolerance):
  * no browser activity may ever trigger an automatic submission. These tests
- * mount the real taking UI and the real submit button, fire every excluded
- * browser event — tab switch (visibilitychange), blur/minimize, refresh
- * signals (beforeunload/pagehide), fullscreen exit, navigation (popstate),
+ * mount the real answering UI — the live answer grid — and the real submit
+ * button, fire every excluded browser event — tab switch
+ * (visibilitychange), blur/minimize, refresh signals
+ * (beforeunload/pagehide), fullscreen exit, navigation (popstate),
  * disconnect/reconnect (offline/online) — and prove the submit action is
  * NEVER called. They also verify the component registers no listeners for
  * any of those events in the first place (the only global listener allowed
  * is `online`, which retries pending SAVES), and that submission happens
- * only through two explicit clicks.
+ * only through explicit clicks.
+ *
+ * WHAT CHANGED WITH THE GRID. The old one-question runner and the CSV
+ * upload wizard are gone, and their coverage here did not simply move
+ * across — it was rewritten against the grid, because the risk has a
+ * different shape. The grid's danger is that a cell edit is now one
+ * keystroke among hundreds and the review step lives inside the same
+ * component as the answering surface, so "reaching review" must not be
+ * allowed to slide into "submitting". The events, the forbidden-listener
+ * list and the two-click contract are unchanged.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, act } from "@testing-library/react";
-import { AttemptRunner, type TakingQuestion } from "@/components/attempts/attempt-runner";
+import { AnswerGrid } from "@/components/attempts/answer-grid";
 import { SubmitAttemptButton } from "@/components/attempts/submit-attempt-button";
-import { CsvAnswerUpload } from "@/components/attempts/csv-answer-upload";
-import { saveResponses, submitAttempt, submitCsvAnswers } from "@/lib/attempts/actions";
+import { saveResponses, submitAttempt } from "@/lib/attempts/actions";
+import { A1_LAYOUT, A1_QUESTIONS, blankAnswers } from "./answer-grid-fixture";
 
 vi.mock("@/lib/attempts/actions", () => ({
   saveResponses: vi.fn(async () => ({
@@ -30,18 +40,7 @@ vi.mock("@/lib/attempts/actions", () => ({
       submittedAt: new Date().toISOString(),
       submissionVersion: 1,
       answered: 1,
-      totalQuestions: 2,
-    },
-  })),
-  submitCsvAnswers: vi.fn(async () => ({
-    success: true,
-    data: {
-      attemptId: "attempt-1",
-      state: "SUBMITTED",
-      submittedAt: new Date().toISOString(),
-      submissionVersion: 1,
-      answered: 2,
-      totalQuestions: 2,
+      totalQuestions: 6,
     },
   })),
 }));
@@ -51,37 +50,23 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: routerPush, refresh: vi.fn() }),
 }));
 
-const questions: TakingQuestion[] = [
-  {
-    id: "q1",
-    externalQuestionCode: "T-001",
-    questionText: "Question one",
-    responseZeroLabel: "No (0)",
-    responseOneLabel: "Yes (1)",
-    displayOrder: 1,
-  },
-  {
-    id: "q2",
-    externalQuestionCode: "T-002",
-    questionText: "Question two",
-    responseZeroLabel: "No (0)",
-    responseOneLabel: "Yes (1)",
-    displayOrder: 2,
-  },
-];
-
-function renderRunner() {
+function renderGrid() {
   return render(
-    <AttemptRunner
+    <AnswerGrid
       attemptId="attempt-1"
       assignmentTitle="Test assignment"
       instructions={null}
-      questions={questions}
-      initialAnswers={{ q1: null, q2: null }}
-      reviewPath="/assignments/a/review"
+      layout={A1_LAYOUT}
+      initialAnswers={blankAnswers(A1_QUESTIONS)}
+      receiptPath="/assignments/a/receipt"
       allowDraftEditing={true}
     />
   );
+}
+
+/** The first cell of the grid — "Solar — Conventional". */
+function firstCell() {
+  return screen.getByRole("button", { name: /^Solar — Conventional/ });
 }
 
 /** Every excluded browser behaviour, as firable events. */
@@ -126,7 +111,7 @@ const FORBIDDEN_LISTENERS = [
   "freeze",
 ];
 
-describe("no automatic submission — taking UI", () => {
+describe("no automatic submission — answer grid", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
@@ -142,7 +127,7 @@ describe("no automatic submission — taking UI", () => {
     const windowSpy = vi.spyOn(window, "addEventListener");
     const documentSpy = vi.spyOn(document, "addEventListener");
 
-    renderRunner();
+    renderGrid();
 
     const registered = [
       ...windowSpy.mock.calls.map((c) => c[0]),
@@ -161,11 +146,11 @@ describe("no automatic submission — taking UI", () => {
   });
 
   it("never submits on tab switch, blur, refresh, fullscreen exit, navigation, or disconnect — even mid-draft", async () => {
-    renderRunner();
+    renderGrid();
 
-    // Answer a question so there is a dirty draft in flight — the riskiest
+    // Fill a cell so there is a dirty draft in flight — the riskiest
     // moment for an over-eager "submit on leave" implementation.
-    fireEvent.click(screen.getAllByRole("button", { name: /1\s/ })[0]!);
+    fireEvent.click(firstCell());
 
     fireAllExcludedEvents();
     await act(async () => {
@@ -177,14 +162,41 @@ describe("no automatic submission — taking UI", () => {
     });
 
     expect(submitAttempt).not.toHaveBeenCalled();
-    // Navigation to review/receipt was never forced either.
+    // Navigation to the receipt was never forced either.
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+
+  it("never submits when the excluded events land on the review step", async () => {
+    renderGrid();
+
+    fireEvent.click(firstCell());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    // Reaching review is a navigation inside the component, and it is the
+    // one place a submit call physically exists. Getting there must not
+    // submit, and neither must anything the browser does afterwards.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /review & submit/i }));
+    });
+    expect(screen.getByRole("heading", { name: /review your answers/i })).toBeTruthy();
+    expect(submitAttempt).not.toHaveBeenCalled();
+
+    fireAllExcludedEvents();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    fireAllExcludedEvents();
+
+    expect(submitAttempt).not.toHaveBeenCalled();
     expect(routerPush).not.toHaveBeenCalled();
   });
 
   it("autosaves (debounced) but a reconnect retries only the SAVE, never a submit", async () => {
-    renderRunner();
+    renderGrid();
 
-    fireEvent.click(screen.getAllByRole("button", { name: /1\s/ })[0]!);
+    fireEvent.click(firstCell());
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000);
     });
@@ -199,38 +211,65 @@ describe("no automatic submission — taking UI", () => {
     expect(submitAttempt).not.toHaveBeenCalled();
   });
 
-  it("batches rapid answers into one debounced save (no write per click)", async () => {
-    renderRunner();
+  it("batches rapid cell edits into one debounced save (no write per keystroke)", async () => {
+    renderGrid();
 
-    fireEvent.click(screen.getAllByRole("button", { name: /1\s/ })[0]!);
-    fireEvent.click(screen.getByRole("button", { name: /next/i }));
-    fireEvent.click(screen.getAllByRole("button", { name: /0\s/ })[0]!);
+    // Four cells filled as fast as a student can move across a row.
+    fireEvent.click(firstCell());
+    fireEvent.click(screen.getByRole("button", { name: /^Solar — Renewable/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Wind — Conventional/ }));
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Wind — Renewable/ }), { key: "1" });
+
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000);
     });
 
     expect(saveResponses).toHaveBeenCalledTimes(1);
     const batch = vi.mocked(saveResponses).mock.calls[0]![1];
-    expect(batch).toHaveLength(2);
+    expect(batch).toHaveLength(4);
     expect(submitAttempt).not.toHaveBeenCalled();
   });
 
   it("restores a local draft after an unmount/remount (refresh) and re-syncs it", async () => {
-    const first = renderRunner();
-    fireEvent.click(screen.getAllByRole("button", { name: /1\s/ })[0]!);
-    // Unmount BEFORE the debounced save fires — like closing/refreshing the
-    // tab mid-draft. The answer must survive in localStorage.
+    const first = renderGrid();
+    fireEvent.click(firstCell());
+    // Unmount BEFORE the debounced save fires — like closing or refreshing
+    // the tab mid-draft. The cell must survive in localStorage.
     first.unmount();
     expect(saveResponses).not.toHaveBeenCalled();
 
-    renderRunner(); // fresh mount with server-known answers all null
-    expect(screen.getByText("Answered 1 · Unanswered 1")).toBeTruthy();
+    renderGrid(); // fresh mount with server-known answers all null
+    expect(screen.getByRole("button", { name: /^Solar — Conventional.*0 — No \(0\)/ })).toBeTruthy();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000);
     });
     expect(saveResponses).toHaveBeenCalledTimes(1);
     expect(submitAttempt).not.toHaveBeenCalled();
+  });
+
+  it("submits only after the review step and two explicit clicks", async () => {
+    renderGrid();
+
+    fireEvent.click(firstCell());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /review & submit/i }));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^submit assignment$/i }));
+    expect(submitAttempt).not.toHaveBeenCalled(); // first click only opens the dialog
+
+    fireAllExcludedEvents();
+    expect(submitAttempt).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /yes, submit now/i }));
+    });
+    expect(submitAttempt).toHaveBeenCalledTimes(1);
+    expect(submitAttempt).toHaveBeenCalledWith("attempt-1");
   });
 });
 
@@ -269,137 +308,5 @@ describe("no automatic submission — submit button", () => {
       fireEvent.click(screen.getByRole("button", { name: /yes, submit now/i }));
     });
     expect(submitAttempt).toHaveBeenCalledTimes(1);
-  });
-});
-
-/**
- * The CSV upload path (Part 2) is now the primary way a student submits, so
- * the zero-tolerance rule has to hold here too — and the risk is different
- * in kind. On the per-question runner the danger was a lifecycle listener;
- * here it is the file input, because `onChange` firing is browser activity
- * and wiring submission to it would auto-submit the moment a file is picked.
- */
-describe("no automatic submission — CSV upload", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    window.localStorage.clear();
-  });
-
-  afterEach(() => {
-    cleanup();
-  });
-
-  const csvQuestions = [
-    { id: "q1", externalQuestionCode: "A1-001", questionText: "Solar — Conventional", displayOrder: 1 },
-    { id: "q2", externalQuestionCode: "A1-002", questionText: "Solar — Renewable", displayOrder: 2 },
-  ];
-
-  function renderUpload() {
-    return render(
-      <CsvAnswerUpload
-        attemptId="attempt-1"
-        assignmentTitle="Test assignment"
-        instructions={null}
-        questions={csvQuestions}
-        receiptPath="/assignments/a/receipt"
-      />
-    );
-  }
-
-  function chooseFile(container: HTMLElement, contents: string) {
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
-    const file = new File([contents], "answers.csv", { type: "text/csv" });
-    // jsdom's File.text() is not wired up in every version — pin it.
-    Object.defineProperty(file, "text", { value: async () => contents });
-    Object.defineProperty(input, "files", { value: [file], configurable: true });
-    fireEvent.change(input);
-    return input;
-  }
-
-  it("registers no listeners for tab-switch/blur/fullscreen/unload events", () => {
-    const windowSpy = vi.spyOn(window, "addEventListener");
-    const documentSpy = vi.spyOn(document, "addEventListener");
-
-    renderUpload();
-
-    const registered = [
-      ...windowSpy.mock.calls.map((c) => c[0]),
-      ...documentSpy.mock.calls.map((c) => c[0]),
-    ];
-    for (const forbidden of FORBIDDEN_LISTENERS) {
-      expect(registered, `no listener for "${forbidden}" may be registered`).not.toContain(
-        forbidden
-      );
-    }
-
-    windowSpy.mockRestore();
-    documentSpy.mockRestore();
-  });
-
-  it("choosing a valid file previews it and submits NOTHING", async () => {
-    const { container } = renderUpload();
-
-    await act(async () => {
-      chooseFile(container, "A1-001,A1-002\r\n1,0");
-    });
-
-    // The preview rendered — both answers are shown for checking, and the
-    // confirm button (which only exists in the preview stage) is enabled.
-    // Each code appears twice on the page (the always-present question key
-    // and the preview), so assert on the count rather than uniqueness.
-    expect(screen.getAllByText("A1-001").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("A1-002").length).toBeGreaterThan(0);
-    // The preview names the question in words, not only by its code.
-    expect(screen.getAllByText("Solar — Conventional").length).toBeGreaterThan(0);
-    const button = screen.getByRole("button", { name: /submit these answers/i });
-    expect((button as HTMLButtonElement).disabled).toBe(false);
-
-    // ...and nothing was submitted by the act of choosing the file.
-    expect(submitCsvAnswers).not.toHaveBeenCalled();
-  });
-
-  it("never submits on any excluded browser event, even with a valid file staged", async () => {
-    const { container } = renderUpload();
-
-    await act(async () => {
-      chooseFile(container, "A1-001,A1-002\r\n1,0");
-    });
-
-    fireAllExcludedEvents();
-    await act(async () => {});
-    fireAllExcludedEvents();
-
-    expect(submitCsvAnswers).not.toHaveBeenCalled();
-    expect(routerPush).not.toHaveBeenCalled();
-  });
-
-  it("submits only on the explicit confirm click", async () => {
-    const { container } = renderUpload();
-
-    await act(async () => {
-      chooseFile(container, "A1-001,A1-002\r\n1,0");
-    });
-    expect(submitCsvAnswers).not.toHaveBeenCalled();
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /submit these answers/i }));
-    });
-    expect(submitCsvAnswers).toHaveBeenCalledTimes(1);
-  });
-
-  it("keeps the confirm button disabled while the file has problems", async () => {
-    const { container } = renderUpload();
-
-    await act(async () => {
-      chooseFile(container, "A1-001,A1-002\r\n1,7");
-    });
-
-    const button = screen.getByRole("button", { name: /submit these answers/i });
-    expect((button as HTMLButtonElement).disabled).toBe(true);
-
-    await act(async () => {
-      fireEvent.click(button);
-    });
-    expect(submitCsvAnswers).not.toHaveBeenCalled();
   });
 });

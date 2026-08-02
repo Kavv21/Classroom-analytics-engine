@@ -3,6 +3,17 @@
 **Agent:** backend-owner + frontend-owner in parallel worktrees.
 **Spec sections:** 10, 11, and Section 32 "Phase 5."
 
+> **Superseded UI (2026-08-02).** The answering surface described below —
+> one question at a time with previous/next navigation, plus the CSV
+> download/upload wizard added later — was replaced by a single live grid:
+> the source spreadsheet reproduced in the browser with editable 0/1 cells
+> (`components/attempts/answer-grid.tsx`). Everything else in this phase
+> stands and is still in force: the state machine, the debounced batched
+> autosave, local persistence and the retry queue, the review step before
+> an explicit confirmation, the receipt, reopening — and the
+> no-auto-submit rule, whose tests moved to the grid component. See
+> `docs/ARCHITECTURE.md` → "One answering surface: the live grid".
+
 ## Goal
 
 The actual assignment-taking experience: binary answers, autosave, review,

@@ -19,15 +19,16 @@
  *
  * HOW THE ROWS ARE WRITTEN
  * Each student's answer sheet is generated as CSV text and handed to
- * `commitCsvSubmission` — the exact function the web upload wizard calls —
- * while signed in AS THAT STUDENT. So every row has been through the same
- * parser, the same completeness and 0/1 validation, the same
- * save_attempt_responses / submit_attempt RPCs and the same RLS checks a
- * real submission goes through. If the CSV feature is broken, this script
- * fails rather than quietly producing data the feature could never have
- * produced. It is not a browser and does not pretend to be: the layer
- * being exercised is the validation-and-commit core, which is precisely
- * the layer the UI delegates to.
+ * `commitCsvSubmission` while signed in AS THAT STUDENT. Students no longer
+ * upload files — they fill the live grid in the browser
+ * (components/attempts/answer-grid.tsx) — but both paths end in the same
+ * place: `commitAnswerSet` (lib/attempts/commit-answers.ts), which owns the
+ * 0/1 validation, the "commit only if the whole set is valid" rule and the
+ * save_attempt_responses / submit_attempt RPCs. So every row here has been
+ * through the same validation-and-commit core, the same RPCs and the same
+ * RLS checks a real submission goes through. CSV is simply this script's
+ * way of expressing a full answer sheet in text; it is not a student-facing
+ * feature any more.
  *
  * SAFETY
  *  - Refuses a non-local Supabase URL unless SEED_ALLOW_REMOTE=true, the

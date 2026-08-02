@@ -32,16 +32,23 @@ explicit override, because the hosted project holds real data.
 
 | Suite | Files | Tests |
 |---|---|---|
-| Unit | 11 | 121 |
-| Integration | 6 | 54 |
-| **Vitest total** | **17** | **175** |
-| Playwright e2e | 3 | 15 |
+| Unit | 23 | 222 (+ the env-gated `analytics-definitions`) |
+| Integration | 5 | requires the local stack |
+| Playwright e2e | 4 | requires the local stack |
 
 Unit coverage includes: binary/response validation, attempt-transition
 FSM, every Section 16 formula, question grouping by energy source across
 both spreadsheet orientations, the spreadsheet parser, export formatting
 and CSV quoting, chart-data shaping, query-builder compatibility rules,
 and the exploratory statistics.
+
+It also covers the student answer grid in two files:
+`tests/unit/answer-grid.test.tsx` (the grid is the source spreadsheet's
+own layout in both orientations, a cell has exactly three reachable
+states, keyboard navigation, and the accessible name of every cell) and
+`tests/unit/no-auto-submit.test.tsx` (below). The shared
+validate-everything-commit-only-if-valid core has its own file,
+`tests/unit/commit-answers.test.ts`.
 
 Integration coverage includes: class creation through RLS, roster import,
 assignment import (including atomic rollback on a bad row), question
@@ -51,7 +58,8 @@ export, and RLS access across professors/students.
 
 E2E covers the three workflows end to end in a browser: professor (class →
 assignment → publish → analytics → export), student
-(answer → **refresh mid-way** → submit → receipt → reopened → resubmit),
+(fill grid cells → **refresh mid-way** → review → submit → receipt →
+reopened → resubmit),
 and admin (audit-log access, absence of an admin UI, student
 deactivation).
 
@@ -90,7 +98,9 @@ batching independent reads with `Promise.all` in:
 `classes/[classId]/assignments/[assignmentId]`, `assignments/[assignmentId]`
 (student attempt), `classes/[classId]`, `assignments/[assignmentId]/review`,
 `.../receipt`, and `assignments`. Genuinely dependent reads (attempt →
-saved answers) were left sequential.
+saved answers) were left sequential. (`/review` has since been folded into
+the attempt page as the answer grid's review step; the batching on that
+page survives it.)
 
 **2. Stale planner statistics mattered more than missing indexes.** A
 controlled experiment at seed scale (measured on `response_transitions_live`,

@@ -1,31 +1,33 @@
 import Papa from "papaparse";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { commitAnswerSet, type CommitResult } from "@/lib/attempts/commit-answers";
 import { questionLabel } from "@/lib/ui/question-label";
 
 /**
- * CSV answer submission — the validation + commit core.
+ * CSV answer parsing — and the seeding script's way in.
+ *
+ * THIS IS NO LONGER A STUDENT-FACING PATH. Students answer on the live
+ * grid (components/attempts/answer-grid.tsx); the download/upload wizard
+ * and its parsing preview screen were removed with the one-question runner.
+ * What remains is the file format itself, which scripts/seed-demo-responses.ts
+ * generates synthetic submissions through — so seeded data still travels the
+ * same validate-then-commit path a real submission does, rather than a
+ * lookalike written for seeding.
  *
  * Deliberately framework-free: no "use server", no React, no Next.js
- * imports. It takes a Supabase client and CSV text, and it is called from
- * two places that must never diverge:
- *   - the web upload wizard (server action, student's RLS-scoped client);
- *   - scripts/seed-demo-responses.ts (a client signed in as each synthetic
- *     student).
- * The script therefore exercises the same validation and the same RPCs a
- * real student's upload does, rather than a lookalike written for seeding.
+ * imports.
  *
- * IT NEVER WRITES TO `responses` DIRECTLY. Answers go through
- * save_attempt_responses and the submission through submit_attempt (both
- * migration 0010). Those own the ownership check (auth.uid() must match the
- * attempt's student), the assignment-is-OPEN check, the write-once
- * draft-editing rule, the 0/1/NULL enforcement, the (attempt_id,
- * question_id) upsert, and the attempt state machine. A direct insert would
- * bypass every one of them.
+ * The commit half now lives in lib/attempts/commit-answers.ts, shared with
+ * the grid. This module's job stops at turning CSV text into answers and
+ * reporting every problem it found; `commitAnswerSet` owns the rule that
+ * nothing is written unless the whole set is valid, and owns the fact that
+ * writes go through save_attempt_responses / submit_attempt (migration
+ * 0010) rather than touching `responses` directly.
  *
  * NO AUTOMATIC SUBMISSION. `commitCsvSubmission` submits because the caller
- * asked it to, and the caller is either an explicit confirm click or a
- * seeding script. Nothing in this module is wired to a browser event, a
- * timer, or a lifecycle hook (EXCLUDED_FEATURES.md, zero tolerance).
+ * asked it to, and the caller is a seeding script. Nothing in this module is
+ * wired to a browser event, a timer, or a lifecycle hook
+ * (EXCLUDED_FEATURES.md, zero tolerance).
  */
 
 // ============================================================
@@ -342,14 +344,8 @@ export function parseCsvAnswers(
 // Commit
 // ============================================================
 
-export interface CommitCsvResult {
-  attemptId: string;
-  state: string;
-  submittedAt: string;
-  submissionVersion: number;
-  answered: number;
-  totalQuestions: number;
-}
+/** Re-exported so existing callers keep one import for the whole flow. */
+export type CommitCsvResult = CommitResult;
 
 export type CommitCsvOutcome =
   | { success: true; data: CommitCsvResult }
@@ -370,9 +366,16 @@ export interface CommitCsvOptions {
 }
 
 /**
- * Validate, save, submit. Refuses to write anything unless the file is
- * completely valid — a partial submission is worse than a rejected one,
- * because the student would have no way to tell which answers landed.
+ * Parse, then hand the answers to the shared commit core. Refuses to write
+ * anything unless the file is completely valid — a partial submission is
+ * worse than a rejected one, because the caller would have no way to tell
+ * which answers landed.
+ *
+ * The completeness rule is the CSV path's own: a blank column in an
+ * uploaded file is far more likely to be a filling-in mistake than a
+ * decision, so `requireComplete` is on here. `parseCsvAnswers` has already
+ * reported blanks per column by this point; the flag is what stops a file
+ * that somehow got past it.
  */
 export async function commitCsvSubmission(
   supabase: SupabaseClient,
@@ -395,47 +398,27 @@ export async function commitCsvSubmission(
       issues: parsed.issues,
     };
   }
-  if (parsed.answers.length !== questions.length) {
-    // Belt and braces: the issue list above should already have caught it.
+
+  const outcome = await commitAnswerSet(supabase, {
+    attemptId,
+    questions,
+    answers: parsed.answers.map((a) => ({ questionId: a.questionId, value: a.value })),
+    submit,
+    requireComplete: true,
+  });
+
+  if (!outcome.success) {
     return {
       success: false,
-      error: `Expected ${questions.length} answers, found ${parsed.answers.length}.`,
-      issues: parsed.issues,
+      error: outcome.error,
+      // Re-shaped into the CSV issue vocabulary: the caller is looking at a
+      // file, so a problem is reported against a column, not a question id.
+      issues: outcome.issues?.map((issue) => ({
+        row: issue.code ? 2 : null,
+        column: issue.code,
+        message: issue.message,
+      })),
     };
   }
-
-  const { error: saveError } = await supabase.rpc("save_attempt_responses", {
-    p_attempt_id: attemptId,
-    p_answers: parsed.answers.map((a) => ({ questionId: a.questionId, value: a.value })),
-  });
-  if (saveError) return { success: false, error: saveError.message };
-
-  if (!submit) {
-    return {
-      success: true,
-      data: {
-        attemptId,
-        state: "DRAFT",
-        submittedAt: "",
-        submissionVersion: 0,
-        answered: parsed.answers.length,
-        totalQuestions: questions.length,
-      },
-    };
-  }
-
-  const { data: receipt, error: submitError } = await supabase.rpc("submit_attempt", {
-    p_attempt_id: attemptId,
-  });
-  if (submitError) {
-    // The answers ARE saved at this point; say so rather than implying the
-    // whole upload was lost.
-    return {
-      success: false,
-      error:
-        `Your answers were saved, but the submission did not complete: ${submitError.message}`,
-    };
-  }
-
-  return { success: true, data: receipt as CommitCsvResult };
+  return { success: true, data: outcome.data };
 }

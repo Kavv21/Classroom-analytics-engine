@@ -94,7 +94,7 @@ export async function middleware(request: NextRequest) {
       return new NextResponse(
         JSON.stringify({
           error:
-            bucket === "autosave"
+            bucket === "attempt"
               ? "Your answers are being saved too frequently. They are safe in this browser and will sync in a moment."
               : "Too many requests. Please wait a moment and try again.",
         }),

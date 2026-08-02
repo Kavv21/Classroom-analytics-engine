@@ -90,7 +90,11 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
         <SidebarHeader>
           <Link href="/" className="flex items-center gap-2 px-2 py-1.5">
             <GraduationCap className="size-5 shrink-0" aria-hidden="true" />
-            <span className="truncate font-semibold group-data-[collapsible=icon]:hidden">
+            {/* Letterspaced serif small-cap, per the Ashfield masthead. The
+                text stays in its real casing — several tests assert this
+                literal string, and CSS text-transform changes neither what
+                getByText matches nor what a screen reader announces. */}
+            <span className="wordmark truncate text-sm group-data-[collapsible=icon]:hidden">
               EVALUATING ENERGY SOURCES
             </span>
           </Link>
@@ -160,11 +164,17 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       </Sidebar>
 
       <SidebarInset>
-        <header className="flex h-12 items-center gap-2 border-b px-4">
-          <SidebarTrigger />
+        {/* The Ashfield chrome bar: solid ink across the top of every
+            authenticated screen, which is what anchors the paper below it.
+            Both children take inverse ink explicitly — .eyebrow and the
+            ghost button default to colours meant for paper, and Tailwind's
+            utilities layer wins over the component layer, so these
+            overrides are what actually apply. */}
+        <header className="masthead flex h-14 items-center gap-2 px-4">
+          <SidebarTrigger className="text-[color:var(--text-inverse)] hover:bg-[color:var(--action-hover)] hover:text-[color:var(--text-inverse)]" />
           {/* One shell-level notice rather than a per-page footer, so it is
               present on every authenticated screen and never duplicated. */}
-          <span className="eyebrow ml-auto whitespace-nowrap">
+          <span className="eyebrow ml-auto whitespace-nowrap text-[color:var(--text-inverse)] opacity-75">
             © JINRAJ JOSHIPURA 1994
           </span>
         </header>

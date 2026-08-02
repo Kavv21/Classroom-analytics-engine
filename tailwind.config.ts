@@ -6,8 +6,8 @@ import tailwindcssAnimate from "tailwindcss-animate";
  * (hand-authored for this project — see app/globals.css for the full
  * rationale and the contrast measurements behind each text colour).
  *
- * Direction: "cool slate, soft elevation, sans" — see the header comment
- * in app/globals.css for where it came from and what was rejected.
+ * Direction: "Ashfield — aged-document system" — see the header comment
+ * in app/globals.css for where it came from and what was corrected.
  *
  * These names mirror the CSS custom properties so a component can use
  * either `bg-surface-raised` or `var(--surface-raised)` and get the same
@@ -123,14 +123,35 @@ const config: Config = {
       },
       borderColor: {
         DEFAULT: "var(--border-hairline)",
+        frame: "var(--border-frame)",
       },
-      /* Elevation is new in this direction (the previous system was flat).
-         Shadow is inside the motion budget — it may transition; size and
-         position may not. */
+      /* Elevation carries NO blur in this direction — a printed edge and a
+         hard offset plate. Shadow is inside the motion budget: it may
+         transition; size and position may not. */
       boxShadow: {
         raised: "var(--shadow-raised)",
         lifted: "var(--shadow-lifted)",
         overlay: "var(--shadow-overlay)",
+      },
+      /* The Ashfield system is square everywhere. Rather than edit the
+         `rounded-md` / `rounded-lg` literals scattered across ~25 shadcn
+         primitives (and have the next redesign edit them all back), the
+         whole scale is remapped onto the radius token. `full` is left at
+         Tailwind's default so avatars stay circular — the source's own
+         avatar is the only round thing in it. `none` likewise stays, so an
+         explicit `rounded-none` keeps meaning what it says.
+
+         This is an `extend`, so any key not listed here (e.g. the `4xl`
+         used once in components/ui/sidebar.tsx) keeps its default. */
+      borderRadius: {
+        sm: "var(--radius)",
+        DEFAULT: "var(--radius)",
+        md: "var(--radius)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-lg)",
+        "2xl": "var(--radius-lg)",
+        "3xl": "var(--radius-lg)",
+        "4xl": "var(--radius-lg)",
       },
       transitionDuration: {
         micro: "120ms",

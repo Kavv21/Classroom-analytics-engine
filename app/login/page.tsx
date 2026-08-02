@@ -4,11 +4,15 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
  * The sign-in screen: the app's front door, and the only page most people
  * see before they are anyone in particular.
  *
- * The content sits in a centred, lifted card on the slate page surface —
- * the entry-screen shape taken from the 21st.dev "Login Page 1" pull and
- * rebuilt on project tokens. (It was previously deliberately card-less; the
- * new direction carries hierarchy with elevation rather than with paper
- * warmth, so on a bare page this screen had nothing left to sit on.)
+ * This is screen 1a of the Ashfield design import ("Ashfield Sepia
+ * System.dc.html"), rebuilt on project tokens. The source's composition is
+ * a dark-ink masthead over a left-weighted plate: a framed leaf of paper
+ * carrying a small-caps eyebrow, a large serif headline, a short lede, the
+ * action, and a hairline-separated line of fine print. That structure came
+ * across whole. What did not is the source's right-hand column — a
+ * photographic etching captioned as an item from a named university
+ * archive. It is mockup fiction: there is no such plate and no such
+ * archive, so rather than invent one the column is left as paper.
  *
  * The domain line comes from NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN, never from a
  * literal in this file, so a deployment for another Google Workspace names
@@ -27,27 +31,39 @@ const ALLOWED_DOMAIN = process.env.NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN;
 
 export default function LoginPage() {
   return (
-    <main className="page-spacious flex min-h-screen flex-col items-center justify-center">
-      <div className="card-elevated w-full max-w-md text-center">
-        <h1 className="title-lg mx-auto max-w-[14ch] text-balance">
-          Evaluating Energy Sources
-        </h1>
+    <div className="flex min-h-screen flex-col">
+      <header className="masthead flex items-baseline gap-3 px-6 py-5 sm:px-10">
+        <span className="wordmark text-lg">EVALUATING ENERGY SOURCES</span>
+      </header>
 
-        <p className="lede mx-auto mt-4 max-w-sm">
-          Use your university Google account. If you&rsquo;re a student, your professor adds you to
-          a class roster before your first sign-in.
-        </p>
+      <main className="flex flex-1 items-center px-6 py-16 sm:px-10">
+        <div className="card-elevated w-full max-w-xl">
+          <p className="eyebrow">Sign in</p>
 
-        <div className="mt-10">
-          <GoogleSignInButton />
+          <h1 className="title-lg mt-4 max-w-[18ch] text-balance">
+            Evaluating Energy Sources
+          </h1>
+
+          <p className="lede mt-4 max-w-[46ch] text-pretty">
+            Use your university Google account. If you&rsquo;re a student, your professor adds you to
+            a class roster before your first sign-in.
+          </p>
+
+          <div className="mt-9">
+            <GoogleSignInButton />
+          </div>
+
+          {ALLOWED_DOMAIN && (
+            <p className="note-muted mt-7 border-t pt-5">
+              Restricted to {ALLOWED_DOMAIN} accounts.
+            </p>
+          )}
         </div>
+      </main>
 
-        {ALLOWED_DOMAIN && (
-          <p className="eyebrow mt-5">Restricted to {ALLOWED_DOMAIN} accounts</p>
-        )}
-      </div>
-
-      <p className="eyebrow mt-10">© Jinraj Joshipura 1994</p>
-    </main>
+      <footer className="px-6 pb-10 sm:px-10">
+        <p className="eyebrow">© Jinraj Joshipura 1994</p>
+      </footer>
+    </div>
   );
 }

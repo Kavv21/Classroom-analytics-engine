@@ -5,22 +5,43 @@
 /* ==========================================================================
    Classroom Opinion Analytics — design tokens.
 
-   DIRECTION: "cool slate, soft elevation, sans" — a full replacement of the
-   previous warm-paper / serif-display / small-caps-eyebrow system, not a
-   layer on top of it. The direction was extracted structurally from two
-   21st.dev pulls (shadcnstore "Login Page 1", sean0205 "Statistics Card 1");
-   neither could be used as code — both are authored for Tailwind v4 and this
-   project is on v3.4.19, so their utilities (bg-linear-to-br, shadow-xs,
-   outline-hidden, h-8.5) emit nothing here. What was taken is the shape of
-   the thing: a centred elevated card for entry screens, a bordered card
-   header, a KPI grid with a large tabular metric over a quiet label, soft
-   elevation, roomier radii, and sans-serif titles with tight tracking.
+   DIRECTION: "Ashfield — aged-document system". Imported from the Claude
+   Design project "Ashfield Sepia System.dc.html", which specifies one sepia
+   etching palette demonstrated on three representative screens (sign-in,
+   analytics overview, response grid). It is a full replacement of the
+   previous "cool slate, soft elevation, sans" system, not a layer on top.
 
-   What deliberately did NOT come across from those pulls:
-   - their palettes (this file stays the single source of colour);
-   - their green-up / red-down delta badges. .claude/rules/analytics.md
-     forbids any colour scheme implying "better" or "correct", and these
-     figures are descriptive statistics about opinions.
+   What the source document actually is: a visual language plus three
+   mockups. The LANGUAGE came across whole — palette, square corners, serif
+   display over humanist sans, letterspaced small-caps eyebrows, hard
+   offset "printed plate" shadows instead of blur, paper grain, dark-ink
+   chrome. The mockups' CONTENT did not, and could not: its response grid
+   shows per-item marks out of 25, row totals, section means and an
+   integrity flag. This app records binary opinions with no correct answer
+   (CLAUDE.md rules 1-2, docs/EXCLUDED_FEATURES.md), so none of that has
+   anything to render against here. Only the treatment was taken.
+
+   Where the source was corrected rather than copied — every one of these
+   is a measured WCAG failure in the original, not a preference:
+   - muted text #6e6455 is 4.15:1 on the sidebar sepia and 3.47:1 on the
+     deepest paper tint. Darkened to #5b5347 (4.53:1 at worst). WCAG 1.4.3.
+   - the frame line #b3a17a is 1.51-2.27:1 against every surface. It is
+     kept, as --border-frame, for the decorative outer frame of a card or
+     table where no minimum applies — but every INTERACTIVE boundary (input
+     edge, secondary-button edge) now takes --border-strong #7a6c4c, which
+     is >=3:1 everywhere. WCAG 1.4.11. This preserves the fix made in the
+     previous direction rather than regressing it.
+   - status text tints were darkened to clear AA on the deepest surface
+     they can land on.
+
+   TYPE: the source sets Georgia for display and loads Source Sans 3 from
+   Google Fonts for body. The serif came across exactly as written (Georgia
+   is a system face, which is why the source hardcodes it). The webfont did
+   NOT: this project deliberately ships no webfont — no build-time network,
+   no FOUT on university wifi, and the UI sans stays byte-identical to the
+   chart font in lib/charts/theme.ts so chart text and UI text match. The
+   display serif is where this direction's type story lives; the body sans
+   is a neutral carrier either way.
 
    The class NAMES below are unchanged on purpose: 27 routes and
    tests/unit/question-manager-groups.test.tsx reference them, so redefining
@@ -28,9 +49,9 @@
 
    Every text colour clears WCAG AA (4.5:1) against every surface it can
    appear on, and every interactive boundary clears 1.4.11 (3:1). These are
-   computed, not eyeballed — 46 checks, all passing. Status colours keep the
-   fill / *-text split so a non-text dot and its label are validated apart.
-   Data-encoding colours are NOT here; they remain in lib/charts/theme.ts.
+   computed, not eyeballed. Data-encoding colours are NOT here; they remain
+   in lib/charts/theme.ts and are untouched — only that file's non-encoding
+   CHROME moved, to keep charts sitting on the same paper as the cards.
    ========================================================================== */
 
 @layer base {
@@ -47,77 +68,97 @@
        tokens below are derived from them with rgb(), so the two forms
        cannot drift apart.
        ------------------------------------------------------------------ */
-    --surface-page-rgb: 246 247 249;
-    --surface-raised-rgb: 255 255 255;
-    --surface-sunken-rgb: 236 238 242;
-    --text-primary-rgb: 13 17 23;
-    --text-secondary-rgb: 69 79 91;
-    --text-muted-rgb: 87 100 112;
-    --text-inverse-rgb: 255 255 255;
-    --action-rgb: 23 28 35;
-    --status-critical-rgb: 214 45 53;
-    --border-hairline-rgb: 223 227 233;
-    --border-strong-rgb: 121 131 143;
-    --focus-rgb: 26 79 156;
+    --surface-page-rgb: 240 231 212;
+    --surface-raised-rgb: 248 242 228;
+    --surface-sunken-rgb: 229 217 191;
+    --text-primary-rgb: 36 31 26;
+    --text-secondary-rgb: 74 66 55;
+    --text-muted-rgb: 91 83 71;
+    --text-inverse-rgb: 248 242 228;
+    --action-rgb: 36 31 26;
+    --status-critical-rgb: 204 58 18;
+    --border-hairline-rgb: 214 199 163;
+    --border-strong-rgb: 122 108 76;
+    --focus-rgb: 204 58 18;
 
-    /* Surfaces — cool slate. Raised is pure white so an elevated card
-       separates from the page by both value and shadow, which is what
-       carries hierarchy now that the paper warmth is gone. */
+    /* Surfaces — aged paper, four values deep. Raised is the lightest
+       leaf; hierarchy is carried by value plus a hard printed edge, not
+       by blur. --surface-inset is the deepest tint, used where the source
+       darkens a cell or column against its own table. */
     --surface-page: rgb(var(--surface-page-rgb));
     --surface-raised: rgb(var(--surface-raised-rgb));
     --surface-sunken: rgb(var(--surface-sunken-rgb));
-    --surface-inset: #e3e6ec;
+    --surface-inset: #d6c7a3;
 
-    /* Tinted surfaces for banners/badges */
-    --surface-good: #edf6f1;
-    --surface-warning: #fdf5e7;
-    --surface-critical: #fdf1f2;
-    --surface-info: #eef2fa;
+    /* Tinted surfaces for banners/badges, warmed onto the paper base so a
+       status block reads as a stained page rather than a pasted-on chip. */
+    --surface-good: #e4ecd9;
+    --surface-warning: #f6e8c6;
+    --surface-critical: #f7ddd2;
+    --surface-info: #dfe6e9;
 
-    /* Borders. --border-strong is now a true 3:1 boundary against every
-       surface (it was ~1.7:1 before and failed WCAG 1.4.11); input and
-       secondary-button edges read as real edges rather than suggestions. */
+    /* Borders, three weights — the source uses two decorative ones and
+       this system needs a third that is legally an interactive boundary.
+         --border-frame     outer frame of a card/table. Decorative: no
+                            contrast minimum applies, same as a gridline.
+         --border-hairline  inner rules, row separators, header underlines.
+         --border-strong    anything you can type in or click the edge of.
+                            >=3:1 on every surface (WCAG 1.4.11). */
+    --border-frame: #b3a17a;
     --border-hairline: rgb(var(--border-hairline-rgb));
     --border-strong: rgb(var(--border-strong-rgb));
 
     /* Text — all AA on every surface above (measured) */
-    --text-primary: rgb(var(--text-primary-rgb));      /* 18.9:1 raised */
-    --text-secondary: rgb(var(--text-secondary-rgb));  /* 8.3:1  raised */
-    --text-muted: rgb(var(--text-muted-rgb));          /* 5.6:1 raised, 4.6:1 inset */
-    --text-inverse: rgb(var(--text-inverse-rgb));
+    --text-primary: rgb(var(--text-primary-rgb));      /* 14.6:1 raised */
+    --text-secondary: rgb(var(--text-secondary-rgb));  /*  8.9:1 raised */
+    --text-muted: rgb(var(--text-muted-rgb));          /*  6.9:1 raised, 4.5:1 inset */
+    --text-inverse: rgb(var(--text-inverse-rgb));      /* 14.6:1 on ink */
 
-    /* Action — cool INK, still deliberately NOT blue. Blue remains
-       reserved for chart data encoding, so a primary button can never be
-       mistaken for a data series. Only the temperature changed. */
+    /* Action — the ink of the system: the same value as primary text, so
+       a filled button reads as a printed block rather than a coloured
+       one. Deliberately not a hue, which keeps every hue in the app
+       available for chart data encoding. */
     --action: rgb(var(--action-rgb));
-    --action-hover: #0a0d11;
+    --action-hover: #3a322a;
 
-    /* Status: fill variants are non-text; *-text variants meet AA */
-    --status-good: #12a150;
-    --status-good-text: #04663a;      /* 7.1:1 raised */
-    --status-warning: #f5a524;
-    --status-warning-text: #7d4f00;   /* 7.0:1 raised */
+    /* Status: fill variants are non-text; *-text variants meet AA on the
+       deepest surface they can land on. Critical shares the source's one
+       accent, the etching red, which is also the focus colour — the
+       system has exactly one alarm hue and uses it for both. */
+    --status-good: #5a7d2a;
+    --status-good-text: #3d5a1e;      /* 7.0:1 raised */
+    --status-warning: #c98a12;
+    --status-warning-text: #79490c;   /* 6.7:1 raised */
     --status-critical: rgb(var(--status-critical-rgb));
-    --status-critical-text: #a81f26;  /* 7.3:1 raised */
-    --status-info-text: #1a4f9c;      /* 8.0:1 raised */
+    --status-critical-text: #992d0e;  /* 6.7:1 raised */
+    --status-info-text: #1f4a70;      /* 8.3:1 raised */
 
     --focus: rgb(var(--focus-rgb));
 
-    /* Type — no webfont, by design. No build-time network, no FOUT for
-       300 students on university wifi, and the sans stays byte-identical
-       to the dataviz chart font so chart text and UI text match. The
-       display face is now the SAME sans as body (the serif is gone);
-       titles separate themselves by weight and tracking instead. */
-    --font-display: system-ui, -apple-system, "Segoe UI", sans-serif;
+    /* Type — display serif is a system face (as the source itself
+       specifies); body is the system sans, byte-identical to
+       lib/charts/theme.ts FONT_FAMILY. See the header note on why the
+       source's Source Sans 3 webfont was not adopted. */
+    --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
     --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
-    /* Elevation. New to this direction — the old system was flat. Kept
-       tight and cool-tinted so a raised card reads as lifted paper, not
-       as a drop-shadowed widget. Shadow is inside the motion budget. */
-    --shadow-raised: 0 1px 2px rgb(13 17 23 / 0.04), 0 1px 3px rgb(13 17 23 / 0.06);
-    --shadow-lifted: 0 2px 4px rgb(13 17 23 / 0.05), 0 4px 12px rgb(13 17 23 / 0.08);
-    --shadow-overlay: 0 8px 24px rgb(13 17 23 / 0.14);
+    /* Elevation. NO BLUR anywhere in this direction — depth is a printed
+       edge and a hard offset plate, which is the single most legible
+       carrier of "aged document" after the palette itself. Shadow is
+       inside the motion budget (it may transition; size and position may
+       not). */
+    --shadow-raised: 0 1px 0 var(--border-hairline);
+    --shadow-lifted: 0 1px 0 var(--border-hairline), 10px 10px 0 rgb(36 31 26 / 0.055);
+    --shadow-overlay: 0 0 0 1px var(--border-frame), 14px 14px 0 rgb(36 31 26 / 0.1);
+
+    /* Paper grain. One faint fractal-noise tile, baked at low alpha inside
+       the SVG rather than applied with opacity + mix-blend-mode, because a
+       blended full-page overlay creates a stacking context that dropdowns
+       and dialogs then have to fight. As a plain background-image it
+       composites over any background-colour and can never intercept a
+       pointer event. */
+    --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E");
 
     /* Motion budget: colour/opacity/shadow only, two durations. */
     --motion-micro: 120ms;
@@ -125,16 +166,18 @@
     /* ------------------------------------------------------------------
        shadcn/ui theme bridge.
 
-       These hold CHANNELS ("23 28 35"), not colours, so Tailwind's
+       These hold CHANNELS ("36 31 26"), not colours, so Tailwind's
        <alpha-value> placeholder can produce bg-primary/80 etc. shadcn
        components are written against ITS token names; every one is
        aliased to the project tokens above, so changing a colour here is
        impossible without changing the source token.
 
        Preserved deliberately:
-       - --primary is the INK, not a blue (see --action above).
+       - --primary is the INK, not a hue (see --action above).
        - --muted-foreground is the AA-compliant muted text. shadcn's
          default (oklch 0.556) fails AA for normal text.
+       - --input takes the STRONG border, not the hairline: a field edge
+         is an interactive boundary and owes 3:1.
        ------------------------------------------------------------------ */
     --background: var(--surface-page-rgb);
     --foreground: var(--text-primary-rgb);
@@ -156,8 +199,6 @@
        nothing and prevents an unstyled fallback. */
     --destructive-foreground: var(--text-inverse-rgb);
     --border: var(--border-hairline-rgb);
-    /* Inputs deliberately take the STRONGER border — a form field that
-       reads as a hairline is hard to find on a dense screen. */
     --input: var(--border-strong-rgb);
     --ring: var(--focus-rgb);
 
@@ -172,16 +213,22 @@
     --chart-4: 237 161 0;
     --chart-5: 232 123 164;
 
-    /* 0.5rem = Tailwind's rounded-lg. Up from the old 0.375rem: both
-       pulls sat at lg/xl, and the roomier corner is the most legible
-       single carrier of the new direction across every surface. */
-    --radius: 0.5rem;
+    /* Square, everywhere. The source has no rounded corner on any element
+       — card, button, field, badge, table frame and pagination chip are
+       all hard-edged, and that squareness is doing as much work as the
+       palette. tailwind.config.ts maps the whole rounded-* scale onto
+       these two tokens (rounded-full excepted, for avatars), so no
+       component file had to be edited to go square. */
+    --radius: 0px;
+    --radius-lg: 0px;
 
-    --sidebar: var(--surface-raised-rgb);
+    /* The left rail is the sunken paper of the source's analytics screen;
+       its active item is a solid ink block. */
+    --sidebar: var(--surface-sunken-rgb);
     --sidebar-foreground: var(--text-primary-rgb);
     --sidebar-primary: var(--action-rgb);
     --sidebar-primary-foreground: var(--text-inverse-rgb);
-    --sidebar-accent: var(--surface-sunken-rgb);
+    --sidebar-accent: var(--surface-page-rgb);
     --sidebar-accent-foreground: var(--text-primary-rgb);
     --sidebar-border: var(--border-hairline-rgb);
     --sidebar-ring: var(--focus-rgb);
@@ -191,6 +238,7 @@
     font-family: var(--font-body);
     color: var(--text-primary);
     background-color: var(--surface-page);
+    background-image: var(--paper-grain);
     -webkit-font-smoothing: antialiased;
     @apply font-sans;
   }
@@ -198,7 +246,20 @@
   body {
     font-size: 0.875rem;
     line-height: 1.55;
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    /* Transparent, not bg-background: the grain lives on <html> and the
+       body must not paint over it. Every surface that needs to be opaque
+       (card, well, table frame) declares its own background. */
+    background-color: transparent;
+  }
+
+  /* Ink underlined links are the source's default anchor treatment. */
+  a {
+    text-underline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--surface-inset);
   }
 
   /* Only these properties ever transition, and only on things you can
@@ -218,10 +279,13 @@
       opacity var(--motion-micro) ease-out;
   }
 
+  /* The source's focus ring: 3px of the etching red, offset. Square, like
+     everything else — the previous 2px radius was a leftover from a
+     rounded system. */
   :focus-visible {
-    outline: 2px solid var(--focus);
+    outline: 3px solid var(--focus);
     outline-offset: 2px;
-    border-radius: 2px;
+    border-radius: 0;
   }
 
   /* shadcn's sidebar transitions width/left when it collapses, i.e. it
@@ -244,8 +308,8 @@
       scroll-behavior: auto !important;
     }
   }
-  /* shadcn writes a .theme block for its font slots. Both now point at
-     the same system sans — the serif display face is gone. */
+  /* shadcn writes a .theme block for its font slots. The display slot is a
+     real serif again in this direction. */
   .theme {
     --font-heading: var(--font-display);
     --font-sans: var(--font-body);
@@ -279,30 +343,36 @@
   }
 
   /* ---------- Typography ----------------------------------------------
-     Sans throughout. Titles are distinguished by weight and NEGATIVE
-     tracking (the pulls' "text-2xl font-semibold tracking-tight" idiom)
-     rather than by a contrasting serif face. */
+     The source's whole type story: a serif display face against a plain
+     sans body, with negative tracking on titles and generous positive
+     tracking on the small-caps labels. Titles no longer lean on weight —
+     a serif at 600 looks laboured, so they sit at 400 and separate
+     themselves by face and size. */
   .title-lg {
     font-family: var(--font-display);
-    @apply text-3xl font-semibold leading-tight;
-    letter-spacing: -0.022em;
+    @apply text-3xl font-normal leading-tight;
+    letter-spacing: -0.015em;
     color: var(--text-primary);
   }
   .title-md {
     font-family: var(--font-display);
-    @apply text-2xl font-semibold leading-tight;
-    letter-spacing: -0.019em;
+    @apply text-2xl font-normal leading-tight;
+    letter-spacing: -0.012em;
     color: var(--text-primary);
   }
   .title-sm {
     font-family: var(--font-display);
-    @apply text-xl font-semibold leading-snug;
-    letter-spacing: -0.015em;
+    @apply text-xl font-normal leading-snug;
+    letter-spacing: -0.008em;
     color: var(--text-primary);
   }
+  /* Card and section headings are serif too — in the source every card
+     owns a Georgia title, which is what stops a dense screen reading as
+     one undifferentiated sans grid. */
   .heading {
-    @apply text-base font-semibold;
-    letter-spacing: -0.008em;
+    font-family: var(--font-display);
+    @apply text-base font-normal;
+    letter-spacing: 0;
     color: var(--text-primary);
   }
   .subheading {
@@ -326,15 +396,18 @@
     color: var(--text-secondary);
   }
   /* Eyebrow: the context line above a page title, or a quiet reassurance
-     line. REDEFINED for this direction — it is no longer small-caps
-     letterspaced. Both pulls label with a plain quiet medium-weight line
-     ("text-muted-foreground text-sm font-medium"), which reads as calmer
-     and stops the label competing with the title for emphasis. Same class
-     name, same role, new treatment. */
+     line. RESTORED to letterspaced small caps — the source labels every
+     section this way ("VOLUME IV · SESSION 2026", "ANALYTICS", "SCOPE"),
+     and the wide tracking is what makes a 12px label read as typography
+     rather than as small text. Same class name, same role.
+
+     Casing gotcha: keep source text in its real casing. `text-transform`
+     does not change what a test's getByText matches, and several tests
+     assert literal strings. `uppercase` over already-uppercase text is a
+     harmless no-op. */
   .eyebrow {
-    @apply text-xs font-medium;
-    letter-spacing: 0;
-    text-transform: none;
+    @apply text-xs font-medium uppercase;
+    letter-spacing: 0.2em;
     color: var(--text-muted);
   }
   .mono {
@@ -343,13 +416,13 @@
   }
 
   /* ---------- Surfaces -------------------------------------------------
-     Cards are now white-on-slate with a soft shadow; the old system was
-     flat and separated surfaces by warmth alone. */
+     A card is a leaf of paper: lighter than the page, framed by a printed
+     line, with a hairline under its bottom edge. No radius, no blur. */
   .card {
     background-color: var(--surface-raised);
-    border: 1px solid var(--border-hairline);
+    background-image: var(--paper-grain);
+    border: 1px solid var(--border-frame);
     box-shadow: var(--shadow-raised);
-    @apply rounded-lg;
   }
   .card-standard {
     @apply card p-5;
@@ -357,14 +430,14 @@
   .card-spacious {
     @apply card p-8;
   }
-  /* Entry screens (login / not-provisioned / receipt): the centred lifted
-     card from the Login Page 1 pull, rebuilt on project tokens. */
+  /* Entry screens (login / not-provisioned / receipt) get the source's
+     plate treatment: the same framed leaf, dropped onto a hard offset
+     shadow so it reads as a physical plate laid on the page. */
   .card-elevated {
     @apply card p-8;
     box-shadow: var(--shadow-lifted);
   }
-  /* Bordered card header — the structural device from the Statistics Card
-     pull. A header that owns a rule reads as a section, not a caption.
+  /* A header that owns a rule reads as a section, not a caption.
      Padding-agnostic on purpose so it composes with card-standard (p-5)
      and the denser p-4 chart cards alike. */
   .card-header {
@@ -374,57 +447,60 @@
   .well {
     background-color: var(--surface-sunken);
     border: 1px solid var(--border-hairline);
-    @apply rounded-lg;
   }
 
   /* ---------- Metric tiles --------------------------------------------
-     The KPI grid from the Statistics Card pull, minus its green-up /
-     red-down delta badge: .claude/rules/analytics.md forbids a colour
-     scheme implying "better". A figure here is a plain tabular number
-     over a quiet label. */
+     The source's KPI tile: a letterspaced small-caps label over a large
+     serif figure. No delta badge — .claude/rules/analytics.md forbids a
+     colour scheme implying "better", and these are descriptive statistics
+     about opinions. */
   .stat-label {
-    @apply text-xs font-medium;
+    @apply text-xs font-medium uppercase;
+    letter-spacing: 0.14em;
     color: var(--text-muted);
   }
   .stat-value {
-    @apply mt-1 text-2xl font-semibold;
-    letter-spacing: -0.02em;
+    font-family: var(--font-display);
+    @apply mt-1 text-3xl font-normal leading-none;
+    letter-spacing: -0.01em;
     font-variant-numeric: tabular-nums;
     color: var(--text-primary);
   }
 
-  /* ---------- Controls -------------------------------------------------- */
+  /* ---------- Controls --------------------------------------------------
+     Square, bordered, printed. The primary action is a solid ink block;
+     everything else is an outlined field on paper. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium;
+    @apply inline-flex items-center justify-center gap-2 px-4 text-sm font-medium;
     min-height: 2.25rem;
     border: 1px solid transparent;
   }
   .btn-sm {
-    @apply rounded-md px-2.5 text-xs font-medium;
+    @apply px-2.5 text-xs font-medium;
     min-height: 2rem;
   }
   .btn-primary {
     background-color: var(--action);
+    border-color: var(--action);
     color: var(--text-inverse);
-    box-shadow: var(--shadow-raised);
+    @apply font-semibold;
   }
   .btn-primary:hover:not(:disabled) {
     background-color: var(--action-hover);
+    border-color: var(--action-hover);
   }
   .btn-secondary {
-    background-color: var(--surface-raised);
+    background-color: transparent;
     border-color: var(--border-strong);
     color: var(--text-primary);
-    box-shadow: var(--shadow-raised);
   }
   .btn-secondary:hover:not(:disabled) {
     background-color: var(--surface-sunken);
   }
   .btn-danger {
-    background-color: var(--surface-raised);
+    background-color: transparent;
     border-color: var(--border-strong);
     color: var(--status-critical-text);
-    box-shadow: var(--shadow-raised);
   }
   .btn-danger:hover:not(:disabled) {
     background-color: var(--surface-critical);
@@ -456,7 +532,7 @@
   .input,
   .select,
   .textarea {
-    @apply w-full rounded-lg px-3 text-sm;
+    @apply w-full px-3 text-sm;
     min-height: 2.25rem;
     background-color: var(--surface-raised);
     border: 1px solid var(--border-strong);
@@ -474,12 +550,14 @@
     border-color: var(--status-critical);
   }
   .input-compact {
-    @apply rounded-md px-2 text-xs;
+    @apply px-2 text-xs;
     min-height: 2rem;
     width: auto;
   }
 
-  /* ---------- Tables ---------------------------------------------------- */
+  /* ---------- Tables ----------------------------------------------------
+     The source's ledger: a sunken header band of letterspaced small caps
+     over a framed body, every row separated by a hairline. */
   .data-table {
     @apply w-full text-left;
   }
@@ -487,8 +565,10 @@
     background-color: var(--surface-sunken);
   }
   .data-table th {
-    @apply px-3 py-2 text-xs font-medium;
+    @apply px-3 py-2 text-xs font-semibold uppercase;
+    letter-spacing: 0.12em;
     color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-frame);
   }
   .data-table td {
     @apply px-3 py-2 align-top;
@@ -507,71 +587,96 @@
     font-variant-numeric: tabular-nums;
   }
   .table-frame {
-    border: 1px solid var(--border-hairline);
-    @apply overflow-x-auto rounded-lg;
+    background-color: var(--surface-raised);
+    border: 1px solid var(--border-frame);
+    @apply overflow-x-auto;
   }
 
-  /* ---------- Badges ---------------------------------------------------- */
+  /* ---------- Badges ----------------------------------------------------
+     The source's flag chip: a bordered small-caps stamp, not a pill. */
   .badge {
-    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium uppercase;
+    letter-spacing: 0.1em;
     background-color: var(--surface-sunken);
+    border: 1px solid var(--border-frame);
     color: var(--text-secondary);
   }
   .badge-good {
     background-color: var(--surface-good);
+    border-color: #c1d3ab;
     color: var(--status-good-text);
   }
   .badge-warning {
     background-color: var(--surface-warning);
+    border-color: #e6cf98;
     color: var(--status-warning-text);
   }
   .badge-critical {
     background-color: var(--surface-critical);
+    border-color: #e8bfae;
     color: var(--status-critical-text);
   }
   .badge-info {
     background-color: var(--surface-info);
+    border-color: #c2ced2;
     color: var(--status-info-text);
   }
 
   /* ---------- Banners: explain what happened and what to do next -------- */
   .banner {
-    @apply rounded-lg px-4 py-3 text-sm;
+    @apply px-4 py-3 text-sm;
     border: 1px solid var(--border-hairline);
     background-color: var(--surface-sunken);
     color: var(--text-secondary);
   }
   .banner-good {
     background-color: var(--surface-good);
-    border-color: #c9e4d6;
+    border-color: #c1d3ab;
     color: var(--status-good-text);
   }
   .banner-warning {
     background-color: var(--surface-warning);
-    border-color: #eedcb2;
+    border-color: #e6cf98;
     color: var(--status-warning-text);
   }
   .banner-critical {
     background-color: var(--surface-critical);
-    border-color: #f2d2d4;
+    border-color: #e8bfae;
     color: var(--status-critical-text);
   }
   .banner-info {
     background-color: var(--surface-info);
-    border-color: #d2ddf0;
+    border-color: #c2ced2;
     color: var(--status-info-text);
   }
 
-  /* ---------- Links ------------------------------------------------------ */
+  /* ---------- Links ------------------------------------------------------
+     Ink and underlined, per the source's anchor rule. Not a blue: blue is
+     the first data-encoding slot in lib/charts/theme.ts, and a link that
+     shares it can be mistaken for a series swatch. */
   .link {
-    color: var(--status-info-text);
+    color: var(--text-primary);
     @apply underline underline-offset-2;
   }
   .link:hover {
-    color: var(--action-hover);
+    color: var(--text-muted);
   }
   .link-quiet {
     color: var(--text-secondary);
     @apply underline-offset-2 hover:underline;
+  }
+
+  /* ---------- Masthead ---------------------------------------------------
+     The source's dark-ink chrome bar. Its wordmark is a letterspaced serif
+     small-cap, which is the one place the app names itself. */
+  .masthead {
+    background-color: var(--action);
+    color: var(--text-inverse);
+    border-bottom: 1px solid var(--action);
+  }
+  .wordmark {
+    font-family: var(--font-display);
+    @apply font-normal uppercase;
+    letter-spacing: 0.18em;
   }
 }

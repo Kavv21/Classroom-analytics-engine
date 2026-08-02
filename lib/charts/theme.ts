@@ -14,37 +14,37 @@
  * not data encoding: no value is ever mapped to one of them, so they track
  * the UI palette rather than the validated categorical ramp below.
  *
- * Retuned for the cool-slate token set (app/globals.css). They previously
- * held the warm-paper values, which left every chart sitting as a warm
- * rectangle inside a cool white card. Each maps to its UI counterpart:
- *   surface   -> --surface-raised   grid  -> --border-hairline
+ * Retuned for the Ashfield sepia token set (app/globals.css). They
+ * previously held the cool-slate values, which would now leave every chart
+ * sitting as a cold white rectangle inside a sheet of aged paper. Each
+ * maps to its UI counterpart, and only to its UI counterpart:
+ *   surface   -> --surface-raised   grid  -> (recessive paper rule)
  *   axis      -> --border-strong    muted -> --text-muted
- *   secondary -> --text-secondary
+ *   secondary -> --text-secondary   primary -> --text-primary
  *
- * Two of these close pre-existing accessibility gaps, measured against the
- * card the chart sits on:
- *   muted (axis labels, TEXT)  3.59:1 -> 6.07:1  (WCAG 1.4.3 now met)
- *   axis  (line, graphical)    1.79:1 -> 3.85:1  (WCAG 1.4.11 now met)
- * `secondary` is legend/label TEXT at all 11 of its call sites and already
- * passed; it moves for hue, not for contrast (7.94:1 -> 8.33:1).
- * Gridlines stay deliberately recessive (1.32:1 -> 1.29:1) — they are a
- * decorative aid with no contrast minimum, and darkening them would let
- * chrome compete with the data.
+ * Contrast against the card the chart sits on (#f8f2e4), measured:
+ *   muted (axis labels, TEXT)      6.93:1  (WCAG 1.4.3, min 4.5)
+ *   secondary (legend/label TEXT)  8.85:1  (WCAG 1.4.3)
+ *   axis  (line, graphical)        4.61:1  (WCAG 1.4.11, min 3)
+ * Gridlines stay deliberately recessive (1.24:1) — they are a decorative
+ * aid with no contrast minimum, and darkening them would let chrome
+ * compete with the data.
  *
- * `primary` (#0b0b0b) is left alone: it is effectively neutral already, so
- * recolouring it would be churn rather than a fix.
+ * `primary` moves from near-black to the system ink for hue only; it was
+ * already well past every minimum.
  *
- * NOTE: `axis` and `muted` previously shared their hex with
- * QUALITY_COLORS.MISSING_A1 and NOT_COMPARABLE. That was a coincidence of
- * value, not a shared meaning — those are data encoding and are unchanged.
+ * NOTE: this block is CHROME. SERIES, TRANSITION_COLORS, QUALITY_COLORS,
+ * SEQUENTIAL_BLUE and DIVERGING below are data encoding — a value is
+ * mapped to each of them — so the design import did not touch them and
+ * must not. The categorical ramp stays CVD-validated as-is.
  */
 export const INK = {
-  primary: "#0b0b0b",
-  secondary: "#454f5b",
-  muted: "#576470",
-  grid: "#dfe3e9",
-  axis: "#79838f",
-  surface: "#ffffff",
+  primary: "#241f1a",
+  secondary: "#4a4237",
+  muted: "#5b5347",
+  grid: "#ded0b0",
+  axis: "#7a6c4c",
+  surface: "#f8f2e4",
 } as const;
 
 /** Fixed categorical order — never reassigned when a filter removes series. */

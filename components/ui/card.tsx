@@ -12,7 +12,16 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-[var(--card-spacing)] overflow-hidden rounded-xl bg-card py-[var(--card-spacing)] text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:1rem] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:0.75rem] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        // PROJECT CUSTOMISATION (3): stock shadcn separates a card from the
+        // page with `ring-1 ring-foreground/10` — a soft translucent halo.
+        // The Ashfield direction has no soft edges: a card is a framed leaf
+        // of paper with a printed rule under it, identical to the `.card`
+        // class in app/globals.css. Without this the two card paths (this
+        // component and that class) would frame differently on adjacent
+        // screens. The frame border and the ring cannot coexist — they
+        // would read as one doubled 2px line — so the ring is dropped
+        // rather than layered.
+        "group/card flex flex-col gap-[var(--card-spacing)] overflow-hidden rounded-xl border border-[color:var(--border-frame)] bg-card bg-[image:var(--paper-grain)] py-[var(--card-spacing)] text-sm text-card-foreground shadow-raised [--card-spacing:1rem] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:0.75rem] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         className
       )}
       {...props}

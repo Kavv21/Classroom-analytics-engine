@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { setStudentActive } from "@/lib/classes/actions";
+import { Busy } from "@/components/ui/busy";
 
 export function StudentActiveToggle({
   classId,
@@ -40,7 +41,7 @@ export function StudentActiveToggle({
         disabled={isLoading}
         className="btn btn-sm btn-secondary"
       >
-        {isLoading ? "Saving…" : isActive ? "Deactivate" : "Activate"}
+        {isLoading ? <Busy label="Saving…" /> : isActive ? "Deactivate" : "Activate"}
       </button>
       {error && (
         <p role="alert" className="mt-1 text-xs" style={{ color: "var(--status-critical-text)" }}>

@@ -179,6 +179,84 @@ export async function unarchiveClass(classId: string): Promise<ActionResult<{ id
   return setClassStatus(classId, "ACTIVE");
 }
 
+// ============================================================
+// Permanent deletion of a whole class.
+//
+// Archiving (above) is a status flip and nothing more — classes.status is
+// a plain CHECK constraint ('ACTIVE' | 'ARCHIVED', migration 0005) with no
+// transition trigger behind it, unlike assignments.status. That is why
+// there is no `unarchiveClass` RPC to match `unarchive_assignment`:
+// restoring a class never needed one, and `unarchiveClass` above has
+// always just written the column.
+//
+// Deleting is the opposite kind of act, and goes through the SECURITY
+// DEFINER `delete_class_permanently` (migration 0025): it has to cross
+// the questions immutability trigger and reach response rows no professor
+// has a DELETE policy over. See 0025's header.
+// ============================================================
+
+/** Shape of `class_deletion_counts` / `delete_class_permanently`. */
+export interface ClassDeletionCounts {
+  classId: string;
+  name: string;
+  status: "ACTIVE" | "ARCHIVED";
+  assignments: number;
+  questions: number;
+  responses: number;
+  attempts: number;
+  students: number;
+  rosterEntries: number;
+  savedViews: number;
+}
+
+/**
+ * What `deleteClassPermanently` would destroy, read live for the
+ * confirmation dialog. NULL from the RPC means "no such class, or not
+ * yours" — an access error, never an empty census.
+ */
+export async function getClassDeletionCounts(
+  classId: string
+): Promise<ActionResult<ClassDeletionCounts>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("class_deletion_counts", {
+    p_class_id: classId,
+  });
+
+  if (error) return { success: false, error: error.message };
+  if (!data) {
+    return { success: false, error: "Class not found, or you don't have access to it." };
+  }
+  return { success: true, data: data as ClassDeletionCounts };
+}
+
+/**
+ * Irreversible, and strictly larger than deleting an assignment: every
+ * assignment in the class goes with it, and so do the roster, the pending
+ * roster entries, and the saved queries / visualisations / dashboards
+ * scoped to the class.
+ *
+ * Student *profiles* are not touched. Deleting a class deletes this
+ * class's record of a student, not the student's account — they may be
+ * enrolled elsewhere, and their login is not this class's property.
+ */
+export async function deleteClassPermanently(
+  classId: string
+): Promise<ActionResult<ClassDeletionCounts>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("delete_class_permanently", {
+    p_class_id: classId,
+  });
+
+  if (error) return { success: false, error: error.message };
+  if (!data) {
+    return { success: false, error: "Class not found, or you don't have access to it." };
+  }
+
+  revalidatePath("/classes");
+  revalidatePath(`/classes/${classId}`);
+  return { success: true, data: data as ClassDeletionCounts };
+}
+
 /**
  * Toggles a student's profiles.is_active via the set_student_active RPC
  * (supabase/migrations/0005), which writes only that one column after

@@ -423,52 +423,59 @@ export async function gatherResponseGrid(
   supabase: SupabaseClient,
   assignmentId: string
 ): Promise<ResponseGrid> {
-  // ---- assignment ----
-  const { data: assignment, error: assignmentError } = await supabase
-    .from("assignments")
-    .select("id, class_id, title, sequence_number")
-    .eq("id", assignmentId)
-    .maybeSingle();
+  // The assignment row, its questions and its per-question totals are all
+  // keyed on assignmentId — none of them was ever waiting on another, and
+  // this function is called twice per workbook export. Only the enrolment
+  // count below genuinely needs an earlier result (the class id).
+  const [
+    { data: assignment, error: assignmentError },
+    questions,
+    summaryRows,
+  ] = await Promise.all([
+    supabase
+      .from("assignments")
+      .select("id, class_id, title, sequence_number")
+      .eq("id", assignmentId)
+      .maybeSingle(),
+    selectAllPaged<QuestionRow>(
+      supabase,
+      (from, to) =>
+        supabase
+          .from("questions")
+          .select(
+            "id, external_question_code, question_text, original_row_reference, original_column_reference, original_worksheet, energy_source, criterion, display_order"
+          )
+          .eq("assignment_id", assignmentId)
+          .eq("is_active", true)
+          .order("display_order")
+          .range(from, to)
+          .returns<QuestionRow[]>(),
+      "questions"
+    ),
+    selectAllPaged<{
+      question_id: string;
+      answered: number;
+      zeros: number;
+      ones: number;
+    }>(
+      supabase,
+      (from, to) =>
+        supabase
+          .from("question_response_summary")
+          .select("question_id, answered, zeros, ones")
+          .eq("assignment_id", assignmentId)
+          .range(from, to)
+          .returns<
+            Array<{ question_id: string; answered: number; zeros: number; ones: number }>
+          >(),
+      "question_response_summary"
+    ),
+  ]);
   if (assignmentError) throw new Error(`could not read assignment: ${assignmentError.message}`);
   if (!assignment) throw new Error("Assignment not found, or you don't have access to it.");
 
-  // ---- questions ----
-  const questions = await selectAllPaged<QuestionRow>(
-    supabase,
-    (from, to) =>
-      supabase
-        .from("questions")
-        .select(
-          "id, external_question_code, question_text, original_row_reference, original_column_reference, original_worksheet, energy_source, criterion, display_order"
-        )
-        .eq("assignment_id", assignmentId)
-        .eq("is_active", true)
-        .order("display_order")
-        .range(from, to)
-        .returns<QuestionRow[]>(),
-    "questions"
-  );
-
   const orientation = detectOrientation(questions);
   const ordered = orderGridQuestions(questions, orientation);
-
-  // ---- per-question totals, from the analytics view ----
-  const summaryRows = await selectAllPaged<{
-    question_id: string;
-    answered: number;
-    zeros: number;
-    ones: number;
-  }>(
-    supabase,
-    (from, to) =>
-      supabase
-        .from("question_response_summary")
-        .select("question_id, answered, zeros, ones")
-        .eq("assignment_id", assignmentId)
-        .range(from, to)
-        .returns<Array<{ question_id: string; answered: number; zeros: number; ones: number }>>(),
-    "question_response_summary"
-  );
   const summaryByQuestion = new Map(summaryRows.map((r) => [r.question_id, r]));
 
   const columns: GridColumn[] = ordered.map((q) =>

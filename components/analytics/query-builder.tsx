@@ -33,6 +33,7 @@ import {
 import type { QueryResult } from "@/lib/query-builder/execute";
 import { formatPct } from "@/lib/charts/theme";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Busy } from "@/components/ui/busy";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -79,10 +80,30 @@ export function QueryBuilder({
   const [result, setResult] = useState<QueryResult | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /**
+   * Which of the busy actions is the one running. `busy` alone only ever
+   * greyed every button out at once, so a PDF export of a full class —
+   * the slowest thing on this screen — looked identical to a mis-click.
+   * The label names the action inside its own button; everything else
+   * just stays disabled, as before.
+   */
+  const [busyAction, setBusyAction] = useState<string | null>(null);
   const [saveName, setSaveName] = useState("");
   const [saveDescription, setSaveDescription] = useState("");
   const [dashboardName, setDashboardName] = useState("");
   const [selectedVisualisations, setSelectedVisualisations] = useState<string[]>([]);
+
+  /** Wraps an async action so its button can say what it is doing. */
+  async function withBusy<T>(action: string, fn: () => Promise<T>): Promise<T> {
+    setBusy(true);
+    setBusyAction(action);
+    try {
+      return await fn();
+    } finally {
+      setBusy(false);
+      setBusyAction(null);
+    }
+  }
 
   const validation = useMemo(() => validateQuery(query), [query]);
   const dataset = DATASETS[query.dataset];
@@ -142,9 +163,7 @@ export function QueryBuilder({
   }
 
   async function handleSaveQuery() {
-    setBusy(true);
-    const r = await saveQuery(classId, saveName, query);
-    setBusy(false);
+    const r = await withBusy("save-query", () => saveQuery(classId, saveName, query));
     if (!r.success) {
       toast.error(r.error);
       return;
@@ -155,9 +174,9 @@ export function QueryBuilder({
   }
 
   async function handleSaveVisualisation() {
-    setBusy(true);
-    const r = await saveVisualisation(classId, saveName, saveDescription, query);
-    setBusy(false);
+    const r = await withBusy("save-visualisation", () =>
+      saveVisualisation(classId, saveName, saveDescription, query)
+    );
     if (!r.success) {
       toast.error(r.error);
       return;
@@ -169,9 +188,9 @@ export function QueryBuilder({
   }
 
   async function handleCreateDashboard() {
-    setBusy(true);
-    const r = await createDashboard(classId, dashboardName, selectedVisualisations);
-    setBusy(false);
+    const r = await withBusy("create-dashboard", () =>
+      createDashboard(classId, dashboardName, selectedVisualisations)
+    );
     if (!r.success) {
       toast.error(r.error);
       return;
@@ -183,9 +202,7 @@ export function QueryBuilder({
   }
 
   async function handleDelete(kind: "query" | "visualisation" | "dashboard", id: string) {
-    setBusy(true);
-    const r = await deleteSavedItem(classId, kind, id);
-    setBusy(false);
+    const r = await withBusy(`delete-${id}`, () => deleteSavedItem(classId, kind, id));
     if (!r.success) {
       toast.error(r.error);
       return;
@@ -194,30 +211,29 @@ export function QueryBuilder({
   }
 
   async function exportQuery(format: "csv" | "pdf") {
-    setBusy(true);
-    try {
-      const response = await fetch(`/classes/${classId}/exports/query?format=${format}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, title: saveName || "Analytics report" }),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({ error: response.statusText }));
-        toast.error(`Export failed: ${payload.error ?? response.statusText}`);
-        return;
+    await withBusy(`export-${format}`, async () => {
+      try {
+        const response = await fetch(`/classes/${classId}/exports/query?format=${format}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, title: saveName || "Analytics report" }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({ error: response.statusText }));
+          toast.error(`Export failed: ${payload.error ?? response.statusText}`);
+          return;
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = format === "pdf" ? "analytics-report.pdf" : "query-export.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        toast.error(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
       }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = format === "pdf" ? "analytics-report.pdf" : "query-export.csv";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      toast.error(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
 
@@ -306,7 +322,7 @@ export function QueryBuilder({
                 onClick={() => exportQuery("csv")}
                 disabled={!validation.valid || busy}
               >
-                CSV
+                {busyAction === "export-csv" ? <Busy label="CSV…" /> : "CSV"}
               </Button>
               <Button
                 size="sm"
@@ -314,7 +330,7 @@ export function QueryBuilder({
                 onClick={() => exportQuery("pdf")}
                 disabled={!validation.valid || busy}
               >
-                PDF
+                {busyAction === "export-pdf" ? <Busy label="PDF…" /> : "PDF"}
               </Button>
             </div>
             <p className="eyebrow mt-1">
@@ -444,13 +460,17 @@ export function QueryBuilder({
             onClick={handleSaveQuery}
             disabled={busy || !validation.valid || saveName.trim() === ""}
           >
-            Save query
+            {busyAction === "save-query" ? <Busy label="Saving…" /> : "Save query"}
           </Button>
           <Button
             onClick={handleSaveVisualisation}
             disabled={busy || !validation.valid || saveName.trim() === ""}
           >
-            Save visualisation
+            {busyAction === "save-visualisation" ? (
+              <Busy label="Saving…" />
+            ) : (
+              "Save visualisation"
+            )}
           </Button>
         </div>
 
@@ -537,7 +557,11 @@ export function QueryBuilder({
               onClick={handleCreateDashboard}
               disabled={busy || dashboardName.trim() === ""}
             >
-              Create from {selectedVisualisations.length} selected
+              {busyAction === "create-dashboard" ? (
+                <Busy label="Creating…" />
+              ) : (
+                `Create from ${selectedVisualisations.length} selected`
+              )}
             </Button>
           </div>
           <ul className="mt-2 space-y-1">

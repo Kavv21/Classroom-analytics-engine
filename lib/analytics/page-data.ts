@@ -104,32 +104,40 @@ export async function getClassStudentRoster(
   supabase: SupabaseClient,
   classId: string
 ): Promise<StudentRosterRow[]> {
-  const { data: members, error: membersError } = await supabase
-    .from("class_members")
-    .select("user_id, status, is_synthetic, profiles(full_name, email, student_identifier)")
-    .eq("class_id", classId)
-    .eq("member_role", "STUDENT")
-    .returns<
-      Array<{
-        user_id: string;
-        status: string;
-        is_synthetic: boolean;
-        profiles: {
-          full_name: string | null;
-          email: string;
-          student_identifier: string | null;
-        } | null;
-      }>
-    >();
+  // Both reads are keyed on classId alone — neither needs the other's
+  // result — so they go out together rather than one after the next.
+  const [
+    { data: members, error: membersError },
+    { data: attempts, error: attemptsError },
+  ] = await Promise.all([
+    supabase
+      .from("class_members")
+      .select("user_id, status, is_synthetic, profiles(full_name, email, student_identifier)")
+      .eq("class_id", classId)
+      .eq("member_role", "STUDENT")
+      .returns<
+        Array<{
+          user_id: string;
+          status: string;
+          is_synthetic: boolean;
+          profiles: {
+            full_name: string | null;
+            email: string;
+            student_identifier: string | null;
+          } | null;
+        }>
+      >(),
+    supabase
+      .from("assignment_attempts")
+      .select("student_id, assignment_id, state, assignments!inner(class_id)")
+      .eq("assignments.class_id", classId)
+      .returns<Array<{ student_id: string; assignment_id: string; state: string }>>(),
+  ]);
+
+  // Still reported separately so a failure names its own query.
   if (membersError) {
     throw new Error(`Could not load students: ${membersError.message}`);
   }
-
-  const { data: attempts, error: attemptsError } = await supabase
-    .from("assignment_attempts")
-    .select("student_id, assignment_id, state, assignments!inner(class_id)")
-    .eq("assignments.class_id", classId)
-    .returns<Array<{ student_id: string; assignment_id: string; state: string }>>();
   if (attemptsError) {
     throw new Error(`Could not load attempts: ${attemptsError.message}`);
   }

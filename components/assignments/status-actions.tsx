@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import {
   duplicateAssignment,
   transitionAssignment,
+  unarchiveAssignment,
 } from "@/lib/assignments/actions";
 import type { AssignmentStatus } from "@/lib/types/domain";
+import { Busy } from "@/components/ui/busy";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +46,10 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
     const result = await transitionAssignment(assignmentId, to);
     setBusy(false);
     if (!result.success) {
+      // A rejected transition used to fail silently here: the button
+      // re-enabled and nothing else happened, which reads as "the click
+      // didn't register" rather than "the server said no".
+      toast.error(result.error);
       return;
     }
     // CLOSED -> OPEN is a reopen, not a first publication, and saying
@@ -61,9 +67,28 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
     const result = await duplicateAssignment(assignmentId);
     setBusy(false);
     if (!result.success) {
+      toast.error(result.error);
       return;
     }
     router.push(`/classes/${classId}/assignments/${result.data.id}`);
+    router.refresh();
+  }
+
+  /**
+   * ARCHIVED -> CLOSED. Not part of `move`, because it is not part of the
+   * FSM: `assignments_status_transition` (migration 0009) has no path out
+   * of ARCHIVED at all, and this goes through the dedicated
+   * `unarchive_assignment` RPC instead.
+   */
+  async function unarchive() {
+    setBusy(true);
+    const result = await unarchiveAssignment(assignmentId);
+    setBusy(false);
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Restored. The assignment is closed — reopen it to let students answer.");
     router.refresh();
   }
 
@@ -138,6 +163,25 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
             </p>
             <Button disabled={busy} onClick={() => move("OPEN")} className="mt-4">
               Reopen to students
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {status === "ARCHIVED" && (
+        <Card>
+          <CardContent>
+            <p className="eyebrow">Archived</p>
+            <p className="heading mt-1">Out of play</p>
+            <p className="note mt-1">
+              Archived assignments are hidden from students and give up their
+              first/second position in the class. Restoring puts this one back
+              as <strong>closed</strong>, exactly as it was before it was
+              archived &mdash; students still can&apos;t answer until you reopen
+              it.
+            </p>
+            <Button disabled={busy} onClick={unarchive} className="mt-4">
+              {busy ? <Busy label="Restoring…" /> : "Restore assignment"}
             </Button>
           </CardContent>
         </Card>

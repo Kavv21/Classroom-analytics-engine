@@ -148,86 +148,94 @@ export async function getStudentFullResponses(
     throw new Error(`could not read assignments: ${assignmentsError.message}`);
   }
 
-  const out: StudentAssignmentResponses[] = [];
+  // One assignment's three reads do not depend on each other, and one
+  // assignment's reads do not depend on another's. Left sequential, a
+  // student with two assignments cost six round-trips end to end (~360ms
+  // of pure network wait against hosted Supabase); as one batch it costs
+  // the slowest of the six. `Promise.all` over `.map` also keeps the
+  // output in assignment order, which the sequential push relied on.
+  return Promise.all(
+    ((assignments ?? []) as Array<{
+      id: string;
+      title: string;
+      sequence_number: number;
+    }>).map(async (assignment) => {
+      const questionsPromise = selectAllPaged<QuestionRow>(
+        supabase,
+        (from, to) =>
+          supabase
+            .from("questions")
+            .select(
+              "id, external_question_code, question_text, original_row_reference, original_column_reference, energy_source, criterion, display_order"
+            )
+            .eq("assignment_id", assignment.id)
+            .eq("is_active", true)
+            .order("display_order")
+            .range(from, to)
+            .returns<QuestionRow[]>(),
+        "questions"
+      );
 
-  for (const assignment of (assignments ?? []) as Array<{
-    id: string;
-    title: string;
-    sequence_number: number;
-  }>) {
-    const questions = await selectAllPaged<QuestionRow>(
-      supabase,
-      (from, to) =>
-        supabase
-          .from("questions")
-          .select(
-            "id, external_question_code, question_text, original_row_reference, original_column_reference, energy_source, criterion, display_order"
-          )
-          .eq("assignment_id", assignment.id)
-          .eq("is_active", true)
-          .order("display_order")
-          .range(from, to)
-          .returns<QuestionRow[]>(),
-      "questions"
-    );
+      const responsesPromise = selectAllPaged<{
+        question_id: string;
+        response_value: 0 | 1 | null;
+      }>(
+        supabase,
+        (from, to) =>
+          supabase
+            .from("responses")
+            .select("question_id, response_value")
+            .eq("assignment_id", assignment.id)
+            .eq("student_id", studentId)
+            .eq("is_final", true)
+            .order("question_id")
+            .range(from, to)
+            .returns<Array<{ question_id: string; response_value: 0 | 1 | null }>>(),
+        "responses"
+      );
 
-    const responses = await selectAllPaged<{
-      question_id: string;
-      response_value: 0 | 1 | null;
-    }>(
-      supabase,
-      (from, to) =>
-        supabase
-          .from("responses")
-          .select("question_id, response_value")
-          .eq("assignment_id", assignment.id)
-          .eq("student_id", studentId)
-          .eq("is_final", true)
-          .order("question_id")
-          .range(from, to)
-          .returns<Array<{ question_id: string; response_value: 0 | 1 | null }>>(),
-      "responses"
-    );
-    const byQuestion = new Map(responses.map((r) => [r.question_id, r.response_value]));
+      const attemptPromise = supabase
+        .from("assignment_attempts")
+        .select("state, submitted_at, submission_version")
+        .eq("assignment_id", assignment.id)
+        .eq("student_id", studentId)
+        .maybeSingle();
 
-    const { data: attempt, error: attemptError } = await supabase
-      .from("assignment_attempts")
-      .select("state, submitted_at, submission_version")
-      .eq("assignment_id", assignment.id)
-      .eq("student_id", studentId)
-      .maybeSingle();
-    if (attemptError) {
-      throw new Error(`could not read attempt: ${attemptError.message}`);
-    }
+      const [questions, responses, { data: attempt, error: attemptError }] =
+        await Promise.all([questionsPromise, responsesPromise, attemptPromise]);
+      if (attemptError) {
+        throw new Error(`could not read attempt: ${attemptError.message}`);
+      }
+      const byQuestion = new Map(responses.map((r) => [r.question_id, r.response_value]));
 
-    const ordered = orderGridQuestions(questions, detectOrientation(questions));
-    const rows: StudentResponseRow[] = ordered.map((q) => ({
-      questionId: q.id,
-      code: q.external_question_code,
-      questionText: q.question_text,
-      energySource: q.energy_source?.trim() || NO_SOURCE,
-      criterion: q.criterion?.trim() || NO_CRITERION,
-      originalCell: `${q.original_column_reference ?? ""}${q.original_row_reference ?? ""}` || "—",
-      value: byQuestion.get(q.id) ?? null,
-      recorded: byQuestion.has(q.id),
-    }));
+      const ordered = orderGridQuestions(questions, detectOrientation(questions));
+      const rows: StudentResponseRow[] = ordered.map((q) => ({
+        questionId: q.id,
+        code: q.external_question_code,
+        questionText: q.question_text,
+        energySource: q.energy_source?.trim() || NO_SOURCE,
+        criterion: q.criterion?.trim() || NO_CRITERION,
+        originalCell:
+          `${q.original_column_reference ?? ""}${q.original_row_reference ?? ""}` || "—",
+        value: byQuestion.get(q.id) ?? null,
+        recorded: byQuestion.has(q.id),
+      }));
 
-    const groups = groupStudentResponses(rows);
-    out.push({
-      assignmentId: assignment.id,
-      title: assignment.title,
-      sequenceNumber: assignment.sequence_number,
-      attemptState: (attempt as { state?: string } | null)?.state ?? null,
-      submittedAt: (attempt as { submitted_at?: string | null } | null)?.submitted_at ?? null,
-      submissionVersion:
-        (attempt as { submission_version?: number | null } | null)?.submission_version ?? null,
-      questionCount: rows.length,
-      answeredCount: rows.filter((r) => r.value !== null).length,
-      ones: groups.reduce((n, g) => n + g.ones, 0),
-      zeros: groups.reduce((n, g) => n + g.zeros, 0),
-      groups,
-    });
-  }
-
-  return out;
+      const groups = groupStudentResponses(rows);
+      return {
+        assignmentId: assignment.id,
+        title: assignment.title,
+        sequenceNumber: assignment.sequence_number,
+        attemptState: (attempt as { state?: string } | null)?.state ?? null,
+        submittedAt: (attempt as { submitted_at?: string | null } | null)?.submitted_at ?? null,
+        submissionVersion:
+          (attempt as { submission_version?: number | null } | null)?.submission_version ?? null,
+        questionCount: rows.length,
+        answeredCount: rows.filter((r) => r.value !== null).length,
+        ones: groups.reduce((n, g) => n + g.ones, 0),
+        zeros: groups.reduce((n, g) => n + g.zeros, 0),
+        groups,
+      };
+    })
+  );
 }

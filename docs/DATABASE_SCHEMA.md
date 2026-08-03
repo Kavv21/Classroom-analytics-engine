@@ -97,10 +97,21 @@ Everything else is rejected with an exception. The TS mirror of this map is
 `VALID_ASSIGNMENT_TRANSITIONS` in `lib/types/domain.ts` (friendly errors
 only — the trigger is the boundary).
 
-ARCHIVED is the only terminal status. CLOSED → OPEN was absent until 0023,
-which made closing irreversible and left the per-attempt reopen with
-nothing to reopen into; migration 0023's header records why migration
-0020's rejection of this transition does not apply to it.
+ARCHIVED is the only terminal status *within the FSM*. CLOSED → OPEN was
+absent until 0023, which made closing irreversible and left the
+per-attempt reopen with nothing to reopen into; migration 0023's header
+records why migration 0020's rejection of this transition does not apply
+to it.
+
+ARCHIVED → CLOSED exists since migration 0025, but deliberately NOT as an
+FSM edge: it is reachable only through the `unarchive_assignment` RPC,
+which disables `assignments_status_transition` for the length of one
+transaction. Keeping it off the transition map is the point — adding it
+would make `transitionAssignment` (and so the generic status buttons)
+offer it, and ARCHIVED would stop meaning "out of play". Restoring lands
+on CLOSED, never OPEN: letting students back in is a separate decision.
+`VALID_ASSIGNMENT_TRANSITIONS` therefore still shows ARCHIVED as
+terminal, and that is correct for every path except this one RPC.
 
 `sequence_number` is a position, not a display number. 1 and 2 are the
 compared pair — one of each per class, guarded by the
@@ -415,6 +426,53 @@ is what authorises the write. EXECUTE is revoked from anon on all of them:
   seeding exception (0020) FIRST — a synthetic attempt bypasses this
   predicate entirely and writes into a published assignment whatever its
   status, without the assignment ever being reopened.
+
+Migration 0025 adds unarchive and permanent deletion. All five are
+`security definer` with an explicit `is_professor_of_class` gate; the
+first two exist because a professor has no DELETE policy over other
+students' response rows and should not be given one, and because the
+cascade would otherwise be blocked by
+`questions_immutable_after_responses`:
+
+- `assignment_deletion_counts(p_assignment_id)` /
+  `class_deletion_counts(p_class_id)` — `stable`; the census of what a
+  delete would destroy (questions, responses, attempts, students, imports;
+  the class version adds assignments, roster entries and saved views).
+  Feeds both the confirmation dialog and the audit entry, so the number
+  shown and the number recorded cannot disagree. **Returns NULL for "no
+  such row, or not your class"** — callers must treat NULL as an access
+  error, never as an empty census.
+- `unarchive_assignment(p_assignment_id)` — ARCHIVED → CLOSED only.
+  Disables and re-enables `assignments_status_transition` inside the one
+  transaction. Refuses if another non-archived assignment has meanwhile
+  taken this one's `sequence_number` (the 0018 index is partial on
+  `status <> 'ARCHIVED'`, so an archived assignment does not hold its
+  slot). Audit action `ASSIGNMENT_UNARCHIVED`.
+- `delete_assignment_permanently(p_assignment_id)` — irreversible; deletes
+  the assignment row and lets the existing `on delete cascade` FKs take
+  questions, attempts, responses, question_options and import history with
+  it. Disables and re-enables `questions_immutable_after_responses` around
+  the delete. **Deliberately not gated on status or response count**: the
+  case it exists for is a wrong spreadsheet imported against a live class.
+  Audit action `ASSIGNMENT_DELETED_PERMANENTLY`.
+- `delete_class_permanently(p_class_id)` — the same, one level up: the
+  class row cascades to every assignment (and everything under each),
+  class_members, roster_entries, saved_queries, saved_visualisations and
+  dashboards. `profiles` rows are NOT touched — deleting a class deletes
+  its record of a student, not the student's account. Audit action
+  `CLASS_DELETED_PERMANENTLY`.
+
+Both delete functions take the census and write the `audit_logs` entry
+**before** the DELETE, inside the same transaction. `audit_logs` has no FK
+to either entity, so the record survives the thing it describes; taken
+afterwards it would have nothing left to count.
+
+`alter table ... disable trigger` inside these functions is safe because
+it takes an ACCESS EXCLUSIVE lock and is transactional: no other session
+can write the table while the boundary is down, and a failure rolls the
+trigger back on along with the rows. The functions must stay owned by the
+owner of `public.questions` / `public.assignments`, or the ALTER is
+refused. Migration 0019 set the precedent.
 
 Migration 0011's mapping-studio RPCs (`validate_mapping_questions`,
 `create_question_mapping`, `update_question_mapping`,

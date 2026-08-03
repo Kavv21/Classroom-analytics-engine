@@ -29,22 +29,29 @@ export default async function StudentProfilePage({
   const { supabase, classRow } = await requireProfessorClassPage(classId);
   if (!classRow) notFound();
 
-  const { data: member, error: memberError } = await supabase
-    .from("class_members")
-    .select("user_id, status, is_synthetic, profiles(full_name, email, student_identifier)")
-    .eq("class_id", classId)
-    .eq("user_id", studentId)
-    .eq("member_role", "STUDENT")
-    .maybeSingle<{
-      user_id: string;
-      status: string;
-      is_synthetic: boolean;
-      profiles: {
-        full_name: string | null;
-        email: string;
-        student_identifier: string | null;
-      } | null;
-    }>();
+  // The membership row and the responses are both keyed on
+  // (classId, studentId) — the responses do not wait on the membership
+  // check, they are just discarded with the 404 if it fails. Fetching
+  // them together turns this page's slowest read into its only read.
+  const [{ data: member, error: memberError }, assignments] = await Promise.all([
+    supabase
+      .from("class_members")
+      .select("user_id, status, is_synthetic, profiles(full_name, email, student_identifier)")
+      .eq("class_id", classId)
+      .eq("user_id", studentId)
+      .eq("member_role", "STUDENT")
+      .maybeSingle<{
+        user_id: string;
+        status: string;
+        is_synthetic: boolean;
+        profiles: {
+          full_name: string | null;
+          email: string;
+          student_identifier: string | null;
+        } | null;
+      }>(),
+    getStudentFullResponses(supabase, classId, studentId),
+  ]);
   if (memberError) {
     throw new Error(`Could not load student: ${memberError.message}`);
   }
@@ -53,8 +60,6 @@ export default async function StudentProfilePage({
   const profile = member.profiles;
   const studentName = profile?.full_name ?? profile?.email ?? `Student ${studentId.slice(0, 8)}`;
   const { is_synthetic: isSynthetic, status } = member;
-
-  const assignments = await getStudentFullResponses(supabase, classId, studentId);
 
   return (
     <main className="page-dense">

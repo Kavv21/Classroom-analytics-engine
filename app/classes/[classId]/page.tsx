@@ -4,6 +4,7 @@ import { BarChart3, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EditClassForm } from "@/components/classes/edit-class-form";
 import { ArchiveButton } from "@/components/classes/archive-button";
+import { DeleteClassButton } from "@/components/classes/delete-class-button";
 import { StudentActiveToggle } from "@/components/classes/student-active-toggle";
 import { Badge } from "@/components/ui/badge";
 import { PILL } from "@/lib/ui/tone";
@@ -40,10 +41,15 @@ export default async function ClassDetailPage({
   const { classId } = await params;
   const supabase = await createClient();
 
-  // All four reads depend only on classId — one parallel batch, not four
+  // All five reads depend only on classId — one parallel batch, not five
   // sequential round-trips.
-  const [{ data: classRow }, { count: memberCount }, { count: pendingCount }, { data: members }] =
-    await Promise.all([
+  const [
+    { data: classRow },
+    { count: memberCount },
+    { count: pendingCount },
+    { data: members },
+    { count: assignmentCount },
+  ] = await Promise.all([
       supabase
         .from("classes")
         .select(
@@ -66,6 +72,10 @@ export default async function ClassDetailPage({
         .eq("class_id", classId)
         .order("joined_at", { ascending: true })
         .returns<ClassMemberRow[]>(),
+      supabase
+        .from("assignments")
+        .select("id", { count: "exact", head: true })
+        .eq("class_id", classId),
     ]);
 
   if (!classRow) notFound();
@@ -241,6 +251,28 @@ export default async function ClassDetailPage({
             endDate: classRow.end_date ?? "",
           }}
         />
+      </div>
+
+      {/* Archiving lives in the header, where it is one click away from
+          the class name it acts on. This does not: it is last on the page,
+          under its own heading, because it destroys every assignment and
+          every response the class ever collected. */}
+      <h2 className="title-sm mt-10">Danger zone</h2>
+      <div className="card-standard mt-3 flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="font-medium">Delete this class permanently</p>
+          <p className="note mt-0.5">
+            Removes the class and everything in it &mdash;{" "}
+            {assignmentCount === 1
+              ? "its 1 assignment"
+              : `all ${assignmentCount ?? 0} assignments`}
+            , every question, every student response, and the roster.
+            Students keep their accounts; they simply stop being members of
+            this class. Archiving hides a class and keeps its data; this
+            does not.
+          </p>
+        </div>
+        <DeleteClassButton classId={classRow.id} />
       </div>
     </main>
   );

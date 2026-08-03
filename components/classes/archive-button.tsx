@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { archiveClass, unarchiveClass } from "@/lib/classes/actions";
 import type { ClassStatus } from "@/lib/types/domain";
+import { Busy } from "@/components/ui/busy";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,7 +50,8 @@ export function ArchiveButton({ classId, status }: { classId: string; status: Cl
     router.refresh();
   }
 
-  const label = isLoading ? "Saving…" : isArchived ? "Restore class" : "Archive class";
+  const label = isArchived ? "Restore class" : "Archive class";
+  const content = isLoading ? <Busy label="Saving…" /> : label;
 
   return (
     <div>
@@ -60,13 +62,13 @@ export function ArchiveButton({ classId, status }: { classId: string; status: Cl
           disabled={isLoading}
           className="btn btn-sm btn-secondary"
         >
-          {label}
+          {content}
         </button>
       ) : (
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <button type="button" disabled={isLoading} className="btn btn-sm btn-secondary">
-              {label}
+              {content}
             </button>
           </AlertDialogTrigger>
           <AlertDialogContent>

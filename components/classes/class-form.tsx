@@ -8,6 +8,7 @@ import { classFormSchema, type ClassFormValues } from "@/lib/classes/schema";
 import type { ActionResult } from "@/lib/classes/actions";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Busy } from "@/components/ui/busy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -116,7 +117,7 @@ export function ClassForm({
       )}
 
       <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Saving…" : submitLabel}
+        {isSubmitting ? <Busy label="Saving…" /> : submitLabel}
       </Button>
     </form>
   );

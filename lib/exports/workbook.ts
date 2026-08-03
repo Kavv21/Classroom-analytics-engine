@@ -145,24 +145,52 @@ export async function gatherWorkbookData(
 ): Promise<WorkbookData> {
   const { classId } = options;
 
-  const metadata = await buildExportMetadata(supabase, options);
+  // ROUND TRIP 1 — everything keyed on classId alone.
+  //
+  // This function used to be ten sequential awaits: metadata, assignments,
+  // members, A1 questions, A2 questions, A1 responses, A2 responses,
+  // analytics, imports, import rows. Only three of those ten genuinely
+  // depend on an earlier one (the per-assignment reads need the assignment
+  // ids; import_rows needs the import ids), so nine round-trips of latency
+  // were being paid to discover facts already in hand. It is now two
+  // batches. This is the slowest thing a professor can ask the app to do,
+  // and the workbook is often several hundred KB of responses.
+  const [metadata, assignmentsRaw, membersRaw, questionAnalyticsRaw, importsRaw] =
+    await Promise.all([
+      buildExportMetadata(supabase, options),
+      selectAll(supabase, "assignments", (q) =>
+        q.select("id, title, sequence_number").eq("class_id", classId).order("sequence_number")
+      ),
+      selectAll(supabase, "class_members", (q) =>
+        q
+          .select(
+            "user_id, status, profiles(id, full_name, email, roll_number, programme, year_of_study, section, is_active)"
+          )
+          .eq("class_id", classId)
+          .eq("member_role", "STUDENT")
+      ),
+      selectAll(supabase, "question_response_summary", (q) =>
+        q.select("*").eq("class_id", classId).order("external_question_code")
+      ),
+      selectAll(supabase, "imports", (q) =>
+        q
+          .select("id, import_type, source_filename, status, created_at")
+          .eq("class_id", classId)
+          .order("created_at")
+      ),
+    ]);
 
-  const assignments = (await selectAll(supabase, "assignments", (q) =>
-    q.select("id, title, sequence_number").eq("class_id", classId).order("sequence_number")
-  )) as Array<{ id: string; title: string; sequence_number: number }>;
+  const assignments = assignmentsRaw as Array<{
+    id: string;
+    title: string;
+    sequence_number: number;
+  }>;
   const a1 = assignments.find((a) => a.sequence_number === 1);
   const a2 = assignments.find((a) => a.sequence_number === 2);
   const assignmentTitle = (id: string) =>
     assignments.find((a) => a.id === id)?.title ?? id;
 
-  const members = (await selectAll(supabase, "class_members", (q) =>
-    q
-      .select(
-        "user_id, status, profiles(id, full_name, email, roll_number, programme, year_of_study, section, is_active)"
-      )
-      .eq("class_id", classId)
-      .eq("member_role", "STUDENT")
-  )) as Array<{
+  const members = membersRaw as Array<{
     user_id: string;
     status: string;
     profiles: {
@@ -205,8 +233,42 @@ export async function gatherWorkbookData(
         }>)
       : [];
 
-  const a1Questions = await questionsFor(a1?.id);
-  const a2Questions = await questionsFor(a2?.id);
+  const responsesFor = async (assignmentId: string | undefined) =>
+    assignmentId
+      ? ((await selectAll(supabase, "responses", (q) =>
+          q
+            .select("student_id, question_id, response_value, is_final, submitted_at, version")
+            .eq("assignment_id", assignmentId)
+        )) as Array<{
+          student_id: string;
+          question_id: string;
+          response_value: number | null;
+          is_final: boolean;
+          submitted_at: string | null;
+          version: number;
+        }>)
+      : [];
+
+  // ROUND TRIP 2 — the reads that actually needed round trip 1's ids.
+  const [a1Questions, a2Questions, a1Responses, a2Responses, importRowsRaw] =
+    await Promise.all([
+      questionsFor(a1?.id),
+      questionsFor(a2?.id),
+      responsesFor(a1?.id),
+      responsesFor(a2?.id),
+      importsRaw.length > 0
+        ? selectAll(supabase, "import_rows", (q) =>
+            q
+              .select("import_id, row_number, status, error_message")
+              .in(
+                "import_id",
+                (importsRaw as Array<{ id: string }>).map((i) => i.id)
+              )
+              .order("row_number")
+          )
+        : Promise.resolve([]),
+    ]);
+
   const questionCode = new Map<string, string>();
   // The readable name for every question id, so no sheet has to identify a
   // row by its code alone.
@@ -224,28 +286,7 @@ export async function gatherWorkbookData(
     );
   }
 
-  const responsesFor = async (assignmentId: string | undefined) =>
-    assignmentId
-      ? ((await selectAll(supabase, "responses", (q) =>
-          q
-            .select("student_id, question_id, response_value, is_final, submitted_at, version")
-            .eq("assignment_id", assignmentId)
-        )) as Array<{
-          student_id: string;
-          question_id: string;
-          response_value: number | null;
-          is_final: boolean;
-          submitted_at: string | null;
-          version: number;
-        }>)
-      : [];
-
-  const a1Responses = await responsesFor(a1?.id);
-  const a2Responses = await responsesFor(a2?.id);
-
-  const questionAnalytics = (await selectAll(supabase, "question_response_summary", (q) =>
-    q.select("*").eq("class_id", classId).order("external_question_code")
-  )) as Array<{
+  const questionAnalytics = questionAnalyticsRaw as Array<{
     assignment_id: string;
     external_question_code: string;
     question_text: string;
@@ -261,12 +302,7 @@ export async function gatherWorkbookData(
     entropy: number | null;
   }>;
 
-  const imports = (await selectAll(supabase, "imports", (q) =>
-    q
-      .select("id, import_type, source_filename, status, created_at")
-      .eq("class_id", classId)
-      .order("created_at")
-  )) as Array<{
+  const imports = importsRaw as Array<{
     id: string;
     import_type: string;
     source_filename: string;
@@ -274,23 +310,12 @@ export async function gatherWorkbookData(
     created_at: string;
   }>;
 
-  const importRows =
-    imports.length > 0
-      ? ((await selectAll(supabase, "import_rows", (q) =>
-          q
-            .select("import_id, row_number, status, error_message")
-            .in(
-              "import_id",
-              imports.map((i) => i.id)
-            )
-            .order("row_number")
-        )) as Array<{
-          import_id: string;
-          row_number: number;
-          status: string;
-          error_message: string | null;
-        }>)
-      : [];
+  const importRows = importRowsRaw as Array<{
+    import_id: string;
+    row_number: number;
+    status: string;
+    error_message: string | null;
+  }>;
 
   const responseRows = (
     rows: typeof a1Responses
@@ -325,11 +350,14 @@ export async function gatherWorkbookData(
   // Added grid sheets — one per live assignment, built from the same
   // gatherResponseGrid the live /grid page uses so the two cannot diverge.
   // No student limit here: an export is a complete snapshot by definition.
-  const grids: ResponseGrid[] = [];
-  for (const assignment of [a1, a2]) {
-    if (!assignment) continue;
-    grids.push(await gatherResponseGrid(supabase, assignment.id));
-  }
+  // Both grids at once: A2's reads never needed A1's result, and each
+  // gatherResponseGrid is itself several queries. `Promise.all` over the
+  // filtered pair also preserves A1-then-A2 sheet order.
+  const grids: ResponseGrid[] = await Promise.all(
+    [a1, a2]
+      .filter((a): a is NonNullable<typeof a> => !!a)
+      .map((assignment) => gatherResponseGrid(supabase, assignment.id))
+  );
 
   return {
     metadata,

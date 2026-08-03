@@ -26,42 +26,45 @@ export default async function VisualisationBuilderPage({
   const { supabase, classRow } = await requireProfessorClassPage(classId);
   if (!classRow) notFound();
 
-  const assignments = await getClassAssignments(supabase, classId);
+  // The saved queries/visualisations/dashboards are class-scoped and were
+  // sitting behind the assignment list for no reason. Only a1Questions
+  // below genuinely needs it, so that one stays a second hop.
+  const [assignments, savedQueriesResult, savedVisualisationsResult, dashboardsResult] =
+    await Promise.all([
+      getClassAssignments(supabase, classId),
+      supabase
+        .from("saved_queries")
+        .select("id, name, definition, updated_at")
+        .eq("class_id", classId)
+        .order("updated_at", { ascending: false })
+        .returns<
+          Array<{ id: string; name: string; definition: QueryDefinition; updated_at: string }>
+        >(),
+      supabase
+        .from("saved_visualisations")
+        .select("id, name, description, chart_type, query_definition, updated_at")
+        .eq("class_id", classId)
+        .order("updated_at", { ascending: false })
+        .returns<
+          Array<{
+            id: string;
+            name: string;
+            description: string | null;
+            chart_type: string;
+            query_definition: QueryDefinition;
+            updated_at: string;
+          }>
+        >(),
+      supabase
+        .from("dashboards")
+        .select("id, name, updated_at, dashboard_items(id)")
+        .eq("class_id", classId)
+        .order("updated_at", { ascending: false })
+        .returns<
+          Array<{ id: string; name: string; updated_at: string; dashboard_items: Array<{ id: string }> }>
+        >(),
+    ]);
   const a1 = assignments.find((a) => a.sequence_number === 1);
-
-  const [savedQueriesResult, savedVisualisationsResult, dashboardsResult] = await Promise.all([
-    supabase
-      .from("saved_queries")
-      .select("id, name, definition, updated_at")
-      .eq("class_id", classId)
-      .order("updated_at", { ascending: false })
-      .returns<
-        Array<{ id: string; name: string; definition: QueryDefinition; updated_at: string }>
-      >(),
-    supabase
-      .from("saved_visualisations")
-      .select("id, name, description, chart_type, query_definition, updated_at")
-      .eq("class_id", classId)
-      .order("updated_at", { ascending: false })
-      .returns<
-        Array<{
-          id: string;
-          name: string;
-          description: string | null;
-          chart_type: string;
-          query_definition: QueryDefinition;
-          updated_at: string;
-        }>
-      >(),
-    supabase
-      .from("dashboards")
-      .select("id, name, updated_at, dashboard_items(id)")
-      .eq("class_id", classId)
-      .order("updated_at", { ascending: false })
-      .returns<
-        Array<{ id: string; name: string; updated_at: string; dashboard_items: Array<{ id: string }> }>
-      >(),
-  ]);
 
   // Never swallow a load error — a silently empty "Saved queries" list
   // would read as "you have none" rather than "this page is broken".

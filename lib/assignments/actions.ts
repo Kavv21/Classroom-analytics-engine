@@ -457,6 +457,127 @@ export async function transitionAssignment(
   return { success: true, data: { id: data.id, status: data.status as AssignmentStatus } };
 }
 
+// ============================================================
+// Unarchive, and permanent deletion.
+//
+// Both go through SECURITY DEFINER RPCs (migration 0025) rather than
+// through table writes from here, because both have to punch through a
+// trigger that exists precisely to stop this table being written this
+// way: `assignments_status_transition` has no path out of ARCHIVED, and
+// `questions_immutable_after_responses` refuses to delete a question
+// whose assignment has responses. The RPC is where that authority is
+// scoped to one named gesture; see 0025's header for the full argument.
+// ============================================================
+
+/** Shape of `assignment_deletion_counts` / `delete_assignment_permanently`. */
+export interface AssignmentDeletionCounts {
+  assignmentId: string;
+  classId: string;
+  title: string;
+  status: AssignmentStatus;
+  sequenceNumber: number;
+  questions: number;
+  responses: number;
+  attempts: number;
+  students: number;
+  imports: number;
+}
+
+/**
+ * What `deleteAssignmentPermanently` would destroy, read live for the
+ * confirmation dialog.
+ *
+ * The RPC returns NULL for "no such assignment, or not your class" — it
+ * cannot distinguish those two without telling a stranger which
+ * assignment ids exist, and it should not. Null is an access error here,
+ * never an empty census.
+ */
+export async function getAssignmentDeletionCounts(
+  assignmentId: string
+): Promise<AssignmentActionResult<AssignmentDeletionCounts>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("assignment_deletion_counts", {
+    p_assignment_id: assignmentId,
+  });
+
+  if (error) return { success: false, error: error.message };
+  if (!data) {
+    return {
+      success: false,
+      error: "Assignment not found, or you don't have access to it.",
+    };
+  }
+  return { success: true, data: data as AssignmentDeletionCounts };
+}
+
+/**
+ * ARCHIVED -> CLOSED. Restores to CLOSED and not to OPEN: putting the
+ * class back in front of the assignment is a separate decision the
+ * professor makes with the Reopen button, and folding it in here would
+ * mean undoing an accidental archive silently republished something the
+ * class had finished with.
+ */
+export async function unarchiveAssignment(
+  assignmentId: string
+): Promise<AssignmentActionResult<{ id: string; status: AssignmentStatus }>> {
+  const { supabase, user, assignment, checkError } =
+    await requireProfessorForAssignment(assignmentId);
+  if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
+
+  if (assignment.status !== "ARCHIVED") {
+    return {
+      success: false,
+      error: `Only an archived assignment can be restored (this one is ${assignment.status}).`,
+    };
+  }
+
+  const { error } = await supabase.rpc("unarchive_assignment", {
+    p_assignment_id: assignmentId,
+  });
+  if (error) return { success: false, error: error.message };
+
+  // The RPC writes its own audit entry (ASSIGNMENT_UNARCHIVED) inside the
+  // same transaction as the status change, so there is nothing to log here.
+  revalidatePath(`/classes/${assignment.class_id}/assignments`);
+  revalidatePath(`/classes/${assignment.class_id}/assignments/${assignmentId}`);
+  return { success: true, data: { id: assignmentId, status: "CLOSED" } };
+}
+
+/**
+ * Irreversible. Removes the assignment and, through the FK cascade, its
+ * questions, attempts, responses and import history — whatever its status
+ * and however many responses it holds.
+ *
+ * Not gated on response count on purpose: a professor who imported the
+ * wrong spreadsheet against a live class has no other way out, and
+ * "archive it and live with it" is not an answer when the rows are wrong.
+ * The protections are the audit record the RPC writes before deleting and
+ * the type-to-confirm in front of this call, not a refusal.
+ */
+export async function deleteAssignmentPermanently(
+  assignmentId: string
+): Promise<AssignmentActionResult<AssignmentDeletionCounts>> {
+  const { supabase, user, assignment, checkError } =
+    await requireProfessorForAssignment(assignmentId);
+  if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
+
+  const { data, error } = await supabase.rpc("delete_assignment_permanently", {
+    p_assignment_id: assignmentId,
+  });
+  if (error) return { success: false, error: error.message };
+  if (!data) {
+    return { success: false, error: "Assignment not found, or you don't have access to it." };
+  }
+
+  const counts = data as AssignmentDeletionCounts;
+
+  revalidatePath("/classes");
+  revalidatePath(`/classes/${assignment.class_id}`);
+  revalidatePath(`/classes/${assignment.class_id}/assignments`);
+  revalidatePath(`/classes/${assignment.class_id}/analytics`);
+  return { success: true, data: counts };
+}
+
 export async function duplicateAssignment(
   assignmentId: string
 ): Promise<AssignmentActionResult<{ id: string }>> {

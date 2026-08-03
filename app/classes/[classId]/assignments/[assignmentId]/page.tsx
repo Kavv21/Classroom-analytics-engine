@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { StatusActions } from "@/components/assignments/status-actions";
+import { DeleteAssignmentButton } from "@/components/assignments/delete-assignment-button";
 import {
   AttemptsTable,
   type AttemptTableRow,
@@ -261,6 +262,25 @@ export default async function AssignmentDetailPage({
           </ul>
         </>
       )}
+
+      {/* Last on the page on purpose: everything above is something the
+          professor does routinely, and this is not. */}
+      <h2 className="title-sm mt-10">Danger zone</h2>
+      <div className="card-standard mt-3 flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="font-medium">Delete this assignment permanently</p>
+          <p className="note mt-0.5">
+            Removes the assignment and everything attached to it &mdash; its
+            questions, every student attempt, and{" "}
+            {responseCount === 1
+              ? "the 1 response"
+              : `all ${responseCount ?? 0} responses`}{" "}
+            recorded against it. Archiving hides an assignment and keeps its
+            data; this does not.
+          </p>
+        </div>
+        <DeleteAssignmentButton assignmentId={assignmentId} classId={classId} />
+      </div>
     </main>
   );
 }

@@ -950,4 +950,60 @@
     background-color: var(--sidebar-active);
     color: var(--sidebar-active-ink);
   }
+
+  /* ---------- Busy indication -------------------------------------------
+     The motion budget is colour/opacity/shadow only — never size or
+     position — so this is NOT a spinner. A rotating glyph animates
+     transform, which is exactly the class of motion the budget excludes,
+     and it would be the only thing in the app that moved.
+
+     Three dots fading in sequence carries the same "something is
+     happening, it has not stalled" signal using opacity alone. Reserved
+     for work the professor just started (a submit, a delete, a fetch
+     triggered by opening a dialog) — route-level skeletons stay static,
+     see app/classes/[classId]/analytics/loading.tsx for why.
+
+     `prefers-reduced-motion` already flattens the animation to 0.01ms via
+     the base layer, at which point the dots sit at their `to` opacity and
+     read as a static ellipsis. The accompanying text label is what
+     actually announces the state; these are decoration. */
+  @keyframes pending-fade {
+    from {
+      opacity: 0.2;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .pending-dots {
+    @apply inline-flex items-center gap-1;
+  }
+  .pending-dots > span {
+    @apply block size-1 rounded-full;
+    background-color: currentColor;
+    animation: pending-fade 900ms ease-in-out infinite alternate;
+  }
+  .pending-dots > span:nth-child(2) {
+    animation-delay: 150ms;
+  }
+  .pending-dots > span:nth-child(3) {
+    animation-delay: 300ms;
+  }
+
+  /* ---------- Route-level skeletons -------------------------------------
+     Static placeholders in the shape of the content that is coming, so
+     the page does not reflow when it lands. No pulse, no shimmer: on a
+     tool the professor navigates through dozens of times a session, a
+     skeleton that animates on every navigation is noise, and the budget
+     spends its motion on things being interacted with instead. */
+  .skeleton-block {
+    background-color: var(--surface-sunken);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius);
+  }
+  .skeleton-line {
+    background-color: var(--surface-sunken);
+    border-radius: calc(var(--radius) / 2);
+    @apply h-3;
+  }
 }

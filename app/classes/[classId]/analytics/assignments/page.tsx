@@ -22,12 +22,16 @@ export default async function AssignmentAnalyticsPage({
   const { supabase, classRow } = await requireProfessorClassPage(classId);
   if (!classRow) notFound();
 
-  const assignments = await getClassAssignments(supabase, classId);
-  const [questionSummaryLists, progress, timeline] = await Promise.all([
-    Promise.all(assignments.map((a) => getQuestionResponseSummaries(supabase, a.id))),
+  // Only the per-question summaries need the assignment list; progress
+  // and timeline are class-scoped and were waiting behind it for nothing.
+  const [assignments, progress, timeline] = await Promise.all([
+    getClassAssignments(supabase, classId),
     getSubmissionProgress(supabase, classId),
     getSubmissionTimeline(supabase, classId),
   ]);
+  const questionSummaryLists = await Promise.all(
+    assignments.map((a) => getQuestionResponseSummaries(supabase, a.id))
+  );
 
   return (
     <main className="page-dense">

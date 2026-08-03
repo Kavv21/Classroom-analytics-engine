@@ -11,6 +11,7 @@ import {
 } from "@/lib/assignments/schema";
 import type { AssignmentActionResult } from "@/lib/assignments/actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Busy } from "@/components/ui/busy";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -255,7 +256,7 @@ export function AssignmentForm({
       )}
 
       <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Saving…" : submitLabel}
+        {isSubmitting ? <Busy label="Saving…" /> : submitLabel}
       </Button>
     </form>
   );

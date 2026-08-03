@@ -28,22 +28,23 @@ export default async function AssignmentsPage({
   const { classId } = await params;
   const supabase = await createClient();
 
-  const { data: classRow, error: classError } = await supabase
-    .from("classes")
-    .select("id, name")
-    .eq("id", classId)
-    .maybeSingle();
+  // Both keyed on classId only. The assignments read is not gated on the
+  // class read — RLS already hides another professor's assignments, so
+  // issuing it early cannot leak anything the notFound() below was
+  // protecting.
+  const [{ data: classRow, error: classError }, { data: assignments, error }] =
+    await Promise.all([
+      supabase.from("classes").select("id, name").eq("id", classId).maybeSingle(),
+      supabase
+        .from("assignments")
+        .select("id, title, assignment_stage, sequence_number, status, open_at, close_at")
+        .eq("class_id", classId)
+        .order("sequence_number", { ascending: true })
+        .order("created_at", { ascending: true }),
+    ]);
 
   if (classError) throw new Error(`Failed to load class: ${classError.message}`);
   if (!classRow) notFound();
-
-  const { data: assignments, error } = await supabase
-    .from("assignments")
-    .select("id, title, assignment_stage, sequence_number, status, open_at, close_at")
-    .eq("class_id", classId)
-    .order("sequence_number", { ascending: true })
-    .order("created_at", { ascending: true });
-
   if (error) throw new Error(`Failed to load assignments: ${error.message}`);
 
   return (

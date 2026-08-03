@@ -3,6 +3,7 @@
 import { useReactTable, getCoreRowModel, flexRender, createColumnHelper } from "@tanstack/react-table";
 import type { RosterRowResult, RosterRowClassification } from "@/lib/types/domain";
 import { Badge } from "@/components/ui/badge";
+import { PILL } from "@/lib/ui/tone";
 import {
   Table,
   TableBody,
@@ -22,15 +23,20 @@ const CLASSIFICATION_LABEL: Record<RosterRowClassification, string> = {
 };
 
 /** Tone by outcome. Text always carries the meaning; colour is redundant. */
+/**
+ * Import validation outcome per row. This IS a success/failure axis — a
+ * rejected roster row is genuinely a failure the professor has to fix — so
+ * green and red are the honest encoding here, and .claude/rules/analytics.md
+ * permits it: an import outcome is workflow state, not response data. The
+ * label is always rendered in the same cell (WCAG 1.4.1).
+ */
 const CLASSIFICATION_TONE: Record<RosterRowClassification, string> = {
-  NEW: "border-transparent bg-surface-good text-[color:var(--status-good-text)]",
-  EXISTING_PROFILE: "border-transparent bg-surface-info text-[color:var(--status-info-text)]",
-  DUPLICATE_IN_FILE: "border-transparent bg-surface-warning text-[color:var(--status-warning-text)]",
-  DUPLICATE_ALREADY_IN_CLASS:
-    "border-transparent bg-surface-warning text-[color:var(--status-warning-text)]",
-  DUPLICATE_PENDING_OTHER_CLASS:
-    "border-transparent bg-surface-warning text-[color:var(--status-warning-text)]",
-  INVALID: "border-transparent bg-surface-critical text-[color:var(--status-critical-text)]",
+  NEW: PILL.green,
+  EXISTING_PROFILE: PILL.blue,
+  DUPLICATE_IN_FILE: PILL.amber,
+  DUPLICATE_ALREADY_IN_CLASS: PILL.amber,
+  DUPLICATE_PENDING_OTHER_CLASS: PILL.amber,
+  INVALID: PILL.red,
 };
 
 const columnHelper = createColumnHelper<RosterRowResult>();

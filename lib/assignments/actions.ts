@@ -10,6 +10,14 @@ import {
   type QuestionLabelsValues,
 } from "@/lib/assignments/schema";
 import {
+  nextOtherSequenceNumber,
+  PAIRED_SEQUENCE_NUMBERS,
+  positionForSequenceNumber,
+  positionLabel,
+  sequenceNumberLabel,
+  type SequencePosition,
+} from "@/lib/assignments/sequence";
+import {
   GridFileFormatError,
   GridFileTooLargeError,
   parseAssignmentFile,
@@ -29,14 +37,19 @@ function nullIfBlank(value: string | undefined): string | null {
 }
 
 /**
- * Sequence numbers must be unique per class among assignments still in play.
+ * The paired positions (first/second) must be unique per class among
+ * assignments still in play.
  *
  * The real enforcement is the partial unique index from migration 0018 —
  * this check exists to turn a raw Postgres unique-violation into a field
  * error the professor can act on, and to explain WHY it matters. A check
  * here is not a substitute for the constraint: two concurrent creates would
  * both pass this and one would then hit the index, which
- * `sequenceConflictMessage` translates.
+ * `sequenceConflictResult` translates.
+ *
+ * "Other" assignments never come through here: their number is allocated
+ * server-side from the free numbers upwards, so there is nothing for the
+ * professor to resolve.
  */
 async function findSequenceConflict(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -58,24 +71,37 @@ async function findSequenceConflict(
   return data?.[0] ?? null;
 }
 
-function sequenceLabel(sequenceNumber: number): string {
-  if (sequenceNumber === 1) return "first";
-  if (sequenceNumber === 2) return "second";
-  return `#${sequenceNumber}`;
+/**
+ * Every sequence number already spoken for in a class, ARCHIVED included —
+ * see nextOtherSequenceNumber for why archived siblings still count.
+ */
+async function usedSequenceNumbers(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  classId: string
+): Promise<number[]> {
+  const { data, error } = await supabase
+    .from("assignments")
+    .select("sequence_number")
+    .eq("class_id", classId)
+    .returns<Array<{ sequence_number: number }>>();
+  if (error) return [];
+  return (data ?? []).map((row) => row.sequence_number);
 }
 
 function sequenceConflictResult<T>(
-  sequenceNumber: number,
+  position: SequencePosition,
   conflictTitle: string
 ): AssignmentActionResult<T> {
   const message =
-    `"${conflictTitle}" is already the ${sequenceLabel(sequenceNumber)} assignment in this class. ` +
-    `A class can have only one of each — this is how the platform knows which answers to ` +
-    `compare with which. Pick the other position, or change the existing assignment first.`;
+    `"${conflictTitle}" is already the ${positionLabel(position)} assignment in this class. ` +
+    `Only the first/second pair is limited to one each — that pair is what the ` +
+    `before/after comparison is built from. Pick the other position, choose ` +
+    `"Other" to add a standalone assignment instead, or change the existing ` +
+    `assignment first.`;
   return {
     success: false,
     error: message,
-    fieldErrors: { sequenceNumber: [message] },
+    fieldErrors: { sequencePosition: [message] },
   };
 }
 
@@ -193,34 +219,63 @@ export async function createAssignment(
 
   const v = parsed.data;
 
-  const conflict = await findSequenceConflict(supabase, classId, v.sequenceNumber);
-  if (conflict) return sequenceConflictResult(v.sequenceNumber, conflict.title);
+  if (v.sequencePosition !== "OTHER") {
+    const conflict = await findSequenceConflict(
+      supabase,
+      classId,
+      PAIRED_SEQUENCE_NUMBERS[v.sequencePosition]
+    );
+    if (conflict) return sequenceConflictResult(v.sequencePosition, conflict.title);
+  }
 
-  const { data, error } = await supabase
-    .from("assignments")
-    .insert({
-      class_id: classId,
-      title: v.title.trim(),
-      description: nullIfBlank(v.description),
-      instructions: nullIfBlank(v.instructions),
-      assignment_stage: v.assignmentStage,
-      sequence_number: v.sequenceNumber,
-      open_at: nullIfBlank(v.openAt),
-      close_at: nullIfBlank(v.closeAt),
-      allow_draft_editing: v.allowDraftEditing,
-      allow_resubmission: v.allowResubmission,
-      response_zero_label: v.responseZeroLabel.trim(),
-      response_one_label: v.responseOneLabel.trim(),
-      created_by: user.id,
-    })
-    .select("id")
-    .single();
+  const row = {
+    class_id: classId,
+    title: v.title.trim(),
+    description: nullIfBlank(v.description),
+    instructions: nullIfBlank(v.instructions),
+    assignment_stage: v.assignmentStage,
+    open_at: nullIfBlank(v.openAt),
+    close_at: nullIfBlank(v.closeAt),
+    allow_draft_editing: v.allowDraftEditing,
+    allow_resubmission: v.allowResubmission,
+    response_zero_label: v.responseZeroLabel.trim(),
+    response_one_label: v.responseOneLabel.trim(),
+    created_by: user.id,
+  };
 
-  if (error) {
-    if (isSequenceIndexViolation(error)) {
-      return sequenceConflictResult(v.sequenceNumber, "Another assignment");
+  // "Other" allocates its own number, so two professors creating one at the
+  // same moment can both pick the same free slot and one of them loses the
+  // race against the 0018 index. Nothing about that is the professor's
+  // problem to solve — re-read the taken numbers and take the next one.
+  const attempts = v.sequencePosition === "OTHER" ? 3 : 1;
+  let data: { id: string } | null = null;
+  let lastError: { message: string; code?: string } | null = null;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const sequenceNumber =
+      v.sequencePosition === "OTHER"
+        ? nextOtherSequenceNumber(await usedSequenceNumbers(supabase, classId))
+        : PAIRED_SEQUENCE_NUMBERS[v.sequencePosition];
+
+    const inserted = await supabase
+      .from("assignments")
+      .insert({ ...row, sequence_number: sequenceNumber })
+      .select("id")
+      .single();
+
+    if (!inserted.error) {
+      data = inserted.data;
+      break;
     }
-    return { success: false, error: error.message };
+    lastError = inserted.error;
+    if (!isSequenceIndexViolation(inserted.error)) break;
+  }
+
+  if (!data) {
+    if (lastError && isSequenceIndexViolation(lastError)) {
+      return sequenceConflictResult(v.sequencePosition, "Another assignment");
+    }
+    return { success: false, error: lastError?.message ?? "Could not create the assignment." };
   }
 
   await logAudit(supabase, "ASSIGNMENT_CREATED", "assignment", data.id, {
@@ -252,13 +307,26 @@ export async function updateAssignment(
 
   const v = parsed.data;
 
-  const conflict = await findSequenceConflict(
-    supabase,
-    assignment.class_id,
-    v.sequenceNumber,
-    assignmentId
-  );
-  if (conflict) return sequenceConflictResult(v.sequenceNumber, conflict.title);
+  // An assignment that is already "other" keeps the number it was given:
+  // re-saving the form must not renumber it (and so must not invalidate its
+  // question codes) just because "Other" carries no fixed number.
+  const currentPosition = positionForSequenceNumber(assignment.sequence_number);
+  const sequenceNumber =
+    v.sequencePosition === "OTHER"
+      ? currentPosition === "OTHER"
+        ? assignment.sequence_number
+        : nextOtherSequenceNumber(await usedSequenceNumbers(supabase, assignment.class_id))
+      : PAIRED_SEQUENCE_NUMBERS[v.sequencePosition];
+
+  if (v.sequencePosition !== "OTHER") {
+    const conflict = await findSequenceConflict(
+      supabase,
+      assignment.class_id,
+      sequenceNumber,
+      assignmentId
+    );
+    if (conflict) return sequenceConflictResult(v.sequencePosition, conflict.title);
+  }
 
   // Changing the sequence number AFTER questions are imported silently
   // invalidates every question code on this assignment.
@@ -275,7 +343,7 @@ export async function updateAssignment(
   // to punch through the questions_immutable_after_responses trigger, which
   // is a data repair, not an edit. supabase/migrations/0019 does exactly
   // that, deliberately and reviewably.
-  if (v.sequenceNumber !== assignment.sequence_number) {
+  if (sequenceNumber !== assignment.sequence_number) {
     const { count, error: questionCountError } = await supabase
       .from("questions")
       .select("id", { count: "exact", head: true })
@@ -285,14 +353,14 @@ export async function updateAssignment(
       const message =
         `This assignment already has ${count} imported questions, and their codes ` +
         `(A${assignment.sequence_number}-001, …) were generated from its current position. ` +
-        `Moving it to ${sequenceLabel(v.sequenceNumber)} would leave those codes ` +
+        `Moving it to ${sequenceNumberLabel(sequenceNumber)} would leave those codes ` +
         `disagreeing with it, which makes them ambiguous across the class. ` +
         `Change the position before importing questions, or ask a maintainer to run the ` +
         `code-repair migration (0019) alongside the change.`;
       return {
         success: false,
         error: message,
-        fieldErrors: { sequenceNumber: [message] },
+        fieldErrors: { sequencePosition: [message] },
       };
     }
   }
@@ -304,7 +372,7 @@ export async function updateAssignment(
       description: nullIfBlank(v.description),
       instructions: nullIfBlank(v.instructions),
       assignment_stage: v.assignmentStage,
-      sequence_number: v.sequenceNumber,
+      sequence_number: sequenceNumber,
       open_at: nullIfBlank(v.openAt),
       close_at: nullIfBlank(v.closeAt),
       allow_draft_editing: v.allowDraftEditing,
@@ -319,7 +387,7 @@ export async function updateAssignment(
 
   if (error) {
     if (isSequenceIndexViolation(error)) {
-      return sequenceConflictResult(v.sequenceNumber, "Another assignment");
+      return sequenceConflictResult(v.sequencePosition, "Another assignment");
     }
     return { success: false, error: error.message };
   }
@@ -376,8 +444,13 @@ export async function transitionAssignment(
     };
   }
 
-  await logAudit(supabase, TRANSITION_AUDIT_ACTIONS[toStatus] ?? "ASSIGNMENT_STATUS_CHANGED",
-    "assignment", assignmentId, { from, to: toStatus });
+  // Reopening is not publishing. The audit trail has to be able to tell
+  // "students first saw this" from "students were let back in".
+  const auditAction =
+    from === "CLOSED" && toStatus === "OPEN"
+      ? "ASSIGNMENT_REOPENED"
+      : (TRANSITION_AUDIT_ACTIONS[toStatus] ?? "ASSIGNMENT_STATUS_CHANGED");
+  await logAudit(supabase, auditAction, "assignment", assignmentId, { from, to: toStatus });
 
   revalidatePath(`/classes/${data.class_id}/assignments`);
   revalidatePath(`/classes/${data.class_id}/assignments/${assignmentId}`);

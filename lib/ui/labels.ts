@@ -34,18 +34,32 @@ export function assignmentStatusLabel(status: string): string {
   return ASSIGNMENT_STATUS_LABELS[status as AssignmentStatus] ?? status;
 }
 
-/** Badge tone per status — workflow state only, never a judgement. */
+/**
+ * Badge tone per status — workflow state only, never a judgement.
+ *
+ * All five statuses now take a distinct hue rather than collapsing three
+ * of them into the same neutral: the "Meridian" direction differentiates
+ * workflow state by colour, and a professor scanning a class list should
+ * be able to tell CLOSED from ARCHIVED without reading. The hues are
+ * ordered by lifecycle, not by desirability — an assignment is not better
+ * for being open, and nothing here implies one state is a success and
+ * another a failure. The label is always rendered alongside, so the hue is
+ * redundant reinforcement rather than the signal (WCAG 1.4.1).
+ */
 export function assignmentStatusTone(status: string): string {
   switch (status) {
-    case "OPEN":
-      return "badge badge-good";
+    case "DRAFT":
+      return "badge badge-amber";
     case "READY":
-      return "badge badge-info";
+      return "badge badge-blue";
+    case "OPEN":
+      return "badge badge-green";
     case "CLOSED":
+      return "badge badge-purple";
     case "ARCHIVED":
-      return "badge";
+      return "badge badge-neutral";
     default:
-      return "badge";
+      return "badge badge-neutral";
   }
 }
 

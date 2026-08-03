@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BarChart3, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EditClassForm } from "@/components/classes/edit-class-form";
 import { ArchiveButton } from "@/components/classes/archive-button";
 import { StudentActiveToggle } from "@/components/classes/student-active-toggle";
 import { Badge } from "@/components/ui/badge";
+import { PILL } from "@/lib/ui/tone";
+import { PersonChip, PeopleStack } from "@/components/ui/person-avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -100,12 +103,19 @@ export default async function ClassDetailPage({
         </div>
       </div>
 
+      {/* One hue per destination, as the direction's category marker. The
+          tile is chrome: it distinguishes two areas of the app from each
+          other and encodes nothing about anyone's responses. `Icon` is a
+          component reference held in a local array, not a function passed
+          across a props boundary, so this stays a server component. */}
       {[
         {
           title: "Assignments",
           description: "Create, import questions, and publish this class's assignments.",
           href: `/classes/${classId}/assignments`,
           cta: "Manage assignments",
+          tone: "tile-blue",
+          Icon: ClipboardList,
         },
         {
           title: "Analytics",
@@ -113,15 +123,22 @@ export default async function ClassDetailPage({
             "Response distributions, consensus and entropy for each assignment. Always current — nothing to refresh.",
           href: `/classes/${classId}/analytics`,
           cta: "View analytics",
+          tone: "tile-purple",
+          Icon: BarChart3,
         },
       ].map((section) => (
         <div
           key={section.title}
           className="card-standard mt-4 flex flex-wrap items-center justify-between gap-4"
         >
-          <div className="min-w-0">
-            <p className="font-medium">{section.title}</p>
-            <p className="note mt-0.5">{section.description}</p>
+          <div className="flex min-w-0 items-start gap-4">
+            <span className={`icon-tile ${section.tone}`} aria-hidden="true">
+              <section.Icon className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-medium">{section.title}</p>
+              <p className="note mt-0.5">{section.description}</p>
+            </div>
           </div>
           <Button asChild variant="outline">
             <Link href={section.href}>{section.cta}</Link>
@@ -129,7 +146,24 @@ export default async function ClassDetailPage({
         </div>
       ))}
 
-      <h2 className="title-sm mt-10">Roster</h2>
+      {/* The stack is a summary of the table directly beneath it — it adds
+          no information the roster does not already list, and carries one
+          accessible label with the real count so a screen reader is not
+          read a run of initials. */}
+      <div className="mt-10 flex flex-wrap items-center gap-3">
+        <h2 className="title-sm">Roster</h2>
+        {members && members.length > 0 && (
+          <PeopleStack
+            label={`${members.length} enrolled ${members.length === 1 ? "student" : "students"}`}
+            people={members
+              .filter((m) => !!m.profiles)
+              .map((m) => ({
+                fullName: m.profiles!.full_name,
+                email: m.profiles!.email,
+              }))}
+          />
+        )}
+      </div>
       {!members || members.length === 0 ? (
         <Alert className="mt-3">
           <AlertDescription>
@@ -159,16 +193,19 @@ export default async function ClassDetailPage({
                 )
                 .map((m) => (
                   <TableRow key={m.id}>
-                    <TableCell className="font-medium">{m.profiles.full_name ?? "—"}</TableCell>
+                    <TableCell>
+                      <PersonChip
+                        fullName={m.profiles.full_name}
+                        email={m.profiles.email}
+                      />
+                    </TableCell>
                     <TableCell className="text-ink-secondary">{m.profiles.email}</TableCell>
                     <TableCell className="tabular-nums">{m.profiles.roll_number ?? "—"}</TableCell>
                     <TableCell>
                       <Badge
                         variant="outline"
                         className={
-                          m.profiles.is_active
-                            ? "border-transparent bg-surface-good text-[color:var(--status-good-text)]"
-                            : "border-transparent bg-surface-sunken text-ink-secondary"
+                          m.profiles.is_active ? PILL.green : PILL.slate
                         }
                       >
                         {m.profiles.is_active ? "Active" : "Inactive"}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AssignmentForm } from "@/components/assignments/assignment-form";
 import { updateAssignment } from "@/lib/assignments/actions";
+import { positionForSequenceNumber } from "@/lib/assignments/sequence";
 
 /** timestamptz → the local "YYYY-MM-DDTHH:mm" a datetime-local input needs. */
 function toLocalInput(iso: string | null): string {
@@ -53,7 +54,7 @@ export default async function EditAssignmentPage({
             description: assignment.description ?? "",
             instructions: assignment.instructions ?? "",
             assignmentStage: assignment.assignment_stage,
-            sequenceNumber: assignment.sequence_number,
+            sequencePosition: positionForSequenceNumber(assignment.sequence_number),
             openAt: toLocalInput(assignment.open_at),
             closeAt: toLocalInput(assignment.close_at),
             allowDraftEditing: assignment.allow_draft_editing,

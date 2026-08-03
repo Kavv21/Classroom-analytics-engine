@@ -58,11 +58,24 @@ Once any student has answered, question wording and labels lock. You can
 still reorder. To change the questions themselves, use **Duplicate** and
 edit the copy.
 
-## 6. Reopen a student's attempt
+## 6. Let students answer again
 
-Assignment page → **Student attempts** → **Reopen** next to the student.
-They can then edit and resubmit; their submission version increments. Only
-you can do this — students cannot reopen their own work.
+There are two different gestures, and they are not interchangeable.
+
+**One student**: assignment page → **Student attempts** → **Reopen** next
+to them. They can edit and resubmit; their submission version increments.
+This works whether the assignment is open or closed — a closed assignment
+stays closed to everyone else. Only you can do this; students cannot
+reopen their own work.
+
+**The whole class**: assignment page → **Reopen to students**, on a closed
+assignment. Anyone who hadn't submitted can carry on, and anyone whose
+attempt you reopened individually can submit again. You can close it again
+afterwards.
+
+If a student says a reopened assignment still shows as closed with no way
+in, check its status: before this was fixed, reopening an attempt on a
+closed assignment produced exactly that dead end.
 
 ## 7. Read the analytics
 

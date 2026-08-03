@@ -34,9 +34,23 @@ const userIds: string[] = [];
  * assignment this helper creates takes the next free one. The helper used
  * to hardcode 1, which worked only because nothing enforced uniqueness —
  * the exact condition that let the real class end up with two sequence-1
- * assignments and a silently disabled transition engine.
+ * assignments and a silently disabled comparison.
+ *
+ * Past the paired pair it asks the DATABASE for the next free number
+ * rather than keeping its own counter: duplicate_assignment also allocates
+ * numbers now, so a local counter drifts out of step with what the class
+ * actually holds and collides with the index.
  */
-let nextSequenceNumber = 1;
+let pairedAssignmentsCreated = 0;
+
+async function nextSequenceNumber(): Promise<number> {
+  if (pairedAssignmentsCreated < 2) return ++pairedAssignmentsCreated;
+  const { data, error } = await professor.client.rpc("next_assignment_sequence_number", {
+    p_class_id: classId,
+  });
+  if (error) throw new Error(`sequence allocation failed: ${error.message}`);
+  return data as number;
+}
 
 async function createOpenAssignment(title: string): Promise<{ id: string; questionIds: string[] }> {
   const { data: a, error: aError } = await professor.client
@@ -44,7 +58,7 @@ async function createOpenAssignment(title: string): Promise<{ id: string; questi
     .insert({
       class_id: classId,
       title,
-      sequence_number: nextSequenceNumber++,
+      sequence_number: await nextSequenceNumber(),
       created_by: professor.id,
     })
     .select("id")
@@ -348,4 +362,201 @@ describe("attempt lifecycle", () => {
     expect(submitError, submitError?.message).toBeNull();
     expect((receipt as { state: string }).state).toBe("SUBMITTED");
   }, 30_000);
+});
+
+/**
+ * The reported bug, end to end: "the professor reopened it and the student
+ * still can't answer."
+ *
+ * Reopening was a dead end twice over — CLOSED had no way back to OPEN, and
+ * reopening a single attempt left the student facing a closed assignment
+ * every write path refused. Migration 0023 fixes both; these tests are what
+ * would have caught it, since every earlier reopen test ran against an
+ * assignment that happened to still be OPEN.
+ */
+describe("reopening a closed assignment", () => {
+  let closedAssignmentId: string;
+  let closedQuestionIds: string[];
+  let reopenedAttemptId: string;
+
+  async function setStatus(id: string, status: string) {
+    const { error } = await professor.client
+      .from("assignments")
+      .update({ status })
+      .eq("id", id);
+    if (error) throw new Error(`transition to ${status} failed: ${error.message}`);
+  }
+
+  beforeAll(async () => {
+    const created = await createOpenAssignment("Closed-Then-Reopened Assignment");
+    closedAssignmentId = created.id;
+    closedQuestionIds = created.questionIds;
+
+    const { data, error } = await student.client.rpc("get_or_create_attempt", {
+      p_assignment_id: closedAssignmentId,
+    });
+    if (error) throw new Error(`attempt open failed: ${error.message}`);
+    reopenedAttemptId = (data as { id: string }).id;
+
+    const { error: submitError } = await student.client.rpc("submit_attempt", {
+      p_attempt_id: reopenedAttemptId,
+    });
+    if (submitError) throw new Error(`submit failed: ${submitError.message}`);
+
+    await setStatus(closedAssignmentId, "CLOSED");
+  }, 60_000);
+
+  it("a closed assignment blocks the student until something reopens it", async () => {
+    const { error } = await student.client.rpc("get_or_create_attempt", {
+      p_assignment_id: closedAssignmentId,
+    });
+    expect(error, "a closed assignment must not be answerable").not.toBeNull();
+  }, 20_000);
+
+  it("lets the professor reopen a single attempt while the assignment stays closed", async () => {
+    const { data, error } = await professor.client.rpc("reopen_attempt", {
+      p_attempt_id: reopenedAttemptId,
+    });
+    expect(error, error?.message).toBeNull();
+    expect((data as { state: string }).state).toBe("REOPENED");
+  }, 20_000);
+
+  it("the reopened student can now open, save and resubmit — the bug", async () => {
+    const { data, error } = await student.client.rpc("get_or_create_attempt", {
+      p_assignment_id: closedAssignmentId,
+    });
+    expect(error, error?.message).toBeNull();
+    expect((data as { id: string; state: string }).state).toBe("REOPENED");
+
+    // The first save moves REOPENED -> DRAFT. If DRAFT were outside the
+    // allowance the student would be locked out by their own first cell.
+    const { error: saveError } = await student.client.rpc("save_attempt_responses", {
+      p_attempt_id: reopenedAttemptId,
+      p_answers: [{ questionId: closedQuestionIds[0], value: 1 }],
+    });
+    expect(saveError, saveError?.message).toBeNull();
+
+    const { error: secondSaveError } = await student.client.rpc("save_attempt_responses", {
+      p_attempt_id: reopenedAttemptId,
+      p_answers: [{ questionId: closedQuestionIds[1], value: 0 }],
+    });
+    expect(secondSaveError, secondSaveError?.message).toBeNull();
+
+    const { data: receipt, error: submitError } = await student.client.rpc("submit_attempt", {
+      p_attempt_id: reopenedAttemptId,
+    });
+    expect(submitError, submitError?.message).toBeNull();
+    expect((receipt as { submissionVersion: number }).submissionVersion).toBe(2);
+  }, 30_000);
+
+  it("the allowance ends at resubmission — no open door on a closed assignment", async () => {
+    const { error } = await student.client.rpc("save_attempt_responses", {
+      p_attempt_id: reopenedAttemptId,
+      p_answers: [{ questionId: closedQuestionIds[0], value: 0 }],
+    });
+    expect(error, "a resubmitted attempt must be closed again").not.toBeNull();
+  }, 20_000);
+
+  it("CLOSED -> OPEN reopens the assignment for the whole class", async () => {
+    await setStatus(closedAssignmentId, "OPEN");
+
+    const { data: fresh, error } = await admin
+      .from("assignments")
+      .select("status")
+      .eq("id", closedAssignmentId)
+      .single();
+    expect(error).toBeNull();
+    expect(fresh!.status).toBe("OPEN");
+
+    // And back again, so closing is still available after a reopen.
+    await setStatus(closedAssignmentId, "CLOSED");
+  }, 20_000);
+
+  it("refuses to reopen an attempt on an archived assignment", async () => {
+    const spare = await createOpenAssignment("Archived Assignment");
+    const { data: attempt } = await student.client.rpc("get_or_create_attempt", {
+      p_assignment_id: spare.id,
+    });
+    const spareAttemptId = (attempt as { id: string }).id;
+    await student.client.rpc("submit_attempt", { p_attempt_id: spareAttemptId });
+
+    await setStatus(spare.id, "CLOSED");
+    await setStatus(spare.id, "ARCHIVED");
+
+    const { error } = await professor.client.rpc("reopen_attempt", {
+      p_attempt_id: spareAttemptId,
+    });
+    expect(error, "an archived assignment has nowhere for the student to answer").not.toBeNull();
+    expect(error!.message).toContain("cannot be reopened");
+  }, 30_000);
+});
+
+/**
+ * A class is not limited to two assignments — only the compared PAIR is.
+ * duplicate_assignment copied the source's sequence_number verbatim, which
+ * has been a guaranteed unique-index violation since migration 0018, so
+ * duplicating a live assignment could not succeed at all.
+ */
+describe("more than two assignments per class", () => {
+  it("duplicate_assignment allocates its own sequence number and re-prefixes codes", async () => {
+    const source = await createOpenAssignment("Duplicate Source");
+
+    const { data: newId, error } = await professor.client.rpc("duplicate_assignment", {
+      p_assignment_id: source.id,
+    });
+    expect(error, error?.message).toBeNull();
+
+    const { data: copy, error: copyError } = await professor.client
+      .from("assignments")
+      .select("id, sequence_number, status, class_id")
+      .eq("id", newId as string)
+      .single();
+    expect(copyError).toBeNull();
+    expect(copy!.status).toBe("DRAFT");
+    expect(copy!.class_id).toBe(classId);
+    expect(copy!.sequence_number).toBeGreaterThanOrEqual(3);
+
+    const { data: sourceRow } = await professor.client
+      .from("assignments")
+      .select("sequence_number")
+      .eq("id", source.id)
+      .single();
+    expect(copy!.sequence_number).not.toBe(sourceRow!.sequence_number);
+  }, 30_000);
+
+  it("a class can hold several non-paired assignments at once", async () => {
+    const extras = [
+      await createOpenAssignment("Extra One"),
+      await createOpenAssignment("Extra Two"),
+      await createOpenAssignment("Extra Three"),
+    ];
+
+    const { data: rows, error } = await professor.client
+      .from("assignments")
+      .select("id, sequence_number")
+      .eq("class_id", classId)
+      .in(
+        "id",
+        extras.map((e) => e.id)
+      );
+    expect(error).toBeNull();
+    expect(rows).toHaveLength(3);
+    const numbers = rows!.map((r) => r.sequence_number);
+    expect(new Set(numbers).size).toBe(3);
+  }, 40_000);
+
+  it("next_assignment_sequence_number never returns a paired or taken number", async () => {
+    const { data, error } = await professor.client.rpc("next_assignment_sequence_number", {
+      p_class_id: classId,
+    });
+    expect(error, error?.message).toBeNull();
+    const next = data as number;
+    expect(next).toBeGreaterThanOrEqual(3);
+
+    const { data: taken } = await professor.client
+      .from("assignments")
+      .select("sequence_number")
+      .eq("class_id", classId);
+    expect(taken!.map((t) => t.sequence_number)).not.toContain(next);
+  }, 20_000);
 });

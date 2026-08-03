@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PILL } from "@/lib/ui/tone";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -44,6 +45,7 @@ const ACTION_LABELS: Record<string, string> = {
   ASSIGNMENT_APPROVED: "Marked an assignment ready",
   ASSIGNMENT_PUBLISHED: "Published an assignment",
   ASSIGNMENT_CLOSED: "Closed an assignment",
+  ASSIGNMENT_REOPENED: "Reopened an assignment to students",
   ASSIGNMENT_ARCHIVED: "Archived an assignment",
   ASSIGNMENT_UNAPPROVED: "Returned an assignment to draft",
   ASSIGNMENT_DUPLICATED: "Duplicated an assignment",
@@ -65,14 +67,10 @@ const ACTION_LABELS: Record<string, string> = {
 
 /** Tone by consequence, not by good/bad — these are workflow events. */
 function toneFor(action: string): string {
-  if (action.startsWith("ADMIN_")) return "bg-surface-info text-[color:var(--status-info-text)]";
-  if (action.includes("DELETED") || action.includes("DEACTIVATED")) {
-    return "bg-surface-critical text-[color:var(--status-critical-text)]";
-  }
-  if (action.includes("APPROVED") || action.includes("PUBLISHED")) {
-    return "bg-surface-good text-[color:var(--status-good-text)]";
-  }
-  return "bg-surface-sunken text-ink-secondary";
+  if (action.startsWith("ADMIN_")) return PILL.purple;
+  if (action.includes("DELETED") || action.includes("DEACTIVATED")) return PILL.red;
+  if (action.includes("APPROVED") || action.includes("PUBLISHED")) return PILL.green;
+  return PILL.slate;
 }
 
 export function AuditTable({ rows }: { rows: AuditRow[] }) {
@@ -135,7 +133,7 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
                   </TableCell>
                   <TableCell className="font-medium">{row.actor}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={`border-transparent ${toneFor(row.action)}`}>
+                    <Badge variant="outline" className={toneFor(row.action)}>
                       {ACTION_LABELS[row.action] ?? row.action}
                     </Badge>
                   </TableCell>

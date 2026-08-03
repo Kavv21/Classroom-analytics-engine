@@ -84,8 +84,13 @@ reopens the assignment for you.
 
 ## If your professor reopens your assignment
 
-It reappears in your list as **Reopened**. Open it, make your changes, and
-submit again. Your receipt will show it as a later version.
+It reappears in your list as **Reopened**, with an **Answer again** button.
+Open it, make your changes, and submit again. Your receipt will show it as
+a later version.
+
+This works even when the assignment itself is closed to the rest of the
+class — the list says "closed to the class, reopened for you". The button
+disappears again once you resubmit.
 
 ## Privacy
 

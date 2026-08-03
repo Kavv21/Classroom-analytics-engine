@@ -21,22 +21,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { roleLabel } from "@/lib/ui/labels";
+import { avatarToneClass, initialsFrom } from "@/lib/ui/avatar-tone";
 
 export interface ShellUser {
   fullName: string | null;
@@ -65,17 +52,34 @@ function navFor(role: string): NavItem[] {
   return [{ href: "/classes", label: "Your classes", icon: BookOpen }];
 }
 
-function initials(user: ShellUser): string {
-  const source = user.fullName?.trim() || user.email;
-  const parts = source.split(/[\s@.]+/).filter(Boolean);
-  return (parts[0]?.[0] ?? "?").concat(parts[1]?.[0] ?? "").toUpperCase();
-}
-
+/**
+ * The global shell.
+ *
+ * COMPOSITION (the "Meridian" direction, see app/globals.css): a peach
+ * backdrop on <html>, a floating white app frame, a dark navy icon-only
+ * rail down its left edge, and the page canvas beside it.
+ *
+ * WHY THIS NO LONGER USES components/ui/sidebar: that component positions
+ * its rail `fixed inset-y-0 left-0`, i.e. pinned to the VIEWPORT. Inside a
+ * frame that is inset from the viewport by a margin, a viewport-pinned rail
+ * lands outside the frame it is supposed to sit in. It also animates its
+ * own width when it collapses, which the motion budget forbids (colour,
+ * opacity and shadow only — never size or position), and its cva reaches
+ * for Tailwind v4 bare-data syntax (`data-active:bg-sidebar-accent`) that
+ * v3 silently drops, so its active state never rendered here in the first
+ * place. A static flex column is the whole component this shell needs.
+ *
+ * The nav is icon-only by design, never by omission: every item still
+ * ships its label in the DOM as the link's accessible name AND as a
+ * hover/focus tooltip, and the active item is marked with aria-current.
+ * Nothing here is reachable by sight alone.
+ */
 export function AppShell({ user, children }: { user: ShellUser; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const items = navFor(user.role);
+  const displayName = user.fullName ?? user.email;
 
   async function signOut() {
     setSigningOut(true);
@@ -85,101 +89,102 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   }
 
   return (
-    <SidebarProvider>
-      <Sidebar collapsible="icon">
-        <SidebarHeader>
-          <Link href="/" className="flex items-center gap-2 px-2 py-1.5">
-            <GraduationCap className="size-5 shrink-0" aria-hidden="true" />
-            {/* Letterspaced serif small-cap, per the Ashfield masthead. The
-                text stays in its real casing — several tests assert this
-                literal string, and CSS text-transform changes neither what
-                getByText matches nor what a screen reader announces. */}
-            <span className="wordmark truncate text-sm group-data-[collapsible=icon]:hidden">
-              EVALUATING ENERGY SOURCES
-            </span>
-          </Link>
-        </SidebarHeader>
+    <div className="app-frame">
+      {/* ---------------- the navy rail ---------------- */}
+      <nav
+        aria-label="Main"
+        className="rail flex w-16 shrink-0 flex-col items-center gap-1 py-4"
+      >
+        {/* The logo tile wears the active-indicator orange permanently.
+            It needs `hover:` variants on BOTH colour properties, not just
+            the background: `.rail-item:hover` in the components layer
+            flips the ink to white, and white on this orange is 2.93:1.
+            Matching that hover specificity from the utilities layer is
+            what holds the tile at its measured 5.50:1. */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href="/"
+              aria-label="EVALUATING ENERGY SOURCES — home"
+              className="rail-item mb-4 size-10 bg-rail-active text-rail-active-ink hover:bg-rail-active hover:text-rail-active-ink"
+            >
+              <GraduationCap className="size-5" aria-hidden="true" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Home</TooltipContent>
+        </Tooltip>
 
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {items.map((item) => {
-                  const active =
-                    pathname === item.href || pathname.startsWith(`${item.href}/`);
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
-                        <Link href={item.href}>
-                          <item.icon className="size-4" aria-hidden="true" />
-                          <span>{item.label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
+        {items.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <Tooltip key={item.href}>
+              <TooltipTrigger asChild>
+                <Link
+                  href={item.href}
+                  data-active={active}
+                  aria-current={active ? "page" : undefined}
+                  className="rail-item size-10"
+                >
+                  <item.icon className="size-5" aria-hidden="true" />
+                  <span className="sr-only">{item.label}</span>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{item.label}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </nav>
 
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton
-                    size="lg"
-                    aria-label={`Account menu for ${user.fullName ?? user.email}`}
+      {/* ---------------- the canvas ---------------- */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* The top bar is a quiet white strip inside the frame — the dark
+            chrome bar of the previous direction moved into the rail. It
+            carries the app's name, the shell-level copyright notice (one
+            per authenticated screen, never duplicated per page) and the
+            account menu, which is where the reference puts the avatar. */}
+        <header className="masthead flex h-16 shrink-0 items-center gap-3 px-5">
+          <span className="wordmark truncate text-sm">EVALUATING ENERGY SOURCES</span>
+
+          {/* Rendered exactly once, at every width. A responsive pair of
+              spans (`hidden sm:inline` + `sm:hidden`) would look identical
+              on screen but put the string in the DOM TWICE, which is both
+              a duplicate for screen readers and an assertion this shell's
+              test makes directly. */}
+          <span className="eyebrow ml-auto truncate">© JINRAJ JOSHIPURA 1994</span>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="rounded-full"
+                aria-label={`Account menu for ${displayName}`}
+              >
+                <Avatar className="size-9">
+                  <AvatarFallback
+                    className={`text-xs font-semibold ${avatarToneClass(user.email)}`}
                   >
-                    <Avatar className="size-7">
-                      <AvatarFallback>{initials(user)}</AvatarFallback>
-                    </Avatar>
-                    <div className="grid flex-1 text-left leading-tight">
-                      <span className="truncate font-medium">
-                        {user.fullName ?? user.email}
-                      </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {roleLabel(user.role)}
-                      </span>
-                    </div>
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="top" align="start" className="w-56">
-                  <DropdownMenuLabel className="font-normal">
-                    <p className="font-medium">{user.fullName ?? "Signed in"}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled={signingOut} onSelect={() => void signOut()}>
-                    <LogOut className="size-4" aria-hidden="true" />
-                    {signingOut ? "Signing out…" : "Sign out"}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-      </Sidebar>
-
-      <SidebarInset>
-        {/* The Ashfield chrome bar: solid ink across the top of every
-            authenticated screen, which is what anchors the paper below it.
-            Both children take inverse ink explicitly — .eyebrow and the
-            ghost button default to colours meant for paper, and Tailwind's
-            utilities layer wins over the component layer, so these
-            overrides are what actually apply. */}
-        <header className="masthead flex h-14 items-center gap-2 px-4">
-          <SidebarTrigger className="text-[color:var(--text-inverse)] hover:bg-[color:var(--action-hover)] hover:text-[color:var(--text-inverse)]" />
-          {/* One shell-level notice rather than a per-page footer, so it is
-              present on every authenticated screen and never duplicated. */}
-          <span className="eyebrow ml-auto whitespace-nowrap text-[color:var(--text-inverse)] opacity-75">
-            © JINRAJ JOSHIPURA 1994
-          </span>
+                    {initialsFrom(user.fullName, user.email)}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="bottom" align="end" className="w-60">
+              <DropdownMenuLabel className="font-normal">
+                <p className="font-semibold">{user.fullName ?? "Signed in"}</p>
+                <p className="text-xs text-muted-foreground">{user.email}</p>
+                <span className="badge badge-blue mt-2">{roleLabel(user.role)}</span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={signingOut} onSelect={() => void signOut()}>
+                <LogOut className="size-4" aria-hidden="true" />
+                {signingOut ? "Signing out…" : "Sign out"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
-        {children}
-      </SidebarInset>
-    </SidebarProvider>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+      </div>
+    </div>
   );
 }

@@ -22,12 +22,18 @@ interface AttemptsTableProps {
   attempts: AttemptTableRow[];
 }
 
+/**
+ * One hue per attempt state, so a professor can scan the column. These are
+ * workflow states, not marks: SUBMITTED is not "good" and NOT_STARTED is
+ * not "bad", and no student answer is encoded here. Every cell renders the
+ * state in words next to the colour (WCAG 1.4.1).
+ */
 const STATE_TONES: Record<string, string> = {
-  NOT_STARTED: "badge",
-  DRAFT: "badge badge-info",
-  SUBMITTED: "badge badge-good",
-  REOPENED: "badge badge-warning",
-  RESUBMITTED: "badge badge-good",
+  NOT_STARTED: "badge badge-neutral",
+  DRAFT: "badge badge-amber",
+  SUBMITTED: "badge badge-green",
+  REOPENED: "badge badge-purple",
+  RESUBMITTED: "badge badge-blue",
 };
 
 /** Professor view of per-student attempts, with the reopen action (the only

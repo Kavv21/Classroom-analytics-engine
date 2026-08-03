@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { assignmentStatusLabel, assignmentStatusTone } from "@/lib/ui/labels";
+import { PILL } from "@/lib/ui/tone";
 
 interface ClassAssignmentStatusRow {
   class_id: string;
@@ -91,8 +92,8 @@ export default async function ClassesPage() {
                   variant="outline"
                   className={
                     c.status === "ARCHIVED"
-                      ? "shrink-0 border-transparent bg-surface-sunken text-ink-secondary"
-                      : "shrink-0 border-transparent bg-surface-good text-[color:var(--status-good-text)]"
+                      ? `shrink-0 ${PILL.slate}`
+                      : `shrink-0 ${PILL.green}`
                   }
                 >
                   {c.status === "ARCHIVED" ? "Archived" : "Active"}

@@ -50,13 +50,19 @@ const STAGES = [
  * The old control was `<Input type="number" min={1}>` labelled "Sequence
  * number", defaulting to 1. Nothing about that tells a professor it decides
  * which answers get compared with which, and nothing stopped them leaving
- * two assignments on 1 — which silently disables the whole transition
- * engine (see migration 0018 for the full cascade). The platform compares
- * exactly two assignments, so the control now offers exactly two answers.
+ * two assignments on 1 — which silently disables the aggregate comparison
+ * (see migration 0018 for the full cascade).
+ *
+ * It then offered exactly two answers, which over-corrected: a class could
+ * hold no more than two assignments at all. Only the compared PAIR is
+ * limited to one each. "Other" is the escape hatch and can be used as many
+ * times as the professor likes — the server allocates its stored number
+ * (3, 4, 5, …) so two "other" assignments never collide.
  */
 const SEQUENCE_CHOICES = [
-  { value: 1, label: "First — answered before instruction" },
-  { value: 2, label: "Second — answered after instruction" },
+  { value: "FIRST", label: "First — answered before instruction" },
+  { value: "SECOND", label: "Second — answered after instruction" },
+  { value: "OTHER", label: "Other — a standalone assignment" },
 ] as const;
 
 export function AssignmentForm({
@@ -80,7 +86,7 @@ export function AssignmentForm({
       description: "",
       instructions: "",
       assignmentStage: "OTHER",
-      sequenceNumber: 1,
+      sequencePosition: "FIRST",
       openAt: "",
       closeAt: "",
       allowDraftEditing: true,
@@ -163,21 +169,18 @@ export function AssignmentForm({
           {fieldError("assignmentStage")}
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="sequenceNumber">Which assignment is this?</Label>
+          <Label htmlFor="sequencePosition">Which assignment is this?</Label>
           <Controller
-            name="sequenceNumber"
+            name="sequencePosition"
             control={control}
             render={({ field }) => (
-              <Select
-                value={String(field.value ?? "")}
-                onValueChange={(v) => field.onChange(Number(v))}
-              >
-                <SelectTrigger id="sequenceNumber" aria-describedby="sequenceNumber-help">
-                  <SelectValue placeholder="Choose first or second" />
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger id="sequencePosition" aria-describedby="sequencePosition-help">
+                  <SelectValue placeholder="Choose a position" />
                 </SelectTrigger>
                 <SelectContent>
                   {SEQUENCE_CHOICES.map((choice) => (
-                    <SelectItem key={choice.value} value={String(choice.value)}>
+                    <SelectItem key={choice.value} value={choice.value}>
                       {choice.label}
                     </SelectItem>
                   ))}
@@ -185,12 +188,14 @@ export function AssignmentForm({
               </Select>
             )}
           />
-          <p id="sequenceNumber-help" className="text-xs text-muted-foreground">
+          <p id="sequencePosition-help" className="text-xs text-muted-foreground">
             The first assignment is the one students answer before instruction; the
-            second is the one they answer afterwards. This is how the platform knows
-            which answers to compare with which — a class can have only one of each.
+            second is the one they answer afterwards. That pair is what the
+            before/after comparison is built from, so a class can have only one of
+            each. Choose <strong>Other</strong> for anything else — you can add as
+            many of those as you need, and each one reports on its own.
           </p>
-          {fieldError("sequenceNumber")}
+          {fieldError("sequencePosition")}
         </div>
       </div>
 

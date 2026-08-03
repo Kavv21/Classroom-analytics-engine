@@ -83,18 +83,33 @@ Stages: PRE_INSTRUCTION, POST_INSTRUCTION, FOLLOW_UP, OTHER
 Statuses: DRAFT, READY, OPEN, CLOSED, ARCHIVED
 
 Status transitions are enforced by the `assignments_status_transition`
-trigger (migration 0009), not just the UI:
+trigger (migrations 0009, 0023), not just the UI:
 ```
 DRAFT  → READY      (requires ≥1 active question; READY = "professor saw
                      and approved the full question list")
 READY  → DRAFT      (un-approve, resume editing)
 READY  → OPEN       (publish)
 OPEN   → CLOSED
+CLOSED → OPEN       (reopen to the whole class — added in 0023)
 CLOSED → ARCHIVED
 ```
 Everything else is rejected with an exception. The TS mirror of this map is
 `VALID_ASSIGNMENT_TRANSITIONS` in `lib/types/domain.ts` (friendly errors
 only — the trigger is the boundary).
+
+ARCHIVED is the only terminal status. CLOSED → OPEN was absent until 0023,
+which made closing irreversible and left the per-attempt reopen with
+nothing to reopen into; migration 0023's header records why migration
+0020's rejection of this transition does not apply to it.
+
+`sequence_number` is a position, not a display number. 1 and 2 are the
+compared pair — one of each per class, guarded by the
+`assignments_class_sequence_unique` partial index (0018) — and they are the
+pivot of `energy_source_assignment_change` and the source of each
+question's `A{n}-NNN` code prefix. A class may hold any number of further
+assignments; they take 3, 4, 5 … and appear in single-assignment reporting
+only. Allocation: `next_assignment_sequence_number(class_id)` in SQL,
+`nextOtherSequenceNumber` in `lib/assignments/sequence.ts` for the form.
 
 ## questions
 id, assignment_id, external_question_code, original_worksheet,
@@ -317,7 +332,14 @@ RLS plus an explicit ownership check for clear errors):
   Called by the server action when the parser reports row-level errors.
 - `duplicate_assignment(p_assignment_id)` — `security invoker`; copies the
   assignment + questions into a new DRAFT (`title || ' (copy)'`) in one
-  transaction.
+  transaction. Since 0023 the copy takes its OWN sequence number
+  (`next_assignment_sequence_number`) and its question codes are
+  re-prefixed to match; copying the source's number verbatim, as it did
+  before, could not succeed at all once 0018 existed.
+- `next_assignment_sequence_number(p_class_id)` — `stable`; a free
+  sequence number ≥ 3 for a non-paired assignment. Never 1 or 2, never a
+  number a sibling holds (ARCHIVED included — its question codes still
+  exist).
 - `log_audit_event(p_action, p_entity_type, p_entity_id, p_metadata)` —
   `security definer`; the only write path into `audit_logs` (which has no
   INSERT policy). Actor is always `auth.uid()`; execute revoked from anon.
@@ -327,13 +349,15 @@ are `security invoker` (RLS + an explicit ownership check for clear
 errors); EXECUTE is revoked from anon on all four:
 
 - `get_or_create_attempt(p_assignment_id)` — idempotent entry point;
-  requires the assignment OPEN and the caller a class member; creates the
-  NOT_STARTED row on first call, returns the existing one after.
+  requires the caller a class member and the assignment answerable (see
+  `attempt_is_workable` below); creates the NOT_STARTED row on first call,
+  returns the existing one after. A row is only ever created while the
+  assignment is OPEN.
 - `save_attempt_responses(p_attempt_id, p_answers)` — batched autosave.
   Upserts on (attempt_id, question_id) so retried batches converge;
   validates each value against {0, 1, null} and each question against the
   attempt's assignment; rejects saves unless the attempt is
-  NOT_STARTED/DRAFT/REOPENED and the assignment is OPEN; moves state to
+  NOT_STARTED/DRAFT/REOPENED and `attempt_is_workable`; moves state to
   DRAFT. One transaction — a bad answer aborts the whole batch.
 - `submit_attempt(p_attempt_id)` — final submission. Locks the attempt row
   (`for update`), so concurrent/double submits serialize; an
@@ -345,7 +369,21 @@ errors); EXECUTE is revoked from anon on all four:
   (professors deliberately have no UPDATE policy on responses; this is the
   one narrow write path, per the set_student_active precedent). SUBMITTED →
   REOPENED with reopened_at/reopened_by; clears responses.is_final;
-  audit-logged. RESUBMITTED is terminal and cannot be reopened.
+  audit-logged. RESUBMITTED is terminal and cannot be reopened. Since 0023
+  it refuses an assignment that is not OPEN or CLOSED, rather than minting
+  a REOPENED attempt the student could never act on.
+- `attempt_is_workable(status, state, reopened_at)` (0023, `immutable`) —
+  the single definition of "may this student still write to this attempt":
+  true while the assignment is OPEN, and for an individually reopened
+  attempt (`reopened_at is not null`, state REOPENED or DRAFT) whose
+  assignment is CLOSED, until they submit again. DRAFT is inside the
+  allowance because the first autosave moves REOPENED → DRAFT. Mirrored
+  for the UI by `canAnswerAssignment` in `lib/attempts/workable.ts`; the
+  SQL is the boundary.
+  Note that `save_attempt_responses`/`submit_attempt` check the synthetic
+  seeding exception (0020) FIRST — a synthetic attempt bypasses this
+  predicate entirely and writes into a published assignment whatever its
+  status, without the assignment ever being reopened.
 
 Migration 0011's mapping-studio RPCs (`validate_mapping_questions`,
 `create_question_mapping`, `update_question_mapping`,

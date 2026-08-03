@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { canAnswerAssignment } from "@/lib/attempts/workable";
 import type { AttemptState } from "@/lib/types/domain";
 
 interface AssignmentRow {
@@ -21,6 +22,12 @@ const STATE_LABELS: Record<AttemptState, string> = {
   REOPENED: "Reopened — submit again when you're ready",
   RESUBMITTED: "Resubmitted",
 };
+
+interface AttemptRow {
+  assignment_id: string;
+  state: AttemptState;
+  reopened_at: string | null;
+}
 
 export default async function StudentAssignmentsPage() {
   const supabase = await createClient();
@@ -43,7 +50,11 @@ export default async function StudentAssignmentsPage() {
       .order("status", { ascending: true })
       .order("close_at", { ascending: true, nullsFirst: false })
       .returns<AssignmentRow[]>(),
-    supabase.from("assignment_attempts").select("assignment_id, state").eq("student_id", user.id),
+    supabase
+      .from("assignment_attempts")
+      .select("assignment_id, state, reopened_at")
+      .eq("student_id", user.id)
+      .returns<AttemptRow[]>(),
   ]);
 
   if (profileError) throw new Error(`Failed to load your profile: ${profileError.message}`);
@@ -51,8 +62,8 @@ export default async function StudentAssignmentsPage() {
   if (error) throw new Error(`Failed to load assignments: ${error.message}`);
   if (attemptsError) throw new Error(`Failed to load attempts: ${attemptsError.message}`);
 
-  const attemptByAssignment = new Map<string, AttemptState>(
-    (attempts ?? []).map((a) => [a.assignment_id, a.state as AttemptState])
+  const attemptByAssignment = new Map<string, AttemptRow>(
+    (attempts ?? []).map((a) => [a.assignment_id, a])
   );
 
   return (
@@ -67,12 +78,17 @@ export default async function StudentAssignmentsPage() {
       ) : (
         <ul className="mt-6 space-y-3">
           {assignments.map((a) => {
-            const state = attemptByAssignment.get(a.id) ?? "NOT_STARTED";
+            const attempt = attemptByAssignment.get(a.id);
+            const state = attempt?.state ?? "NOT_STARTED";
             const finished = state === "SUBMITTED" || state === "RESUBMITTED";
             const open = a.status === "OPEN";
+            const answerable = canAnswerAssignment(
+              a.status,
+              attempt ? { state: attempt.state, reopenedAt: attempt.reopened_at } : null
+            );
             const href = finished
               ? `/assignments/${a.id}/receipt`
-              : open
+              : answerable
                 ? `/assignments/${a.id}`
                 : null;
             return (
@@ -85,7 +101,12 @@ export default async function StudentAssignmentsPage() {
                       {a.close_at && open && (
                         <> · closes {new Date(a.close_at).toLocaleString()}</>
                       )}
-                      {!open && <> · closed</>}
+                      {!open && (
+                        <>
+                          {" "}
+                          · closed{answerable && " to the class, reopened for you"}
+                        </>
+                      )}
                     </p>
                     <p className="note-muted mt-1">{STATE_LABELS[state]}</p>
                   </div>
@@ -98,7 +119,9 @@ export default async function StudentAssignmentsPage() {
                         ? "View receipt"
                         : state === "NOT_STARTED"
                           ? "Start"
-                          : "Continue"}
+                          : state === "REOPENED"
+                            ? "Answer again"
+                            : "Continue"}
                     </Link>
                   ) : (
                     <span className="badge">Closed</span>

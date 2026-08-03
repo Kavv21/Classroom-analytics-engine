@@ -168,7 +168,15 @@ number describes what people *said*, never whether they were *right*.
   `profiles` row, triggered automatically by first login.
 - **Attempt** — one student's one try at one assignment. Has a state:
   `NOT_STARTED → DRAFT → SUBMITTED`, and can be `REOPENED` by the
-  professor if the student needs to fix something after submitting.
+  professor if the student needs to fix something after submitting. A
+  reopened attempt stays answerable even if the assignment itself is
+  closed — that is the point of reopening one student rather than the
+  class.
+- **The pair** — the two assignments the before/after comparison is built
+  from (`sequence_number` 1 and 2, one of each per class). A class is not
+  limited to two assignments: any number of further ones can be added as
+  "other", and each of those reports on its own rather than joining the
+  comparison.
 - **Exploratory analytics** — the more advanced statistical views
   (clustering, similarity scores) that are explicitly labeled as "for
   poking around," not as findings — the spec is strict that these never

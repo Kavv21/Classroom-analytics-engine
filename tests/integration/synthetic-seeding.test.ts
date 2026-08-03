@@ -106,15 +106,68 @@ afterAll(async () => {
   await cleanupTestData(admin, { classIds, userIds });
 }, 120_000);
 
-describe("the assignment lifecycle stays one-way", () => {
-  it("still refuses CLOSED -> OPEN", async () => {
-    const { error } = await professor.client
+describe("the seeding exception does not depend on reopening", () => {
+  /**
+   * This used to assert "the lifecycle stays one-way — CLOSED -> OPEN is
+   * refused". Migration 0023 added that transition deliberately, because
+   * its absence meant a professor who closed an assignment could never let
+   * the class answer again (see the migration header, which answers 0020's
+   * rejection of it directly).
+   *
+   * What 0020 actually needs is narrower and still holds: the synthetic
+   * seeding path writes into a CLOSED assignment WITHOUT reopening it, and
+   * no end user can reach that path. So the assertion moves to the thing
+   * that would break the seeding guarantee — a student changing the
+   * assignment's status — while "leaves the assignment CLOSED — it is
+   * never reopened" below covers the other half.
+   */
+  it("a student cannot change the assignment's status at all", async () => {
+    const { error } = await student.client
       .from("assignments")
       .update({ status: "OPEN" })
       .eq("id", closedAssignmentId);
 
+    const { data } = await admin
+      .from("assignments")
+      .select("status")
+      .eq("id", closedAssignmentId)
+      .single();
+    // RLS may refuse loudly or silently match no rows; either way the
+    // status must be untouched.
+    void error;
+    expect(data!.status, "a student must never be able to reopen an assignment").toBe("CLOSED");
+  });
+
+  it("refuses DRAFT and READY as seeding targets — only published assignments", async () => {
+    const { data: draft, error: draftError } = await professor.client
+      .from("assignments")
+      .insert({
+        class_id: classId,
+        title: "Draft Assignment",
+        sequence_number: 4,
+        created_by: professor.id,
+      })
+      .select("id")
+      .single();
+    expect(draftError, draftError?.message).toBeNull();
+
+    const { data: attempt } = await admin
+      .from("assignment_attempts")
+      .insert({
+        assignment_id: draft!.id,
+        student_id: student.id,
+        state: "DRAFT",
+        is_synthetic: true,
+      })
+      .select("id")
+      .single();
+
+    const { error } = await student.client.rpc("save_attempt_responses", {
+      p_attempt_id: (attempt as { id: string }).id,
+      p_answers: [{ questionId: questionIds[0], value: 1 }],
+    });
     expect(error).toBeTruthy();
-    expect(error!.message).toMatch(/invalid assignment status transition/i);
+    expect(error!.message).toMatch(/has been published|does not belong/i);
   });
 });
 

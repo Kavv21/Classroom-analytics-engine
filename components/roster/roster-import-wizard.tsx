@@ -9,6 +9,7 @@ import { RosterPreviewTable } from "@/components/roster/roster-preview-table";
 import type { RosterImportPreview, RosterImportSummary } from "@/lib/types/domain";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { PILL } from "@/lib/ui/tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -188,7 +189,7 @@ export function RosterImportWizard({ classId }: { classId: string }) {
                     Rejected rows
                     <Badge
                       variant="outline"
-                      className="border-transparent bg-surface-critical text-[color:var(--status-critical-text)]"
+                      className={PILL.red}
                     >
                       {preview.rejectedRows.length}
                     </Badge>

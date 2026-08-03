@@ -4,15 +4,17 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
  * The sign-in screen: the app's front door, and the only page most people
  * see before they are anyone in particular.
  *
- * This is screen 1a of the Ashfield design import ("Ashfield Sepia
- * System.dc.html"), rebuilt on project tokens. The source's composition is
- * a dark-ink masthead over a left-weighted plate: a framed leaf of paper
- * carrying a small-caps eyebrow, a large serif headline, a short lede, the
- * action, and a hairline-separated line of fine print. That structure came
- * across whole. What did not is the source's right-hand column — a
- * photographic etching captioned as an item from a named university
- * archive. It is mockup fiction: there is no such plate and no such
- * archive, so rather than invent one the column is left as paper.
+ * Composition under the "Meridian" direction: this is one of the three
+ * screens (sign-in / not-provisioned / receipt) that sit directly on the
+ * peach backdrop rather than inside the floating app frame, because there
+ * is no navigation to put in a rail for someone who is not yet anyone in
+ * particular. They share one shape — a lifted white card on the backdrop,
+ * carrying an eyebrow, a headline, a short lede, the action, and a
+ * hairline-separated line of fine print.
+ *
+ * The masthead is transparent here, so the backdrop shows through behind
+ * the wordmark; the footer line takes an explicit secondary ink because
+ * the muted default is only 3.88:1 on that backdrop.
  *
  * The domain line comes from NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN, never from a
  * literal in this file, so a deployment for another Google Workspace names
@@ -62,7 +64,7 @@ export default function LoginPage() {
       </main>
 
       <footer className="px-6 pb-10 sm:px-10">
-        <p className="eyebrow">© Jinraj Joshipura 1994</p>
+        <p className="eyebrow text-ink-secondary">© Jinraj Joshipura 1994</p>
       </footer>
     </div>
   );

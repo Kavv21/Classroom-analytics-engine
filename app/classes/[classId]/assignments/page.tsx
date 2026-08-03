@@ -3,17 +3,21 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 import { assignmentStatusLabel } from "@/lib/ui/labels";
+import { PILL } from "@/lib/ui/tone";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
+/* Mirrors assignmentStatusTone() in lib/ui/labels.ts — same five hues, in
+   the shadcn <Badge> shape this list uses. Lifecycle order, not merit
+   order: no state here is better than another. */
 const STATUS_TONE: Record<string, string> = {
-  OPEN: "border-transparent bg-surface-good text-[color:var(--status-good-text)]",
-  READY: "border-transparent bg-surface-info text-[color:var(--status-info-text)]",
-  DRAFT: "border-transparent bg-surface-sunken text-ink-secondary",
-  CLOSED: "border-transparent bg-surface-sunken text-ink-secondary",
-  ARCHIVED: "border-transparent bg-surface-sunken text-ink-muted",
+  DRAFT: PILL.amber,
+  READY: PILL.blue,
+  OPEN: PILL.green,
+  CLOSED: PILL.purple,
+  ARCHIVED: PILL.slate,
 };
 
 export default async function AssignmentsPage({

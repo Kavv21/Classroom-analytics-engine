@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AnswerGrid } from "@/components/attempts/answer-grid";
 import { buildAnswerGrid, type AnswerGridQuestion } from "@/lib/attempts/answer-grid";
+import { canAnswerAssignment } from "@/lib/attempts/workable";
 import type { AttemptState, ResponseValue } from "@/lib/types/domain";
 
 interface AttemptPayload {
@@ -69,12 +70,36 @@ export default async function TakeAssignmentPage({
   if (profile?.role !== "STUDENT") redirect("/classes");
   if (assignmentError) throw new Error(`Failed to load assignment: ${assignmentError.message}`);
   if (!assignment) notFound();
-  if (assignment.status !== "OPEN") redirect(`/assignments/${assignmentId}/receipt`);
   if (questionsError) throw new Error(`Failed to load questions: ${questionsError.message}`);
 
+  // A CLOSED assignment is still answerable by a student whose own attempt
+  // the professor reopened — the per-student reopen exists precisely so one
+  // student can finish without republishing to the class. The rule lives in
+  // `attempt_is_workable` (migration 0023); this check only decides where
+  // to send someone who can't answer, and the RPC below remains the
+  // boundary. Any other status is a hard no.
+  if (assignment.status !== "OPEN") {
+    if (assignment.status !== "CLOSED") redirect(`/assignments/${assignmentId}/receipt`);
+
+    const { data: existing, error: existingError } = await supabase
+      .from("assignment_attempts")
+      .select("state, reopened_at")
+      .eq("assignment_id", assignmentId)
+      .eq("student_id", user.id)
+      .maybeSingle();
+    if (existingError) {
+      throw new Error(`Failed to load your attempt: ${existingError.message}`);
+    }
+    const answerable = canAnswerAssignment(
+      assignment.status,
+      existing ? { state: existing.state as AttemptState, reopenedAt: existing.reopened_at } : null
+    );
+    if (!answerable) redirect(`/assignments/${assignmentId}/receipt`);
+  }
+
   // The attempt must not be created until the assignment is known to be
-  // OPEN, and saved answers are keyed by the attempt id, so these stay
-  // sequential by necessity.
+  // answerable, and saved answers are keyed by the attempt id, so these
+  // stay sequential by necessity.
   const { data: attemptData, error: attemptError } = await supabase.rpc("get_or_create_attempt", {
     p_assignment_id: assignmentId,
   });

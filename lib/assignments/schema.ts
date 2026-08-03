@@ -12,7 +12,10 @@ export const assignmentFormSchema = z
     description: z.string().trim().max(5000).optional().or(z.literal("")),
     instructions: z.string().trim().max(10000).optional().or(z.literal("")),
     assignmentStage: z.enum(["PRE_INSTRUCTION", "POST_INSTRUCTION", "FOLLOW_UP", "OTHER"]),
-    sequenceNumber: z.coerce.number().int().min(1).max(999),
+    // Position, not a raw number. FIRST/SECOND map to sequence_number 1/2
+    // and are one-per-class; OTHER is unlimited and the server allocates
+    // the next free number from 3 up (lib/assignments/sequence.ts).
+    sequencePosition: z.enum(["FIRST", "SECOND", "OTHER"]),
     openAt: z.string().trim().optional().or(z.literal("")),
     closeAt: z.string().trim().optional().or(z.literal("")),
     allowDraftEditing: z.boolean(),

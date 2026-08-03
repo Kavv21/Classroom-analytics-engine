@@ -28,7 +28,14 @@ export default function NotProvisionedPage() {
           <SignOutButton />
         </CardContent>
       </Card>
-      <p className="eyebrow mt-8 text-center">© Jinraj Joshipura 1994</p>
+      {/* text-ink-secondary, not the .eyebrow default: this line sits
+          directly on the peach backdrop rather than on a card, and the
+          muted ink is only 3.88:1 there (secondary is 5.44:1). Every other
+          .eyebrow in this app is on a white surface, where muted is 6.2:1
+          and correct. */}
+      <p className="eyebrow mt-8 text-center text-ink-secondary">
+        © Jinraj Joshipura 1994
+      </p>
     </main>
   );
 }

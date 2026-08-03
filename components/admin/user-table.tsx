@@ -60,6 +60,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { changeUserRole, inviteStaff, setUserActive } from "@/lib/admin/actions";
 import { roleLabel } from "@/lib/ui/labels";
+import { PILL } from "@/lib/ui/tone";
+import { PersonChip } from "@/components/ui/person-avatar";
 import type { UserRole } from "@/lib/types/domain";
 
 export interface AdminUserRow {
@@ -73,10 +75,11 @@ export interface AdminUserRow {
   classes: string[];
 }
 
+/** A role is chrome, not a judgement — three hues to tell them apart. */
 const ROLE_TONE: Record<string, string> = {
-  ADMIN: "border-transparent bg-surface-info text-[color:var(--status-info-text)]",
-  PROFESSOR: "border-transparent bg-surface-good text-[color:var(--status-good-text)]",
-  STUDENT: "border-transparent bg-surface-sunken text-ink-secondary",
+  ADMIN: PILL.purple,
+  PROFESSOR: PILL.blue,
+  STUDENT: PILL.slate,
 };
 
 export function UserTable({ rows }: { rows: AdminUserRow[] }) {
@@ -283,11 +286,12 @@ export function UserTable({ rows }: { rows: AdminUserRow[] }) {
             <TableBody>
               {filtered.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-medium">
-                    {row.fullName ?? "—"}
-                    {row.rollNumber && (
-                      <span className="mono ml-2 text-ink-muted">{row.rollNumber}</span>
-                    )}
+                  <TableCell>
+                    <PersonChip
+                      fullName={row.fullName}
+                      email={row.email}
+                      secondary={row.rollNumber}
+                    />
                   </TableCell>
                   <TableCell className="text-ink-secondary">{row.email}</TableCell>
                   <TableCell>
@@ -299,11 +303,7 @@ export function UserTable({ rows }: { rows: AdminUserRow[] }) {
                     {/* Text, not colour alone, carries the state. */}
                     <Badge
                       variant="outline"
-                      className={
-                        row.isActive
-                          ? "border-transparent bg-surface-good text-[color:var(--status-good-text)]"
-                          : "border-transparent bg-surface-sunken text-ink-secondary"
-                      }
+                      className={row.isActive ? PILL.green : PILL.slate}
                     >
                       {row.isActive ? "Active" : "Inactive"}
                     </Badge>

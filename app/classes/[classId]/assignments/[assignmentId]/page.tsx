@@ -244,10 +244,10 @@ export default async function AssignmentDetailPage({
                 <span
                   className={
                     imp.status === "COMPLETED"
-                      ? "badge badge-good shrink-0"
+                      ? "badge badge-green shrink-0"
                       : imp.status === "FAILED"
-                        ? "badge badge-critical shrink-0"
-                        : "badge shrink-0"
+                        ? "badge badge-red shrink-0"
+                        : "badge badge-neutral shrink-0"
                   }
                 >
                   {imp.status === "COMPLETED"

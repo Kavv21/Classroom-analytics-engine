@@ -46,7 +46,12 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
     if (!result.success) {
       return;
     }
-    const done = DONE_MESSAGES[to];
+    // CLOSED -> OPEN is a reopen, not a first publication, and saying
+    // "Published" there would misdescribe what the class just saw.
+    const done =
+      to === "OPEN" && status === "CLOSED"
+        ? "Reopened. Students can answer this assignment again."
+        : DONE_MESSAGES[to];
     if (done) toast.success(done);
     router.refresh();
   }
@@ -115,6 +120,25 @@ export function StatusActions({ assignmentId, classId, status, questionCount }: 
                 Back to draft
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {status === "CLOSED" && (
+        <Card>
+          <CardContent>
+            <p className="eyebrow">Closed</p>
+            <p className="heading mt-1">Students can&apos;t answer right now</p>
+            <p className="note mt-1">
+              Reopening puts this assignment back in front of the whole class:
+              anyone who hasn&apos;t submitted can carry on, and anyone whose
+              attempt you reopened individually can submit again. To let just
+              one student back in, leave it closed and use Reopen on their row
+              under Student attempts.
+            </p>
+            <Button disabled={busy} onClick={() => move("OPEN")} className="mt-4">
+              Reopen to students
+            </Button>
           </CardContent>
         </Card>
       )}

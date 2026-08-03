@@ -5,53 +5,80 @@
 /* ==========================================================================
    Classroom Opinion Analytics — design tokens.
 
-   DIRECTION: "Ashfield — aged-document system". Imported from the Claude
-   Design project "Ashfield Sepia System.dc.html", which specifies one sepia
-   etching palette demonstrated on three representative screens (sign-in,
-   analytics overview, response grid). It is a full replacement of the
-   previous "cool slate, soft elevation, sans" system, not a layer on top.
+   DIRECTION: "Meridian — warm SaaS console". A full replacement of the
+   previous "Ashfield sepia / aged document" system, which itself replaced
+   "cool slate" and "warm paper serif" before that. Imported from a
+   project-management dashboard reference: a peachy-orange page backdrop
+   carrying a floating white app frame, a dark navy icon-only rail, white
+   rounded cards on soft blurred shadows, and several bold accent hues used
+   to differentiate categories and workflow states.
 
-   What the source document actually is: a visual language plus three
-   mockups. The LANGUAGE came across whole — palette, square corners, serif
-   display over humanist sans, letterspaced small-caps eyebrows, hard
-   offset "printed plate" shadows instead of blur, paper grain, dark-ink
-   chrome. The mockups' CONTENT did not, and could not: its response grid
-   shows per-item marks out of 25, row totals, section means and an
-   integrity flag. This app records binary opinions with no correct answer
+   What came across: the composition (backdrop → floating frame → canvas →
+   card), the navy rail with its rounded active indicator, the soft
+   elevation, the round corners, the colour-coded status pills, the avatar
+   circles and stacks, and the all-sans type. Every hard "printed plate"
+   offset shadow, the paper grain, the square corners and the display serif
+   from the Ashfield pass are gone — this is a replacement, not a layer.
+
+   What did NOT come across, and could not: the reference is a project
+   tracker. Its cards show task priorities, assignee workloads, revenue and
+   progress bars. This app records binary opinions with no correct answer
    (CLAUDE.md rules 1-2, docs/EXCLUDED_FEATURES.md), so none of that has
    anything to render against here. Only the treatment was taken.
 
-   Where the source was corrected rather than copied — every one of these
-   is a measured WCAG failure in the original, not a preference:
-   - muted text #6e6455 is 4.15:1 on the sidebar sepia and 3.47:1 on the
-     deepest paper tint. Darkened to #5b5347 (4.53:1 at worst). WCAG 1.4.3.
-   - the frame line #b3a17a is 1.51-2.27:1 against every surface. It is
-     kept, as --border-frame, for the decorative outer frame of a card or
-     table where no minimum applies — but every INTERACTIVE boundary (input
-     edge, secondary-button edge) now takes --border-strong #7a6c4c, which
-     is >=3:1 everywhere. WCAG 1.4.11. This preserves the fix made in the
-     previous direction rather than regressing it.
-   - status text tints were darkened to clear AA on the deepest surface
-     they can land on.
+   ---------------------------------------------------------------------
+   THE ONE BOUNDARY THIS DIRECTION HAS TO RESPECT
 
-   TYPE: the source sets Georgia for display and loads Source Sans 3 from
-   Google Fonts for body. The serif came across exactly as written (Georgia
-   is a system face, which is why the source hardcodes it). The webfont did
-   NOT: this project deliberately ships no webfont — no build-time network,
-   no FOUT on university wifi, and the UI sans stays byte-identical to the
-   chart font in lib/charts/theme.ts so chart text and UI text match. The
-   display serif is where this direction's type story lives; the body sans
-   is a neutral carrier either way.
+   This system has more hues in it than any previous one, and exactly two
+   places they are allowed to go:
 
-   The class NAMES below are unchanged on purpose: 27 routes and
-   tests/unit/question-manager-groups.test.tsx reference them, so redefining
-   them in place is what propagates one coherent redesign to every screen.
+     ALLOWED   UI chrome (rail, frame, icon tiles, links, focus) and
+               WORKFLOW STATE (assignment DRAFT/READY/OPEN/CLOSED/ARCHIVED,
+               attempt state, import success/failure, role). A workflow
+               status is not an opinion, so a green "Open" pill and a red
+               "Import failed" pill are fine — .claude/rules/analytics.md
+               scopes its prohibition to figures describing responses.
 
-   Every text colour clears WCAG AA (4.5:1) against every surface it can
-   appear on, and every interactive boundary clears 1.4.11 (3:1). These are
-   computed, not eyeballed. Data-encoding colours are NOT here; they remain
-   in lib/charts/theme.ts and are untouched — only that file's non-encoding
-   CHROME moved, to keep charts sitting on the same paper as the cards.
+     FORBIDDEN anything rendering an actual student answer, a response
+               distribution, or a consensus/entropy figure. Those stay
+               neutral. `.cell-toggle` below is the load-bearing case: 0
+               and 1 are separated by the DIGIT, never by hue, because a
+               0/1 colour pair would read as a right/wrong pair and this
+               app has no correctness. The data-encoding palette lives in
+               lib/charts/theme.ts and is untouched by this pass.
+
+   ---------------------------------------------------------------------
+   ACCESSIBILITY
+
+   Every pairing below is computed, not eyeballed, by
+   `node scripts/verify-contrast.mjs` (134 pairings, 0 failing). Where the
+   reference's own colour failed, it was corrected rather than copied:
+
+   - The reference's primary CTA is a vivid orange (#f97316-ish) carrying
+     white text: 2.93:1, a 1.4.3 failure. --action is darkened to #c2410c
+     (white label 5.18:1) which still reads unmistakably orange.
+   - Bold pill fills with white text fail across the board at reference
+     saturation. Every badge here is instead a SOFT tint carrying a DARK
+     text of its own hue (>=5.31:1 on its tint) inside a vivid outline
+     (>=3:1 on every surface a pill can sit on, WCAG 1.4.11).
+   - The reference's vivid amber #d97706 clears 3:1 on white but only
+     2.98:1 on the canvas grey; darkened to #bf6a06. Same correction for
+     vivid orange (#ea580c -> #dd5409) and pink (#ec4899 -> #e0447f),
+     which failed on --surface-inset.
+   - The rail is dark, so its active indicator INVERTS: --action orange is
+     only 2.98:1 against the navy and cannot be reused there. The rail
+     takes a bright #f97316 pill carrying navy ink (5.50:1 both ways).
+
+   Not checked, deliberately: the white app frame against the peach
+   backdrop is 1.52:1. That edge is decorative page composition — not a UI
+   component boundary and not a graphical object required to understand
+   content, so 1.4.11 applies to neither. It is additionally carried by a
+   blurred shadow, not by the edge alone.
+
+   The class NAMES below are unchanged on purpose: 26 routes and
+   tests/unit/question-manager-groups.test.tsx reference them, so
+   redefining them in place is what propagates one coherent redesign to
+   every screen without editing any of them.
    ========================================================================== */
 
 @layer base {
@@ -68,112 +95,189 @@
        tokens below are derived from them with rgb(), so the two forms
        cannot drift apart.
        ------------------------------------------------------------------ */
-    --surface-page-rgb: 240 231 212;
-    --surface-raised-rgb: 248 242 228;
-    --surface-sunken-rgb: 229 217 191;
-    --text-primary-rgb: 36 31 26;
-    --text-secondary-rgb: 74 66 55;
-    --text-muted-rgb: 91 83 71;
-    --text-inverse-rgb: 248 242 228;
-    --action-rgb: 36 31 26;
-    --status-critical-rgb: 204 58 18;
-    --border-hairline-rgb: 214 199 163;
-    --border-strong-rgb: 122 108 76;
-    --focus-rgb: 204 58 18;
+    --surface-page-rgb: 246 247 251;
+    --surface-raised-rgb: 255 255 255;
+    --surface-sunken-rgb: 241 243 248;
+    --text-primary-rgb: 19 26 46;
+    --text-secondary-rgb: 69 78 104;
+    --text-muted-rgb: 90 100 128;
+    --text-inverse-rgb: 255 255 255;
+    --action-rgb: 194 65 12;
+    --status-critical-rgb: 185 28 28;
+    --border-hairline-rgb: 230 233 242;
+    --border-strong-rgb: 107 118 148;
+    --focus-rgb: 194 65 12;
+    --sidebar-rgb: 27 35 64;
+    --sidebar-idle-rgb: 168 176 200;
+    --sidebar-hover-rgb: 41 49 79;
+    --sidebar-active-rgb: 249 115 22;
 
-    /* Surfaces — aged paper, four values deep. Raised is the lightest
-       leaf; hierarchy is carried by value plus a hard printed edge, not
-       by blur. --surface-inset is the deepest tint, used where the source
-       darkens a cell or column against its own table. */
+    /* ---------- Composition ------------------------------------------
+       Four layers, outside in: peach backdrop → floating white frame →
+       canvas → card. The backdrop is the only saturated surface in the
+       system and it never carries small text (measured anyway: primary
+       ink is 11.39:1 on it, secondary 5.44:1, for the sign-in and receipt
+       screens which sit directly on it). */
+    --surface-backdrop: #f7c9a3;
     --surface-page: rgb(var(--surface-page-rgb));
     --surface-raised: rgb(var(--surface-raised-rgb));
     --surface-sunken: rgb(var(--surface-sunken-rgb));
-    --surface-inset: #d6c7a3;
+    --surface-inset: #e6e9f2;
 
-    /* Tinted surfaces for banners/badges, warmed onto the paper base so a
-       status block reads as a stained page rather than a pasted-on chip. */
-    --surface-good: #e4ecd9;
-    --surface-warning: #f6e8c6;
-    --surface-critical: #f7ddd2;
-    --surface-info: #dfe6e9;
+    /* Tinted surfaces for banners/badges. These are the SOFT step of the
+       accent families below, aliased to the role names the existing
+       .banner-* / .badge-* classes and tailwind's `surface.*` scale
+       already use, so no screen had to be edited to pick them up. */
+    --surface-good: #e8f7ef;
+    --surface-warning: #fdf3dd;
+    --surface-critical: #feecec;
+    --surface-info: #e8f1fe;
 
-    /* Borders, three weights — the source uses two decorative ones and
-       this system needs a third that is legally an interactive boundary.
-         --border-frame     outer frame of a card/table. Decorative: no
-                            contrast minimum applies, same as a gridline.
+    /* ---------- Accent families ---------------------------------------
+       Each hue ships four steps with four different jobs. Using the wrong
+       step is how a palette like this fails contrast, so they are named
+       for the job rather than for a lightness number:
+
+         -soft   pill / banner FILL. Decorative; no minimum applies.
+         -line   pill OUTLINE, icon tile edge, decorative rule. This is
+                 the "bold" step. >=3:1 on every light surface (1.4.11).
+         -text   the hue as TEXT. >=4.5:1 on white, on the canvas, on the
+                 sunken band, on the inset tint, and on its own -soft
+                 fill (1.4.3).
+         -solid  the hue as a FILL CARRYING WHITE TEXT. >=4.5:1 (1.4.3).
+
+       Chrome and workflow state only — see the boundary note in the file
+       header. No student answer is ever encoded in one of these. */
+    --accent-orange-soft: #fff1e6;
+    --accent-orange-line: #dd5409;
+    --accent-orange-text: #9a3412;
+    --accent-orange-solid: #c2410c;
+
+    --accent-green-soft: #e8f7ef;
+    --accent-green-line: #059669;
+    --accent-green-text: #036347;
+    --accent-green-solid: #047857;
+
+    --accent-blue-soft: #e8f1fe;
+    --accent-blue-line: #3b82f6;
+    --accent-blue-text: #1d4ed8;
+    --accent-blue-solid: #2563eb;
+
+    --accent-purple-soft: #f1ecfe;
+    --accent-purple-line: #8b5cf6;
+    --accent-purple-text: #6d28d9;
+    --accent-purple-solid: #7c3aed;
+
+    --accent-pink-soft: #fdecf4;
+    --accent-pink-line: #e0447f;
+    --accent-pink-text: #be185d;
+    --accent-pink-solid: #db2777;
+
+    --accent-amber-soft: #fdf3dd;
+    --accent-amber-line: #bf6a06;
+    --accent-amber-text: #92400e;
+    --accent-amber-solid: #b45309;
+
+    --accent-red-soft: #feecec;
+    --accent-red-line: #ef4444;
+    --accent-red-text: #b91c1c;
+    --accent-red-solid: #dc2626;
+
+    --accent-slate-soft: #f1f3f8;
+    --accent-slate-line: #6b7694;
+    --accent-slate-text: #454e68;
+    --accent-slate-solid: #5a6480;
+
+    /* ---------- Borders, three weights --------------------------------
+         --border-frame     outer edge of a card / table / app frame.
+                            Decorative: no contrast minimum applies, same
+                            as a gridline. Soft, because in this direction
+                            separation is carried by the shadow.
          --border-hairline  inner rules, row separators, header underlines.
          --border-strong    anything you can type in or click the edge of.
-                            >=3:1 on every surface (WCAG 1.4.11). */
-    --border-frame: #b3a17a;
+                            >=3.73:1 on every surface (WCAG 1.4.11). */
+    --border-frame: #ebeef5;
     --border-hairline: rgb(var(--border-hairline-rgb));
     --border-strong: rgb(var(--border-strong-rgb));
 
-    /* Text — all AA on every surface above (measured) */
-    --text-primary: rgb(var(--text-primary-rgb));      /* 14.6:1 raised */
-    --text-secondary: rgb(var(--text-secondary-rgb));  /*  8.9:1 raised */
-    --text-muted: rgb(var(--text-muted-rgb));          /*  6.9:1 raised, 4.5:1 inset */
-    --text-inverse: rgb(var(--text-inverse-rgb));      /* 14.6:1 on ink */
+    /* ---------- Text — all AA on every surface above (measured) -------- */
+    --text-primary: rgb(var(--text-primary-rgb));      /* 16.4:1 on white */
+    --text-secondary: rgb(var(--text-secondary-rgb));  /*  8.3:1 on white */
+    --text-muted: rgb(var(--text-muted-rgb));          /*  6.2:1 white, 5.1:1 inset */
+    --text-inverse: rgb(var(--text-inverse-rgb));
 
-    /* Action — the ink of the system: the same value as primary text, so
-       a filled button reads as a printed block rather than a coloured
-       one. Deliberately not a hue, which keeps every hue in the app
-       available for chart data encoding. */
+    /* ---------- Action ------------------------------------------------
+       The primary CTA is the system's orange, darkened until a white
+       label clears AA (5.18:1). This is the one place the brand hue is
+       load-bearing rather than decorative. */
     --action: rgb(var(--action-rgb));
-    --action-hover: #3a322a;
+    --action-hover: #9a3412;
 
-    /* Status: fill variants are non-text; *-text variants meet AA on the
-       deepest surface they can land on. Critical shares the source's one
-       accent, the etching red, which is also the focus colour — the
-       system has exactly one alarm hue and uses it for both. */
-    --status-good: #5a7d2a;
-    --status-good-text: #3d5a1e;      /* 7.0:1 raised */
-    --status-warning: #c98a12;
-    --status-warning-text: #79490c;   /* 6.7:1 raised */
+    /* Status role aliases. These names predate this direction and are
+       referenced by .banner-*, .badge-* and tailwind's good/warn/critical
+       scales; each now points at the matching accent family so there is
+       still exactly one place a colour is decided. */
+    --status-good: var(--accent-green-line);
+    --status-good-text: var(--accent-green-text);
+    --status-warning: var(--accent-amber-line);
+    --status-warning-text: var(--accent-amber-text);
     --status-critical: rgb(var(--status-critical-rgb));
-    --status-critical-text: #992d0e;  /* 6.7:1 raised */
-    --status-info-text: #1f4a70;      /* 8.3:1 raised */
+    --status-critical-text: var(--accent-red-text);
+    --status-info-text: var(--accent-blue-text);
 
     --focus: rgb(var(--focus-rgb));
+    /* The rail is dark; the page focus ring is 1.66:1 against it and would
+       vanish. Rail controls take this lighter tint instead (9.15:1). */
+    --focus-on-dark: #fdba74;
 
-    /* Type — display serif is a system face (as the source itself
-       specifies); body is the system sans, byte-identical to
-       lib/charts/theme.ts FONT_FAMILY. See the header note on why the
-       source's Source Sans 3 webfont was not adopted. */
-    --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    /* ---------- The navy rail ----------------------------------------- */
+    --sidebar-surface: rgb(var(--sidebar-rgb));
+    --sidebar-hover: rgb(var(--sidebar-hover-rgb));
+    --sidebar-idle: rgb(var(--sidebar-idle-rgb));      /* 7.13:1 on navy */
+    --sidebar-active: rgb(var(--sidebar-active-rgb));  /* 5.50:1 vs navy */
+    --sidebar-active-ink: #1b2340;                     /* 5.50:1 on that */
+
+    /* ---------- Type --------------------------------------------------
+       Sans throughout. The Ashfield direction's Georgia display face is
+       gone — this reference has no serif anywhere, and titles separate
+       themselves by weight and size instead of by face. --font-display is
+       kept as a token (the `font-display` utility and shadcn's
+       --font-heading slot both resolve through it) and simply points at
+       the same system stack.
+
+       Still no webfont, same performance constraint as every previous
+       direction: no build-time network, no FOUT on university wifi, and
+       the UI sans stays byte-identical to FONT_FAMILY in
+       lib/charts/theme.ts so chart text and UI text match. */
+    --font-display: system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
-    /* Elevation. NO BLUR anywhere in this direction — depth is a printed
-       edge and a hard offset plate, which is the single most legible
-       carrier of "aged document" after the palette itself. Shadow is
-       inside the motion budget (it may transition; size and position may
-       not). */
-    --shadow-raised: 0 1px 0 var(--border-hairline);
-    --shadow-lifted: 0 1px 0 var(--border-hairline), 10px 10px 0 rgb(36 31 26 / 0.055);
-    --shadow-overlay: 0 0 0 1px var(--border-frame), 14px 14px 0 rgb(36 31 26 / 0.1);
-
-    /* Paper grain. One faint fractal-noise tile, baked at low alpha inside
-       the SVG rather than applied with opacity + mix-blend-mode, because a
-       blended full-page overlay creates a stacking context that dropdowns
-       and dialogs then have to fight. As a plain background-image it
-       composites over any background-colour and can never intercept a
-       pointer event. */
-    --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E");
+    /* ---------- Elevation ---------------------------------------------
+       Soft and blurred, replacing the Ashfield hard offset plates
+       entirely. Tinted with the navy ink rather than pure black so a
+       shadow on the warm backdrop does not read as grey sludge. Shadow is
+       inside the motion budget: it may transition; size and position may
+       not. */
+    --shadow-raised: 0 1px 2px rgb(19 26 46 / 0.05), 0 1px 3px rgb(19 26 46 / 0.04);
+    --shadow-lifted: 0 4px 12px rgb(19 26 46 / 0.08), 0 1px 3px rgb(19 26 46 / 0.05);
+    --shadow-overlay: 0 16px 44px rgb(19 26 46 / 0.18);
+    --shadow-frame: 0 10px 36px rgb(19 26 46 / 0.12);
 
     /* Motion budget: colour/opacity/shadow only, two durations. */
     --motion-micro: 120ms;
     --motion-disclosure: 160ms;
+
     /* ------------------------------------------------------------------
        shadcn/ui theme bridge.
 
-       These hold CHANNELS ("36 31 26"), not colours, so Tailwind's
+       These hold CHANNELS ("19 26 46"), not colours, so Tailwind's
        <alpha-value> placeholder can produce bg-primary/80 etc. shadcn
        components are written against ITS token names; every one is
        aliased to the project tokens above, so changing a colour here is
        impossible without changing the source token.
 
        Preserved deliberately:
-       - --primary is the INK, not a hue (see --action above).
        - --muted-foreground is the AA-compliant muted text. shadcn's
          default (oklch 0.556) fails AA for normal text.
        - --input takes the STRONG border, not the hairline: a field edge
@@ -206,39 +310,41 @@
        data-encoding palette is lib/charts/theme.ts and is untouched.
        These exist only so a shadcn component that happens to reference a
        chart slot stays consistent, and they mirror the first five
-       validated SERIES values rather than inventing new hues. */
+       validated SERIES values rather than inventing new hues. They are
+       deliberately NOT the accent families above: an accent is chrome,
+       a SERIES value is data encoding, and the two must not converge. */
     --chart-1: 42 120 214;
     --chart-2: 235 104 52;
     --chart-3: 27 175 122;
     --chart-4: 237 161 0;
     --chart-5: 232 123 164;
 
-    /* Square, everywhere. The source has no rounded corner on any element
-       — card, button, field, badge, table frame and pagination chip are
-       all hard-edged, and that squareness is doing as much work as the
-       palette. tailwind.config.ts maps the whole rounded-* scale onto
-       these two tokens (rounded-full excepted, for avatars), so no
-       component file had to be edited to go square. */
-    --radius: 0px;
-    --radius-lg: 0px;
+    /* Round again. The Ashfield direction was square everywhere and
+       tailwind.config.ts maps the whole rounded-* scale onto these two
+       tokens, so restoring the radius here is what un-squares ~25 shadcn
+       primitives without editing any of them. --radius-frame is the
+       outermost curve, used only by the floating app frame. */
+    --radius: 0.5rem;
+    --radius-lg: 0.875rem;
+    --radius-frame: 1.25rem;
 
-    /* The left rail is the sunken paper of the source's analytics screen;
-       its active item is a solid ink block. */
-    --sidebar: var(--surface-sunken-rgb);
-    --sidebar-foreground: var(--text-primary-rgb);
-    --sidebar-primary: var(--action-rgb);
-    --sidebar-primary-foreground: var(--text-inverse-rgb);
-    --sidebar-accent: var(--surface-page-rgb);
-    --sidebar-accent-foreground: var(--text-primary-rgb);
-    --sidebar-border: var(--border-hairline-rgb);
-    --sidebar-ring: var(--focus-rgb);
+    /* shadcn's own sidebar slots, pointed at the navy rail. */
+    --sidebar: var(--sidebar-rgb);
+    --sidebar-foreground: var(--sidebar-idle-rgb);
+    --sidebar-primary: var(--sidebar-active-rgb);
+    --sidebar-primary-foreground: var(--sidebar-rgb);
+    --sidebar-accent: var(--sidebar-hover-rgb);
+    --sidebar-accent-foreground: var(--text-inverse-rgb);
+    --sidebar-border: var(--sidebar-hover-rgb);
+    --sidebar-ring: 253 186 116;
   }
 
   html {
     font-family: var(--font-body);
     color: var(--text-primary);
-    background-color: var(--surface-page);
-    background-image: var(--paper-grain);
+    /* The peach backdrop. Everything the user reads sits on the floating
+       frame above it — see .app-frame in the components layer. */
+    background-color: var(--surface-backdrop);
     -webkit-font-smoothing: antialiased;
     @apply font-sans;
   }
@@ -247,19 +353,18 @@
     font-size: 0.875rem;
     line-height: 1.55;
     @apply text-foreground;
-    /* Transparent, not bg-background: the grain lives on <html> and the
+    /* Transparent, not bg-background: the backdrop lives on <html> and the
        body must not paint over it. Every surface that needs to be opaque
-       (card, well, table frame) declares its own background. */
+       (frame, card, well, table) declares its own background. */
     background-color: transparent;
   }
 
-  /* Ink underlined links are the source's default anchor treatment. */
   a {
     text-underline-offset: 2px;
   }
 
   ::selection {
-    background-color: var(--surface-inset);
+    background-color: var(--accent-orange-soft);
   }
 
   /* Only these properties ever transition, and only on things you can
@@ -279,13 +384,17 @@
       opacity var(--motion-micro) ease-out;
   }
 
-  /* The source's focus ring: 3px of the etching red, offset. Square, like
-     everything else — the previous 2px radius was a leftover from a
-     rounded system. */
+  /* 3px of the action orange, offset. Now follows the element's own
+     radius rather than forcing square, since the system is round again. */
   :focus-visible {
     outline: 3px solid var(--focus);
     outline-offset: 2px;
-    border-radius: 0;
+  }
+
+  /* On the dark rail the page focus ring is 1.66:1 and effectively
+     invisible; rail controls take the light tint instead. */
+  .rail :focus-visible {
+    outline-color: var(--focus-on-dark);
   }
 
   /* shadcn's sidebar transitions width/left when it collapses, i.e. it
@@ -308,12 +417,14 @@
       scroll-behavior: auto !important;
     }
   }
-  /* shadcn writes a .theme block for its font slots. The display slot is a
-     real serif again in this direction. */
+
+  /* shadcn writes a .theme block for its font slots. Both are the same
+     system sans in this direction — see the type note above. */
   .theme {
     --font-heading: var(--font-display);
     --font-sans: var(--font-body);
   }
+
   /* shadcn components use a bare `border` class and expect a sensible
      default colour. Its CLI also wrote `outline-ring/50` here, which is
      Tailwind v4 opacity syntax that v3 cannot apply to a plain var()
@@ -325,6 +436,29 @@
 }
 
 @layer components {
+  /* ---------- The floating app frame -----------------------------------
+     The composition this direction is built on: a white panel that floats
+     on the peach backdrop, holding the rail and the canvas. Margins
+     collapse to zero on small screens, where a floating frame would just
+     waste the only width there is.
+
+     It clips its children (the rail's square top-left corner has to
+     become the frame's rounded one) and establishes the scroll container
+     for the canvas. */
+  .app-frame {
+    background-color: var(--surface-page);
+    box-shadow: var(--shadow-frame);
+    @apply flex min-h-screen w-full overflow-hidden;
+  }
+  @screen md {
+    .app-frame {
+      border-radius: var(--radius-frame);
+      min-height: calc(100vh - 2rem);
+      @apply m-4;
+      width: calc(100% - 2rem);
+    }
+  }
+
   /* ---------- Page shells: density by screen class -------------------- */
   .page-spacious {
     @apply mx-auto w-full max-w-xl px-6 pb-16 pt-16 sm:px-8;
@@ -342,37 +476,32 @@
     font-size: 0.8125rem;
   }
 
-  /* ---------- Typography ----------------------------------------------
-     The source's whole type story: a serif display face against a plain
-     sans body, with negative tracking on titles and generous positive
-     tracking on the small-caps labels. Titles no longer lean on weight —
-     a serif at 600 looks laboured, so they sit at 400 and separate
-     themselves by face and size. */
+  /* ---------- Typography ------------------------------------------------
+     All sans. Titles carry weight and tight tracking instead of a serif
+     face; the reference's headings are heavy and close-set, which is what
+     keeps a colourful screen from reading as decoration. */
   .title-lg {
     font-family: var(--font-display);
-    @apply text-3xl font-normal leading-tight;
-    letter-spacing: -0.015em;
+    @apply text-3xl font-bold leading-tight;
+    letter-spacing: -0.022em;
     color: var(--text-primary);
   }
   .title-md {
     font-family: var(--font-display);
-    @apply text-2xl font-normal leading-tight;
-    letter-spacing: -0.012em;
+    @apply text-2xl font-bold leading-tight;
+    letter-spacing: -0.018em;
     color: var(--text-primary);
   }
   .title-sm {
     font-family: var(--font-display);
-    @apply text-xl font-normal leading-snug;
-    letter-spacing: -0.008em;
+    @apply text-xl font-semibold leading-snug;
+    letter-spacing: -0.012em;
     color: var(--text-primary);
   }
-  /* Card and section headings are serif too — in the source every card
-     owns a Georgia title, which is what stops a dense screen reading as
-     one undifferentiated sans grid. */
   .heading {
     font-family: var(--font-display);
-    @apply text-base font-normal;
-    letter-spacing: 0;
+    @apply text-base font-semibold;
+    letter-spacing: -0.006em;
     color: var(--text-primary);
   }
   .subheading {
@@ -396,18 +525,18 @@
     color: var(--text-secondary);
   }
   /* Eyebrow: the context line above a page title, or a quiet reassurance
-     line. RESTORED to letterspaced small caps — the source labels every
-     section this way ("VOLUME IV · SESSION 2026", "ANALYTICS", "SCOPE"),
-     and the wide tracking is what makes a 12px label read as typography
-     rather than as small text. Same class name, same role.
+     line. This direction flattens it from the Ashfield letterspaced small
+     caps to a tighter semibold label — the reference has no small-caps
+     typography anywhere — but the tracking stays positive enough that a
+     12px uppercase label still reads as a label.
 
      Casing gotcha: keep source text in its real casing. `text-transform`
      does not change what a test's getByText matches, and several tests
      assert literal strings. `uppercase` over already-uppercase text is a
      harmless no-op. */
   .eyebrow {
-    @apply text-xs font-medium uppercase;
-    letter-spacing: 0.2em;
+    @apply text-xs font-semibold uppercase;
+    letter-spacing: 0.08em;
     color: var(--text-muted);
   }
   .mono {
@@ -416,73 +545,94 @@
   }
 
   /* ---------- Surfaces -------------------------------------------------
-     A card is a leaf of paper: lighter than the page, framed by a printed
-     line, with a hairline under its bottom edge. No radius, no blur. */
+     A card is a white panel on the canvas, separated by a soft shadow and
+     a faint frame line rather than by value. Generous padding, round
+     corners — the two things the reference is most insistent about. */
   .card {
     background-color: var(--surface-raised);
-    background-image: var(--paper-grain);
     border: 1px solid var(--border-frame);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-raised);
   }
   .card-standard {
-    @apply card p-5;
+    @apply card p-6;
   }
   .card-spacious {
     @apply card p-8;
   }
-  /* Entry screens (login / not-provisioned / receipt) get the source's
-     plate treatment: the same framed leaf, dropped onto a hard offset
-     shadow so it reads as a physical plate laid on the page. */
+  /* Entry screens (login / not-provisioned / receipt) sit directly on the
+     peach backdrop with no frame around them, so their card carries the
+     deeper lift to hold its own against the saturated ground. */
   .card-elevated {
     @apply card p-8;
     box-shadow: var(--shadow-lifted);
   }
-  /* A header that owns a rule reads as a section, not a caption.
-     Padding-agnostic on purpose so it composes with card-standard (p-5)
-     and the denser p-4 chart cards alike. */
   .card-header {
-    @apply mb-3 flex flex-wrap items-start justify-between gap-2 pb-3;
+    @apply mb-4 flex flex-wrap items-start justify-between gap-2 pb-4;
     border-bottom: 1px solid var(--border-hairline);
   }
   .well {
     background-color: var(--surface-sunken);
     border: 1px solid var(--border-hairline);
+    border-radius: var(--radius);
   }
 
-  /* ---------- Metric tiles --------------------------------------------
-     The source's KPI tile: a letterspaced small-caps label over a large
-     serif figure. No delta badge — .claude/rules/analytics.md forbids a
-     colour scheme implying "better", and these are descriptive statistics
-     about opinions. */
+  /* ---------- Icon tile -------------------------------------------------
+     The reference's category marker: a rounded soft-tint square holding a
+     line-weight glyph. Used to differentiate categories in list and
+     summary views. The glyph takes the -line step (>=3:1 on every surface,
+     WCAG 1.4.11 for a meaningful graphic); the tile fill is decorative.
+     Hue is set by the caller via the .tile-* modifiers. */
+  .icon-tile {
+    @apply inline-flex shrink-0 items-center justify-center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--radius);
+    background-color: var(--accent-slate-soft);
+    color: var(--accent-slate-line);
+  }
+  .tile-orange { background-color: var(--accent-orange-soft); color: var(--accent-orange-line); }
+  .tile-green  { background-color: var(--accent-green-soft);  color: var(--accent-green-line); }
+  .tile-blue   { background-color: var(--accent-blue-soft);   color: var(--accent-blue-line); }
+  .tile-purple { background-color: var(--accent-purple-soft); color: var(--accent-purple-line); }
+  .tile-pink   { background-color: var(--accent-pink-soft);   color: var(--accent-pink-line); }
+  .tile-amber  { background-color: var(--accent-amber-soft);  color: var(--accent-amber-line); }
+
+  /* ---------- Metric tiles ----------------------------------------------
+     A quiet uppercase label over a large figure. No delta badge and no
+     hue: .claude/rules/analytics.md forbids a colour scheme implying
+     "better", and these render descriptive statistics about opinions.
+     This is one of the places the accent families are NOT allowed. */
   .stat-label {
-    @apply text-xs font-medium uppercase;
-    letter-spacing: 0.14em;
+    @apply text-xs font-semibold uppercase;
+    letter-spacing: 0.08em;
     color: var(--text-muted);
   }
   .stat-value {
     font-family: var(--font-display);
-    @apply mt-1 text-3xl font-normal leading-none;
-    letter-spacing: -0.01em;
+    @apply mt-1.5 text-3xl font-bold leading-none;
+    letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
     color: var(--text-primary);
   }
 
   /* ---------- Controls --------------------------------------------------
-     Square, bordered, printed. The primary action is a solid ink block;
-     everything else is an outlined field on paper. */
+     Rounded, with the primary action as a filled orange block. */
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-4 text-sm font-medium;
     min-height: 2.25rem;
     border: 1px solid transparent;
+    border-radius: var(--radius);
   }
   .btn-sm {
-    @apply px-2.5 text-xs font-medium;
+    @apply px-3 text-xs font-medium;
     min-height: 2rem;
   }
   .btn-primary {
     background-color: var(--action);
     border-color: var(--action);
     color: var(--text-inverse);
+    box-shadow: var(--shadow-raised);
     @apply font-semibold;
   }
   .btn-primary:hover:not(:disabled) {
@@ -490,7 +640,7 @@
     border-color: var(--action-hover);
   }
   .btn-secondary {
-    background-color: transparent;
+    background-color: var(--surface-raised);
     border-color: var(--border-strong);
     color: var(--text-primary);
   }
@@ -498,14 +648,15 @@
     background-color: var(--surface-sunken);
   }
   .btn-danger {
-    background-color: transparent;
+    background-color: var(--surface-raised);
     border-color: var(--border-strong);
-    color: var(--status-critical-text);
+    color: var(--accent-red-text);
   }
   .btn-danger:hover:not(:disabled) {
-    background-color: var(--surface-critical);
+    background-color: var(--accent-red-soft);
+    border-color: var(--accent-red-line);
   }
-  /* Disabled must not read as "ink primary" — it loses its fill entirely. */
+  /* Disabled must not read as "filled primary" — it loses its fill. */
   .btn:disabled {
     background-color: var(--surface-sunken);
     border-color: var(--border-hairline);
@@ -535,23 +686,24 @@
      → 1 → blank, sized to sit inside a table cell of the reproduced
      spreadsheet.
 
-     THE VALUE IS THE GLYPH. A filled cell is distinguished from a blank one
-     by tone, but 0 and 1 are never distinguished from each other by
-     anything except the digit itself — no colour pair, no fill, no icon.
-     Meaning conveyed by colour alone would fail WCAG 1.4.1, and a 0/1
-     colour scheme would also read as a right/wrong pair, which this app
-     does not have (CLAUDE.md: no correctness).
+     THIS IS THE ONE COMPONENT THE NEW PALETTE IS BANNED FROM. A filled
+     cell is distinguished from a blank one by tone, but 0 and 1 are never
+     distinguished from each other by anything except the digit itself —
+     no colour pair, no fill, no icon. Meaning conveyed by colour alone
+     would fail WCAG 1.4.1, and a 0/1 colour scheme would also read as a
+     right/wrong pair, which this app does not have (CLAUDE.md: no
+     correctness). Every hue in this direction stays out of here.
 
-     Focus is spelled out here rather than left to the global
-     :focus-visible rule: the grid moves focus programmatically as arrow
-     keys walk it, and the ring has to be visible for that too. It is drawn
-     inset so a focused cell at the edge of a scrolling table is not
-     clipped. */
+     Focus is spelled out rather than left to the global :focus-visible
+     rule: the grid moves focus programmatically as arrow keys walk it,
+     and the ring has to be visible for that too. It is drawn inset so a
+     focused cell at the edge of a scrolling table is not clipped. */
   .cell-toggle {
     @apply flex w-full items-center justify-center text-sm font-medium;
     font-variant-numeric: tabular-nums;
     min-width: 2.5rem;
     min-height: 2rem;
+    border-radius: var(--radius);
     background-color: var(--surface-page);
     border: 1px solid transparent;
     color: var(--text-muted);
@@ -584,6 +736,7 @@
   .textarea {
     @apply w-full px-3 text-sm;
     min-height: 2.25rem;
+    border-radius: var(--radius);
     background-color: var(--surface-raised);
     border: 1px solid var(--border-strong);
     color: var(--text-primary);
@@ -597,7 +750,7 @@
     color: var(--text-muted);
   }
   .input-error {
-    border-color: var(--status-critical);
+    border-color: var(--accent-red-line);
   }
   .input-compact {
     @apply px-2 text-xs;
@@ -606,8 +759,8 @@
   }
 
   /* ---------- Tables ----------------------------------------------------
-     The source's ledger: a sunken header band of letterspaced small caps
-     over a framed body, every row separated by a hairline. */
+     A quiet sunken header band over a white body, rows separated by a
+     hairline. Round outer corners come from .table-frame, which clips. */
   .data-table {
     @apply w-full text-left;
   }
@@ -615,13 +768,13 @@
     background-color: var(--surface-sunken);
   }
   .data-table th {
-    @apply px-3 py-2 text-xs font-semibold uppercase;
-    letter-spacing: 0.12em;
+    @apply px-3 py-2.5 text-xs font-semibold uppercase;
+    letter-spacing: 0.06em;
     color: var(--text-secondary);
-    border-bottom: 1px solid var(--border-frame);
+    border-bottom: 1px solid var(--border-hairline);
   }
   .data-table td {
-    @apply px-3 py-2 align-top;
+    @apply px-3 py-2.5 align-top;
     color: var(--text-primary);
   }
   .data-table tbody tr + tr {
@@ -639,77 +792,112 @@
   .table-frame {
     background-color: var(--surface-raised);
     border: 1px solid var(--border-frame);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
     @apply overflow-x-auto;
   }
 
   /* ---------- Badges ----------------------------------------------------
-     The source's flag chip: a bordered small-caps stamp, not a pill. */
+     The reference's status pill: fully round, a soft tint fill, a vivid
+     outline and dark text of the same hue. Used for workflow state ONLY
+     (assignment status, attempt state, import outcome, role) — never for
+     a response value. Every pill prints its status in words, so colour is
+     never the sole channel (WCAG 1.4.1).
+
+     The four legacy role names (good/warning/critical/info) are kept as
+     aliases of the hue variants so the screens already using them did not
+     need editing. */
   .badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium uppercase;
-    letter-spacing: 0.1em;
-    background-color: var(--surface-sunken);
-    border: 1px solid var(--border-frame);
-    color: var(--text-secondary);
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold;
+    border-radius: 9999px;
+    background-color: var(--accent-slate-soft);
+    border: 1px solid var(--accent-slate-line);
+    color: var(--accent-slate-text);
   }
+  .badge-neutral {
+    background-color: var(--accent-slate-soft);
+    border-color: var(--accent-slate-line);
+    color: var(--accent-slate-text);
+  }
+  .badge-orange {
+    background-color: var(--accent-orange-soft);
+    border-color: var(--accent-orange-line);
+    color: var(--accent-orange-text);
+  }
+  .badge-green,
   .badge-good {
-    background-color: var(--surface-good);
-    border-color: #c1d3ab;
-    color: var(--status-good-text);
+    background-color: var(--accent-green-soft);
+    border-color: var(--accent-green-line);
+    color: var(--accent-green-text);
   }
-  .badge-warning {
-    background-color: var(--surface-warning);
-    border-color: #e6cf98;
-    color: var(--status-warning-text);
-  }
-  .badge-critical {
-    background-color: var(--surface-critical);
-    border-color: #e8bfae;
-    color: var(--status-critical-text);
-  }
+  .badge-blue,
   .badge-info {
-    background-color: var(--surface-info);
-    border-color: #c2ced2;
-    color: var(--status-info-text);
+    background-color: var(--accent-blue-soft);
+    border-color: var(--accent-blue-line);
+    color: var(--accent-blue-text);
+  }
+  .badge-purple {
+    background-color: var(--accent-purple-soft);
+    border-color: var(--accent-purple-line);
+    color: var(--accent-purple-text);
+  }
+  .badge-pink {
+    background-color: var(--accent-pink-soft);
+    border-color: var(--accent-pink-line);
+    color: var(--accent-pink-text);
+  }
+  .badge-amber,
+  .badge-warning {
+    background-color: var(--accent-amber-soft);
+    border-color: var(--accent-amber-line);
+    color: var(--accent-amber-text);
+  }
+  .badge-red,
+  .badge-critical {
+    background-color: var(--accent-red-soft);
+    border-color: var(--accent-red-line);
+    color: var(--accent-red-text);
   }
 
   /* ---------- Banners: explain what happened and what to do next -------- */
   .banner {
     @apply px-4 py-3 text-sm;
+    border-radius: var(--radius);
     border: 1px solid var(--border-hairline);
     background-color: var(--surface-sunken);
     color: var(--text-secondary);
   }
   .banner-good {
-    background-color: var(--surface-good);
-    border-color: #c1d3ab;
-    color: var(--status-good-text);
+    background-color: var(--accent-green-soft);
+    border-color: var(--accent-green-line);
+    color: var(--accent-green-text);
   }
   .banner-warning {
-    background-color: var(--surface-warning);
-    border-color: #e6cf98;
-    color: var(--status-warning-text);
+    background-color: var(--accent-amber-soft);
+    border-color: var(--accent-amber-line);
+    color: var(--accent-amber-text);
   }
   .banner-critical {
-    background-color: var(--surface-critical);
-    border-color: #e8bfae;
-    color: var(--status-critical-text);
+    background-color: var(--accent-red-soft);
+    border-color: var(--accent-red-line);
+    color: var(--accent-red-text);
   }
   .banner-info {
-    background-color: var(--surface-info);
-    border-color: #c2ced2;
-    color: var(--status-info-text);
+    background-color: var(--accent-blue-soft);
+    border-color: var(--accent-blue-line);
+    color: var(--accent-blue-text);
   }
 
   /* ---------- Links ------------------------------------------------------
-     Ink and underlined, per the source's anchor rule. Not a blue: blue is
-     the first data-encoding slot in lib/charts/theme.ts, and a link that
-     shares it can be mistaken for a series swatch. */
+     Blue is the first data-encoding slot in lib/charts/theme.ts, so a link
+     that shares it can be mistaken for a series swatch. Links stay ink and
+     underlined, and take the action orange on hover instead. */
   .link {
     color: var(--text-primary);
     @apply underline underline-offset-2;
   }
   .link:hover {
-    color: var(--text-muted);
+    color: var(--action);
   }
   .link-quiet {
     color: var(--text-secondary);
@@ -717,16 +905,49 @@
   }
 
   /* ---------- Masthead ---------------------------------------------------
-     The source's dark-ink chrome bar. Its wordmark is a letterspaced serif
-     small-cap, which is the one place the app names itself. */
+     The Ashfield dark-ink chrome bar is gone: in this direction the rail
+     carries the identity and the top bar is a quiet white strip inside
+     the frame. On the unauthenticated screens (sign-in, not-provisioned)
+     the same class sits directly on the peach backdrop, where it stays
+     transparent so the backdrop shows through — primary ink is 11.39:1
+     there, measured. */
   .masthead {
-    background-color: var(--action);
-    color: var(--text-inverse);
-    border-bottom: 1px solid var(--action);
+    background-color: transparent;
+    color: var(--text-primary);
   }
   .wordmark {
     font-family: var(--font-display);
-    @apply font-normal uppercase;
-    letter-spacing: 0.18em;
+    @apply font-bold uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ---------- The navy rail ----------------------------------------------
+     Icon-only navigation. The label still ships in the DOM for every item
+     (as the accessible name and as the collapsed tooltip) — this is a
+     visual reduction, not a semantic one, so nothing here is reachable by
+     sight alone. */
+  .rail {
+    background-color: var(--sidebar-surface);
+    color: var(--sidebar-idle);
+  }
+  .rail-item {
+    @apply flex items-center justify-center;
+    border-radius: var(--radius);
+    color: var(--sidebar-idle);
+  }
+  .rail-item:hover {
+    background-color: var(--sidebar-hover);
+    color: var(--text-inverse);
+  }
+  /* The reference's rounded active indicator: a bright orange block
+     carrying navy ink. Inverted from the page's --action orange, which is
+     only 2.98:1 against this rail. */
+  .rail-item[data-active="true"] {
+    background-color: var(--sidebar-active);
+    color: var(--sidebar-active-ink);
+  }
+  .rail-item[data-active="true"]:hover {
+    background-color: var(--sidebar-active);
+    color: var(--sidebar-active-ink);
   }
 }

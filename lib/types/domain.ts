@@ -82,16 +82,22 @@ export type AssignmentStatus = "DRAFT" | "READY" | "OPEN" | "CLOSED" | "ARCHIVED
 
 /**
  * DRAFT -> READY -> OPEN -> CLOSED -> ARCHIVED, plus READY -> DRAFT
- * (un-approve to resume editing). Enforced at the DB layer by the
- * assignments_status_transition trigger (migration 0009) — this map exists
- * so the UI and server actions can fail fast with a friendly message, not
- * as the boundary itself.
+ * (un-approve to resume editing) and CLOSED -> OPEN (reopen to students).
+ * Enforced at the DB layer by the assignments_status_transition trigger
+ * (migrations 0009, 0023) — this map exists so the UI and server actions
+ * can fail fast with a friendly message, not as the boundary itself.
+ *
+ * CLOSED -> OPEN was missing until 0023, and its absence was a dead end
+ * rather than a safety property: closing was irreversible, so a professor
+ * who closed an assignment early — or who reopened a student's ATTEMPT
+ * afterwards — had no way to let anyone answer again. ARCHIVED stays
+ * terminal; that is the irreversible one.
  */
 export const VALID_ASSIGNMENT_TRANSITIONS: Record<AssignmentStatus, AssignmentStatus[]> = {
   DRAFT: ["READY"],
   READY: ["DRAFT", "OPEN"],
   OPEN: ["CLOSED"],
-  CLOSED: ["ARCHIVED"],
+  CLOSED: ["OPEN", "ARCHIVED"],
   ARCHIVED: [],
 };
 

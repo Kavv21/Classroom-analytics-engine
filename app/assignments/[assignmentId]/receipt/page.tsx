@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { canAnswerAssignment } from "@/lib/attempts/workable";
+import type { AttemptState } from "@/lib/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,8 +46,18 @@ export default async function SubmissionReceiptPage({
 
   if (attempt.state !== "SUBMITTED" && attempt.state !== "RESUBMITTED") {
     // Not submitted (e.g. reopened, or still drafting): the receipt doesn't
-    // exist yet — back to the assignment if it's still open.
-    if (assignment.status === "OPEN") redirect(`/assignments/${assignmentId}`);
+    // exist yet — back to the assignment if they can still answer it. A
+    // reopened attempt counts even on a CLOSED assignment; without that,
+    // the two pages bounce a reopened student between each other and the
+    // list, which is what "reopened but I can't get in" looked like.
+    if (
+      canAnswerAssignment(assignment.status, {
+        state: attempt.state as AttemptState,
+        reopenedAt: attempt.reopened_at,
+      })
+    ) {
+      redirect(`/assignments/${assignmentId}`);
+    }
     redirect("/assignments");
   }
 

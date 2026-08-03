@@ -103,7 +103,7 @@ export function ResponseGridTable({ grid, exportHref }: ResponseGridTableProps) 
               <tr key={row.originalRow}>
                 <th
                   scope="row"
-                  className="sticky left-0 z-10 whitespace-nowrap border-r border-hairline bg-surface px-3 py-1.5 text-left font-normal"
+                  className="sticky left-0 z-10 whitespace-nowrap border-r border-hairline bg-surface-raised px-3 py-1.5 text-left font-normal"
                 >
                   {row.label}
                 </th>

@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PILL } from "@/lib/ui/tone";
 import { Input } from "@/components/ui/input";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 import {
   Card,
   CardContent,
@@ -130,7 +131,7 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
               {filtered.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="whitespace-nowrap text-ink-secondary tabular-nums">
-                    {new Date(row.createdAt).toLocaleString()}
+                    <LocalDateTime value={row.createdAt} />
                   </TableCell>
                   <TableCell className="font-medium">{row.actor}</TableCell>
                   <TableCell>

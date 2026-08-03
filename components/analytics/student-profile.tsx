@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { QuestionLabel } from "@/components/questions/question-label";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 import { focusRing } from "@/components/analytics/chart-card";
 import { FilterRow, FilterSearch, FilterSelect, ResetFiltersButton } from "@/components/analytics/filter-row";
 import {
@@ -111,9 +112,12 @@ function RawResponses({ assignment }: { assignment: StudentAssignmentResponses }
           {assignment.attemptState
             ? `Attempt ${assignment.attemptState.toLowerCase()}`
             : "Not started"}
-          {assignment.submittedAt
-            ? ` · submitted ${new Date(assignment.submittedAt).toLocaleString()}`
-            : ""}
+          {assignment.submittedAt ? (
+            <>
+              {" · submitted "}
+              <LocalDateTime value={assignment.submittedAt} />
+            </>
+          ) : null}
           {assignment.submissionVersion && assignment.submissionVersion > 1
             ? ` · submission ${assignment.submissionVersion}`
             : ""}

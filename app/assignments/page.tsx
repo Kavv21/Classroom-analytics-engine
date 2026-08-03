@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canAnswerAssignment } from "@/lib/attempts/workable";
 import type { AttemptState } from "@/lib/types/domain";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 interface AssignmentRow {
   id: string;
@@ -99,7 +100,10 @@ export default async function StudentAssignmentsPage() {
                     <p className="note mt-0.5">
                       {a.classes?.name}
                       {a.close_at && open && (
-                        <> · closes {new Date(a.close_at).toLocaleString()}</>
+                        <>
+                          {" · closes "}
+                          <LocalDateTime value={a.close_at} />
+                        </>
                       )}
                       {!open && (
                         <>

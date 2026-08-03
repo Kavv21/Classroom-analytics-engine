@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ResponseGridTable } from "@/components/assignments/response-grid-table";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 import { gatherResponseGrid, orientationDescription } from "@/lib/exports/response-grid";
 import { requireProfessorClassPage } from "@/lib/analytics/page-data";
 
@@ -123,7 +124,9 @@ export default async function ResponseGridPage({
         </div>
         <div>
           <dt className="text-ink-muted">Loaded at</dt>
-          <dd className="font-medium">{new Date(grid.generatedAt).toLocaleString()}</dd>
+          <dd className="font-medium">
+            <LocalDateTime value={grid.generatedAt} />
+          </dd>
         </div>
       </dl>
 

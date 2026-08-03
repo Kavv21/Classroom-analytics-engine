@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { reopenAllAttempts, reopenAttempt } from "@/lib/attempts/actions";
 import { attemptStateLabel } from "@/lib/ui/labels";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 export interface AttemptTableRow {
   id: string;
@@ -163,7 +164,7 @@ export function AttemptsTable({ classId, assignmentId, attempts }: AttemptsTable
                   </span>
                 </td>
                 <td className="text-ink-secondary">
-                  {a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "—"}
+                  <LocalDateTime value={a.submitted_at} />
                 </td>
                 <td className="text-ink-secondary">{a.submission_version}</td>
                 <td>

@@ -6,6 +6,7 @@ import type { AttemptState } from "@/lib/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 export default async function SubmissionReceiptPage({
   params,
@@ -86,7 +87,9 @@ export default async function SubmissionReceiptPage({
       <Card className="mt-6 shadow-lifted"><CardContent><dl className="space-y-3 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-ink-secondary">Submitted</dt>
-          <dd>{attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString() : "—"}</dd>
+          <dd>
+            <LocalDateTime value={attempt.submitted_at} />
+          </dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-ink-secondary">Questions answered</dt>

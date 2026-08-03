@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { StatusActions } from "@/components/assignments/status-actions";
 import { DeleteAssignmentButton } from "@/components/assignments/delete-assignment-button";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 import {
   AttemptsTable,
   type AttemptTableRow,
@@ -149,8 +150,16 @@ export default async function AssignmentDetailPage({
         <span>
           Answer labels: {assignment.response_zero_label} / {assignment.response_one_label}
         </span>
-        {assignment.open_at && <span>Opens {new Date(assignment.open_at).toLocaleString()}</span>}
-        {assignment.close_at && <span>Closes {new Date(assignment.close_at).toLocaleString()}</span>}
+        {assignment.open_at && (
+          <span>
+            Opens <LocalDateTime value={assignment.open_at} />
+          </span>
+        )}
+        {assignment.close_at && (
+          <span>
+            Closes <LocalDateTime value={assignment.close_at} />
+          </span>
+        )}
       </div>
 
       {assignment.description && <p className="note mt-4">{assignment.description}</p>}
@@ -240,7 +249,7 @@ export default async function AssignmentDetailPage({
               <li key={imp.id} className="flex items-center justify-between gap-4 px-3 py-2">
                 <span className="min-w-0 truncate">{imp.source_filename}</span>
                 <span className="note-muted shrink-0">
-                  {new Date(imp.created_at).toLocaleString()}
+                  <LocalDateTime value={imp.created_at} />
                 </span>
                 <span
                   className={

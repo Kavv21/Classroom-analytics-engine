@@ -587,10 +587,13 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean
 }) {
-  // Random width between 50 to 90%.
-  const [width] = React.useState(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
-  })
+  // Upstream shadcn randomises this between 50% and 90% so the skeleton
+  // bars look uneven. `Math.random()` during render produces one number on
+  // the server and a different one in the browser, which fails hydration
+  // (React #418) and throws away the whole root — the same defect fixed in
+  // components/ui/local-date-time.tsx. A fixed width costs a little
+  // texture and cannot desynchronise.
+  const width = "70%"
 
   return (
     <div

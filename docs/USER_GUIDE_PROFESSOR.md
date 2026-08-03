@@ -60,18 +60,28 @@ edit the copy.
 
 ## 6. Let students answer again
 
-There are two different gestures, and they are not interchangeable.
+There are three different gestures, and they are not interchangeable.
+Every one of them affects **this assignment only** — nobody's other
+assignments are touched, and a submitted attempt stays read-only until one
+of these is used on it.
 
 **One student**: assignment page → **Student attempts** → **Reopen** next
-to them. They can edit and resubmit; their submission version increments.
-This works whether the assignment is open or closed — a closed assignment
-stays closed to everyone else. Only you can do this; students cannot
-reopen their own work.
+to them. They can edit and resubmit; their submission version increments,
+and their attempt locks again as soon as they resubmit. This works whether
+the assignment is open or closed — a closed assignment stays closed to
+everyone else. Only you can do this; students cannot reopen their own work.
 
-**The whole class**: assignment page → **Reopen to students**, on a closed
-assignment. Anyone who hadn't submitted can carry on, and anyone whose
-attempt you reopened individually can submit again. You can close it again
-afterwards.
+**Every student who has submitted**: assignment page → **Student
+attempts** → **Reopen for all students**, then confirm. It reopens every
+SUBMITTED attempt on this assignment, and only this assignment. Students
+still drafting are left alone, the assignment's own status doesn't change,
+and each attempt locks again the moment its student resubmits.
+
+**The whole class, including people who never submitted**: assignment page
+→ **Reopen to students**, on a closed assignment. This one changes the
+assignment's status back to open: anyone who hadn't submitted can carry
+on, and anyone whose attempt you reopened individually can submit again.
+You can close it again afterwards.
 
 If a student says a reopened assignment still shows as closed with no way
 in, check its status: before this was fixed, reopening an attempt on a

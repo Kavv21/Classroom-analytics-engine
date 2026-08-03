@@ -213,8 +213,11 @@ describe("ACCEPTANCE: a real student cannot reach the synthetic seeding path", (
   });
 
   it("cannot flag its own attempt synthetic — the escalation 0020 closes", async () => {
-    // attempts_student_own is FOR ALL on student_id = auth.uid(), so RLS
-    // permits the row. The trigger is what stops it.
+    // Since migration 0024 a student has no direct write on this table at
+    // all, so this is refused before the 0020 trigger is even reached. The
+    // trigger remains the backstop for any writer that does have the
+    // privilege; what this asserts either way is the outcome — the flag
+    // stays down.
     await student.client
       .from("assignment_attempts")
       .update({ is_synthetic: true })

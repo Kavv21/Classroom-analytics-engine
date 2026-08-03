@@ -50,6 +50,7 @@ const ACTION_LABELS: Record<string, string> = {
   ASSIGNMENT_UNAPPROVED: "Returned an assignment to draft",
   ASSIGNMENT_DUPLICATED: "Duplicated an assignment",
   ATTEMPT_REOPENED: "Reopened a student's attempt",
+  ASSIGNMENT_ATTEMPTS_REOPENED: "Reopened every submitted attempt on an assignment",
   MAPPING_CREATED: "Created a mapping",
   MAPPING_UPDATED: "Edited a mapping",
   MAPPING_APPROVED: "Approved a mapping",

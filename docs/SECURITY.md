@@ -56,6 +56,17 @@ Standing rules, learned from two real incidents in this project:
   view built on them were removed in migration 0022. There is no relation
   left that joins a student's Assignment 1 answer to their Assignment 2
   answer.
+- **A submitted attempt is read-only until a professor reopens that exact
+  (assignment, student) pair.** `assignment_attempts` and `responses` have
+  SELECT-only policies and no INSERT/UPDATE/DELETE privilege for
+  `authenticated`; the `security definer` RPCs are the only writers, and
+  each one resolves the attempt by both ids before applying
+  `attempt_is_workable`. Migration 0024, after the previous
+  `for all using (student_id = auth.uid())` policies were found to let a
+  student rewrite their own final responses, delete a submitted attempt, or
+  move it SUBMITTED → REOPENED themselves (a legal FSM edge — the trigger
+  validates the edge, not the actor) and so unlock any of their
+  assignments. Verified in `tests/integration/reopen-scope.test.ts`.
 - **`is_synthetic` cannot be raised by a browser session.** The flag gates
   the closed-assignment seeding exception, so a student able to set it
   could submit to a closed assignment. Enforced by triggers on `profiles`,

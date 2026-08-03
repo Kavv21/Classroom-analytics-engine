@@ -166,12 +166,15 @@ number describes what people *said*, never whether they were *right*.
   person's actual account does.
 - **Provisioning** — the moment a `roster_entries` row turns into a real
   `profiles` row, triggered automatically by first login.
-- **Attempt** — one student's one try at one assignment. Has a state:
+- **Attempt** — one student's one try at one assignment: exactly one row
+  per (assignment, student), by unique constraint. Has a state:
   `NOT_STARTED → DRAFT → SUBMITTED`, and can be `REOPENED` by the
   professor if the student needs to fix something after submitting. A
   reopened attempt stays answerable even if the assignment itself is
   closed — that is the point of reopening one student rather than the
-  class.
+  class. Reopening is always per attempt: it never spreads to that
+  student's other assignments, or to other students, and the attempt locks
+  again as soon as it is resubmitted.
 - **The pair** — the two assignments the before/after comparison is built
   from (`sequence_number` 1 and 2, one of each per class). A class is not
   limited to two assignments: any number of further ones can be added as

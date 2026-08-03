@@ -160,7 +160,17 @@ export async function submitAttempt(
   return { success: true, data: data as SubmitReceipt };
 }
 
-/** Professor-only: SUBMITTED -> REOPENED with full bookkeeping (DB-side). */
+/**
+ * Professor-only: SUBMITTED -> REOPENED with full bookkeeping (DB-side),
+ * for exactly ONE (assignment, student) pair.
+ *
+ * The assignment id is passed to the RPC as well as the attempt id, and the
+ * DB refuses the call if the attempt doesn't belong to that assignment
+ * (migration 0024). The attempt id alone would find the row — what the
+ * second id adds is the caller stating which assignment it believed it was
+ * acting on, so a reopen issued from one assignment's page can never land
+ * on another assignment's attempt.
+ */
 export async function reopenAttempt(
   attemptId: string,
   classId: string,
@@ -169,10 +179,41 @@ export async function reopenAttempt(
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("reopen_attempt", {
     p_attempt_id: attemptId,
+    p_assignment_id: assignmentId,
   });
 
   if (error) return { success: false, error: error.message };
 
   revalidatePath(`/classes/${classId}/assignments/${assignmentId}`);
   return { success: true, data: data as { attemptId: string; state: AttemptState } };
+}
+
+/**
+ * Professor-only: reopen every SUBMITTED attempt on ONE assignment.
+ *
+ * The bulk counterpart of reopenAttempt, and scoped the same way — the
+ * assignment id is the only selector, so "for all students" means all
+ * students of this assignment and cannot reach a sibling assignment. Work
+ * in progress is left alone: only SUBMITTED attempts move, so a student
+ * mid-draft is not disturbed and a student who already resubmitted is not
+ * pulled back in.
+ *
+ * This is not the same gesture as reopening the ASSIGNMENT (CLOSED ->
+ * OPEN, see transitionAssignment): that one lets everyone who has not yet
+ * submitted carry on; this one lets the students who HAVE submitted submit
+ * again, and leaves the assignment's status untouched.
+ */
+export async function reopenAllAttempts(
+  classId: string,
+  assignmentId: string
+): Promise<AttemptActionResult<{ assignmentId: string; reopened: number }>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("reopen_assignment_attempts", {
+    p_assignment_id: assignmentId,
+  });
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath(`/classes/${classId}/assignments/${assignmentId}`);
+  return { success: true, data: data as { assignmentId: string; reopened: number } };
 }

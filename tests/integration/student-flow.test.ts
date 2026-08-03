@@ -173,14 +173,25 @@ describe("attempt lifecycle", () => {
   }, 20_000);
 
   it("rejects state transitions not on the list (DB trigger)", async () => {
+    // Through the admin client, because a student has no direct write on
+    // this table any more (migration 0024) — service_role bypasses RLS but
+    // not triggers, which is exactly what this asserts.
     for (const state of ["REOPENED", "RESUBMITTED"] as const) {
-      const { error } = await student.client
+      const { error } = await admin
         .from("assignment_attempts")
         .update({ state })
         .eq("id", attemptId);
       expect(error, `NOT_STARTED -> ${state} must be rejected`).not.toBeNull();
       expect(error!.message).toContain("invalid attempt state transition");
     }
+  }, 20_000);
+
+  it("a student cannot write the attempt table directly at all", async () => {
+    const { error } = await student.client
+      .from("assignment_attempts")
+      .update({ state: "DRAFT" })
+      .eq("id", attemptId);
+    expect(error, "the RPCs are the only write path").not.toBeNull();
   }, 20_000);
 
   it("autosaves a batch idempotently and moves NOT_STARTED -> DRAFT", async () => {
@@ -284,11 +295,13 @@ describe("attempt lifecycle", () => {
   it("only the professor can reopen, with full bookkeeping", async () => {
     const { error: studentReopen } = await student.client.rpc("reopen_attempt", {
       p_attempt_id: attemptId,
+      p_assignment_id: assignmentId,
     });
     expect(studentReopen, "a student must not reopen their own attempt").not.toBeNull();
 
     const { data, error } = await professor.client.rpc("reopen_attempt", {
       p_attempt_id: attemptId,
+      p_assignment_id: assignmentId,
     });
     expect(error, error?.message).toBeNull();
     expect((data as { state: string }).state).toBe("REOPENED");
@@ -327,6 +340,7 @@ describe("attempt lifecycle", () => {
     // Reopen again and resubmit WITHOUT drafting: REOPENED -> RESUBMITTED.
     const { error: reopenError } = await professor.client.rpc("reopen_attempt", {
       p_attempt_id: attemptId,
+      p_assignment_id: assignmentId,
     });
     expect(reopenError, reopenError?.message).toBeNull();
 
@@ -342,6 +356,7 @@ describe("attempt lifecycle", () => {
     // RESUBMITTED is terminal: no further reopen.
     const { error: terminalError } = await professor.client.rpc("reopen_attempt", {
       p_attempt_id: attemptId,
+      p_assignment_id: assignmentId,
     });
     expect(terminalError).not.toBeNull();
     expect(terminalError!.message).toContain("only a SUBMITTED attempt");
@@ -416,6 +431,7 @@ describe("reopening a closed assignment", () => {
   it("lets the professor reopen a single attempt while the assignment stays closed", async () => {
     const { data, error } = await professor.client.rpc("reopen_attempt", {
       p_attempt_id: reopenedAttemptId,
+      p_assignment_id: closedAssignmentId,
     });
     expect(error, error?.message).toBeNull();
     expect((data as { state: string }).state).toBe("REOPENED");
@@ -485,6 +501,7 @@ describe("reopening a closed assignment", () => {
 
     const { error } = await professor.client.rpc("reopen_attempt", {
       p_attempt_id: spareAttemptId,
+      p_assignment_id: spare.id,
     });
     expect(error, "an archived assignment has nowhere for the student to answer").not.toBeNull();
     expect(error!.message).toContain("cannot be reopened");

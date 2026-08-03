@@ -231,6 +231,24 @@ submit only their own attempts; read only their own submission receipts.
 Students may NOT read another student's responses, class analytics, alter
 submitted data, or export class datasets.
 
+**Attempts and responses are read-only over PostgREST (migration 0024).**
+`assignment_attempts` and `responses` carry SELECT-only policies —
+`attempts_student_select`, `attempts_professor_select`,
+`responses_student_select`, `responses_professor_select` — and
+INSERT/UPDATE/DELETE are revoked from `authenticated` and `anon`. Every
+write goes through `get_or_create_attempt`, `save_attempt_responses`,
+`submit_attempt`, `reopen_attempt` or `reopen_assignment_attempts`, which
+are `security definer` and carry the per-attempt rule themselves.
+
+This replaced `attempts_student_own` / `responses_student_own`, which were
+`for all using (student_id = auth.uid())`. That is a per-STUDENT question,
+and it was the boundary, so it let a student rewrite their own final
+responses, delete a submitted attempt, and take their own SUBMITTED attempt
+to REOPENED (a legal FSM edge — the trigger validates the edge, not the
+actor), which unlocked writing on any assignment of theirs. "Submitted is
+locked until a professor reopens THIS pair" is only true with those
+privileges gone.
+
 Professors: manage their own classes, students, and assignments; read class
 responses for their own classes; view analytics; export their own class
 data. `profiles_professor_class_students_select` (migration
@@ -344,9 +362,12 @@ RLS plus an explicit ownership check for clear errors):
   `security definer`; the only write path into `audit_logs` (which has no
   INSERT policy). Actor is always `auth.uid()`; execute revoked from anon.
 
-Migration 0010 (Phase 5) adds the student-attempt RPCs. All but the last
-are `security invoker` (RLS + an explicit ownership check for clear
-errors); EXECUTE is revoked from anon on all four:
+Migration 0010 (Phase 5) adds the student-attempt RPCs. Since migration
+0024 all of them are `security definer` with `search_path = public` —
+students have no direct write privilege on `assignment_attempts` or
+`responses`, so these functions are the only writers, and the ownership
+check each one already made (`student_id = auth.uid()`, class membership)
+is what authorises the write. EXECUTE is revoked from anon on all of them:
 
 - `get_or_create_attempt(p_assignment_id)` — idempotent entry point;
   requires the caller a class member and the assignment answerable (see
@@ -362,16 +383,26 @@ errors); EXECUTE is revoked from anon on all four:
 - `submit_attempt(p_attempt_id)` — final submission. Locks the attempt row
   (`for update`), so concurrent/double submits serialize; an
   already-submitted attempt gets a clear "already submitted" error and no
-  second submission. Marks responses is_final + stamps version. Only ever
-  invoked from the student's explicit confirm button — no automatic
-  trigger exists anywhere (EXCLUDED_FEATURES.md).
-- `reopen_attempt(p_attempt_id)` — professor-only, `security definer`
-  (professors deliberately have no UPDATE policy on responses; this is the
-  one narrow write path, per the set_student_active precedent). SUBMITTED →
-  REOPENED with reopened_at/reopened_by; clears responses.is_final;
-  audit-logged. RESUBMITTED is terminal and cannot be reopened. Since 0023
-  it refuses an assignment that is not OPEN or CLOSED, rather than minting
-  a REOPENED attempt the student could never act on.
+  second submission. Marks responses is_final + stamps version. Clears
+  `reopened_at` (0024) — the reopen grant is spent by the resubmission;
+  `reopened_by` stays, as the record of who granted it. Only ever invoked
+  from the student's explicit confirm button — no automatic trigger exists
+  anywhere (EXCLUDED_FEATURES.md).
+- `reopen_attempt(p_attempt_id, p_assignment_id)` — professor-only,
+  `security definer`. SUBMITTED → REOPENED with reopened_at/reopened_by;
+  clears responses.is_final; audit-logged. RESUBMITTED is terminal and
+  cannot be reopened. Since 0023 it refuses an assignment that is not OPEN
+  or CLOSED, rather than minting a REOPENED attempt the student could never
+  act on. Since 0024 the assignment id is a required second argument and
+  must match the attempt's own: it affects exactly one (assignment,
+  student) pair, and the caller has to say which assignment it believed it
+  was acting on. The single-argument form was dropped.
+- `reopen_assignment_attempts(p_assignment_id)` (0024) — professor-only,
+  `security definer`; the bulk counterpart. Reopens every SUBMITTED attempt
+  on THIS assignment and no attempt on any other; leaves NOT_STARTED/DRAFT/
+  REOPENED/RESUBMITTED attempts and the assignment's own status untouched
+  (it is not CLOSED → OPEN); one ATTEMPT_REOPENED audit event per attempt
+  plus one ASSIGNMENT_ATTEMPTS_REOPENED summary; returns the count.
 - `attempt_is_workable(status, state, reopened_at)` (0023, `immutable`) —
   the single definition of "may this student still write to this attempt":
   true while the assignment is OPEN, and for an individually reopened

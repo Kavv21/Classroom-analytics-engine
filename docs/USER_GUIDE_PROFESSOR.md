@@ -110,8 +110,20 @@ Two views, and the split is deliberate:
   thing, with live `SUM` formulas across each energy source's questions.
 - **Analytics → Students → a student's full responses** is the one place an
   individual's answers appear: every question on both assignments — all 30
-  on Assignment 1 and all 255 on Assignment 2 — with the 0/1 they recorded,
-  grouped by energy source.
+  on Assignment 1 and all 255 on Assignment 2 — with the 0/1 they recorded.
+  It is laid out as **the original spreadsheet's own grid**, the same rows,
+  columns and order as the response-totals grid and as the sheet the student
+  answered on, so the three can be read side by side. A cell holds their 0
+  or 1; a `·` means they left it blank, which is not the same as a 0. There
+  is **no total row** on a student's grid — a figure summing one person's
+  answers would read as a score. Underneath, **Show question-by-question
+  list** opens the same answers as a searchable list carrying each
+  question's full wording.
+  **Download as Excel** on that page gives you one student's grid as an
+  .xlsx: one sheet per assignment in the source file's shape, plus an
+  `Answers by question` sheet with the verbatim wording, and a header block
+  naming the student, when it was generated, and whether the record is
+  synthetic demo data.
 
 One thing worth knowing: **this tool does not compare one student's
 Assignment 1 answer with their Assignment 2 answer.** Doing so would need a

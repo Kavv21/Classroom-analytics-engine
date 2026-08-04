@@ -87,7 +87,11 @@ export default async function StudentProfilePage({
         </p>
       )}
 
-      <StudentProfile studentName={studentName} assignments={assignments} />
+      <StudentProfile
+        studentName={studentName}
+        assignments={assignments}
+        exportHref={`/classes/${classId}/analytics/students/${studentId}/export`}
+      />
     </main>
   );
 }

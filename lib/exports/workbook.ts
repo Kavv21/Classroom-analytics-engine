@@ -14,6 +14,11 @@ import {
   type ResponseGrid,
 } from "@/lib/exports/response-grid";
 import { questionLabel } from "@/lib/ui/question-label";
+import {
+  getStudentFullResponses,
+  responseValueLabel,
+  type StudentAssignmentResponses,
+} from "@/lib/analytics/student-responses";
 
 /**
  * The 10-sheet Excel export (spec Section 22).
@@ -692,6 +697,387 @@ export async function buildWorkbook(data: WorkbookData): Promise<Buffer> {
     const sheet = workbook.addWorksheet(gridSheetName(grid));
     writeGridSheet(sheet, grid, data.metadata);
   }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+// ===========================================================================
+// The one-student workbook.
+// ===========================================================================
+
+/**
+ * The same pipeline as above — same ExcelJS workbook, same provenance block,
+ * same grid geometry — narrowed from a whole class to ONE student.
+ *
+ * WHY IT IS A SEPARATE ENTRY POINT AND NOT A FLAG ON THE CLASS EXPORT. The
+ * class workbook is aggregate-first and its grid sheets carry class counts
+ * with no names anywhere; this one is a named individual's raw submission.
+ * They are different disclosures with different audiences, so they are
+ * different downloads reached from different pages, and neither can turn
+ * into the other by accident. What they DO share is every layout decision:
+ * `writeStudentGridSheet` below lays a student's answers out through the
+ * same `GridMatrix` the class grid uses, so the .xlsx a professor downloads
+ * from a profile page has the same rows, columns and order as the screen
+ * they downloaded it from, as the class totals grid, and as the sheet the
+ * student originally answered on.
+ *
+ * ACCESS. Every read goes through the CALLER'S RLS-scoped Supabase client
+ * and the route re-checks that the caller is this class's professor before
+ * getting here.
+ */
+
+export interface StudentExportSubject {
+  id: string;
+  name: string;
+  /** The professor's own identifier for them, where the roster carried one. */
+  identifier: string | null;
+  email: string | null;
+  enrolmentStatus: string;
+  isSynthetic: boolean;
+}
+
+export interface StudentWorkbookData {
+  metadata: ExportMetadata;
+  classId: string;
+  student: StudentExportSubject;
+  assignments: StudentAssignmentResponses[];
+}
+
+/** The flat sheet that carries the verbatim wording the grid has no room for. */
+export const STUDENT_ANSWERS_SHEET = "Answers by question";
+
+export const STUDENT_ANSWERS_HEADERS = [
+  "Assignment",
+  "Question",
+  "Question code",
+  "Energy source",
+  "Criterion",
+  "Source cell",
+  "Response value",
+  "Response label",
+] as const;
+
+/** Excel sheet names are capped at 31 characters and reject []:*?/\ */
+export function studentGridSheetName(assignment: StudentAssignmentResponses): string {
+  const base = `${GRID_SHEET_PREFIX}A${assignment.sequenceNumber}`;
+  const suffix = assignment.title.replace(/[[\]:*?/\\]/g, " ").trim();
+  return `${base} ${suffix}`.slice(0, 31).trim();
+}
+
+/** The synthetic-record disclosure, worded once and reused on every sheet. */
+export const SYNTHETIC_STUDENT_NOTE =
+  "SYNTHETIC DEMO RECORD. This is not a real student. These answers were generated for " +
+  "demonstration and describe no one. Do not read anything about a person into them.";
+
+export async function gatherStudentWorkbookData(
+  supabase: SupabaseClient,
+  options: {
+    classId: string;
+    className: string;
+    generatedBy: string;
+    studentId: string;
+  }
+): Promise<StudentWorkbookData> {
+  const { classId, studentId } = options;
+
+  // The membership row, the provenance block and the answers are all keyed
+  // on ids already in hand — none of them waits on another.
+  const [memberRaw, metadata, assignments] = await Promise.all([
+    supabase
+      .from("class_members")
+      .select("user_id, status, is_synthetic, profiles(full_name, email, student_identifier)")
+      .eq("class_id", classId)
+      .eq("user_id", studentId)
+      .eq("member_role", "STUDENT")
+      .maybeSingle<{
+        user_id: string;
+        status: string;
+        is_synthetic: boolean;
+        profiles: {
+          full_name: string | null;
+          email: string;
+          student_identifier: string | null;
+        } | null;
+      }>(),
+    buildExportMetadata(supabase, options),
+    getStudentFullResponses(supabase, classId, studentId),
+  ]);
+
+  if (memberRaw.error) {
+    throw new Error(`export: could not read class member: ${memberRaw.error.message}`);
+  }
+  // Not an empty workbook: a missing membership row means the id is wrong or
+  // RLS hid it, and a file full of blanks would read as "this student
+  // answered nothing".
+  if (!memberRaw.data) {
+    throw new Error("Student not found in this class, or you don't have access to them.");
+  }
+
+  const profile = memberRaw.data.profiles;
+  return {
+    metadata,
+    classId,
+    student: {
+      id: studentId,
+      name: profile?.full_name ?? profile?.email ?? `Student ${studentId.slice(0, 8)}`,
+      identifier: profile?.student_identifier ?? null,
+      email: profile?.email ?? null,
+      enrolmentStatus: memberRaw.data.status,
+      isSynthetic: memberRaw.data.is_synthetic,
+    },
+    assignments,
+  };
+}
+
+/**
+ * ONE student's answers on ONE assignment, as the source spreadsheet's own
+ * grid — the per-student counterpart to `writeGridSheet`.
+ *
+ * Same shape, same rows, same columns, same order, from the same
+ * `buildGridMatrix`. Where the class sheet carries a count of students who
+ * answered 1, this carries the single number this student put in that cell,
+ * or a blank where they left it empty.
+ *
+ * Three differences from the class sheet, each deliberate:
+ *
+ *  - NO TOTALS ROW, AND NO SUM FORMULAS. The class sheet totals a column
+ *    because summing a class's answers is a descriptive statistic about the
+ *    class. Summing one person's 0s and 1s is a number about that person and
+ *    reads as a score, which this app does not have (CLAUDE.md: no grades,
+ *    no correctness). `buildStudentGrid` never computes one.
+ *  - NO CONDITIONAL FORMATTING. The class sheet's colour scale runs over
+ *    per-cell counts. Here the only thing to shade would be the answer
+ *    value itself, and colouring 1 differently from 0 would make one of the
+ *    two options look better than the other.
+ *  - A BLANK CELL IS A BLANK, NOT A ZERO. "Did not answer" and "answered 0"
+ *    are different facts about a person; the footer says so in words, since
+ *    a spreadsheet reader cannot see a tooltip.
+ *
+ * It is a named individual's raw submission, and the header block says whose
+ * — including the synthetic-record disclosure where it applies, so a demo
+ * file can never be mistaken for a real person's answers after it leaves the
+ * app.
+ */
+function writeStudentGridSheet(
+  sheet: ExcelJS.Worksheet,
+  assignment: StudentAssignmentResponses,
+  data: StudentWorkbookData
+): void {
+  const { student, metadata, classId } = data;
+  const { matrix } = assignment.grid;
+  const blank = assignment.questionCount - assignment.answeredCount;
+
+  const attempt = assignment.attemptState
+    ? `${assignment.attemptState}${assignment.submittedAt ? `, submitted ${assignment.submittedAt}` : ""}` +
+      (assignment.submissionVersion && assignment.submissionVersion > 1
+        ? `, submission ${assignment.submissionVersion}`
+        : "")
+    : "Not started";
+
+  const notes: Array<[string, string]> = [
+    ["Sheet", `Answers — ${student.name} — ${assignment.title}`],
+    ["Student", student.name],
+    ["Student identifier", student.identifier ?? "—"],
+    ["Student email", student.email ?? "—"],
+    ["Internal student ID", student.id],
+    ["Enrolment status", student.enrolmentStatus],
+    ["Assignment", `${assignment.title} (sequence ${assignment.sequenceNumber})`],
+    ["Attempt", attempt],
+    ["Source worksheet", assignment.grid.worksheet ?? "—"],
+    ["Layout", assignment.grid.orientationText],
+    ["Generated at", metadata.generatedAt],
+    ["Generated by", metadata.generatedBy],
+    [
+      "What this sheet shows",
+      "The source spreadsheet's own grid, cell for cell, holding what THIS ONE STUDENT recorded: " +
+        "the 0 or 1 they entered, or an empty cell where they left it blank. There is no total " +
+        "row — a figure summing one person's answers would read as a score, and this app has " +
+        `none. Every question's verbatim wording is on the "${STUDENT_ANSWERS_SHEET}" sheet.`,
+    ],
+    [
+      "POINT-IN-TIME SNAPSHOT",
+      "This file cannot refresh itself. It shows the answers as they were at the generation " +
+        "time above. Download it again if the attempt is reopened and changed.",
+    ],
+    [
+      "Live version",
+      `The same grid updates on every page load at /classes/${classId}/analytics/students/${student.id}`,
+    ],
+    ["Class", metadata.className],
+    ["Questions", String(assignment.questionCount)],
+    [
+      "Answered",
+      `${assignment.answeredCount} of ${assignment.questionCount} · ${assignment.ones} × ${BINARY_LABELS.one} · ` +
+        `${assignment.zeros} × ${BINARY_LABELS.zero} · ${blank} left blank`,
+    ],
+    ["Grid size", `${matrix.rows.length} rows x ${matrix.columns.length} columns`],
+    ["Notes", metadata.notes.join(" ")],
+  ];
+  if (student.isSynthetic) {
+    notes.splice(1, 0, ["SYNTHETIC DEMO RECORD", SYNTHETIC_STUDENT_NOTE]);
+  }
+
+  notes.forEach(([key, value], i) => {
+    const row = sheet.getRow(i + 1);
+    row.getCell(1).value = key;
+    row.getCell(2).value = value;
+    row.getCell(1).font = { bold: true, size: 9 };
+    row.getCell(2).font = { size: 9 };
+    row.commit();
+  });
+
+  // ---- the grid itself -----------------------------------------------------
+  const headerRowNumber = notes.length + 2;
+  const headerRow = sheet.getRow(headerRowNumber);
+  headerRow.getCell(1).value = matrix.rowAxisHeading;
+  headerRow.getCell(1).font = { bold: true };
+  headerRow.height = 30;
+  matrix.columns.forEach((column, ci) => {
+    const cell = headerRow.getCell(ci + 2);
+    cell.value = column.label;
+    cell.font = { bold: true };
+    cell.alignment = { wrapText: true, vertical: "bottom", horizontal: "center" };
+  });
+  headerRow.commit();
+
+  const firstGridRow = headerRowNumber + 1;
+  matrix.rows.forEach((row, ri) => {
+    const sheetRow = sheet.getRow(firstGridRow + ri);
+    sheetRow.getCell(1).value = row.label;
+    row.cells.forEach((cell, ci) => {
+      // `?? null` covers both "no question at this intersection" and "the
+      // student left it blank" — an empty cell either way, and the footer
+      // says an empty cell is never a 0.
+      const value = cell ? assignment.grid.answers[cell.questionId] ?? null : null;
+      sheetRow.getCell(ci + 2).value = value;
+      sheetRow.getCell(ci + 2).alignment = { horizontal: "center" };
+    });
+    sheetRow.commit();
+  });
+
+  const lastGridRow = firstGridRow + Math.max(matrix.rows.length, 1) - 1;
+
+  // Questions that collided on one source cell are named rather than dropped.
+  let nextRow = lastGridRow + 2;
+  if (matrix.unplaced.length > 0) {
+    const row = sheet.getRow(nextRow);
+    row.getCell(1).value = "Not placed on the grid";
+    row.getCell(1).font = { bold: true, size: 9 };
+    row.getCell(2).value =
+      `${matrix.unplaced.length} question(s) share a source cell with another question and are ` +
+      `not shown above. Their answers are on the "${STUDENT_ANSWERS_SHEET}" sheet: ` +
+      matrix.unplaced.map((c) => `${c.code} (${c.originalCell})`).join(", ");
+    row.getCell(2).font = { size: 9 };
+    row.commit();
+    nextRow += 1;
+  }
+
+  const footer = sheet.getRow(nextRow);
+  footer.getCell(1).value = "How to read this";
+  footer.getCell(1).font = { bold: true, size: 9 };
+  footer.getCell(2).value =
+    `Each cell holds the one number ${student.name} recorded there. 0 and 1 are the two options ` +
+    "and neither is a preferred answer — nothing on this sheet is a grade, a score or a " +
+    "correctness judgement. AN EMPTY CELL IS NOT A ZERO: it means the question was left blank, " +
+    "or that the source grid has no question at that intersection. The grid's rows, columns and " +
+    "order are the original spreadsheet's own, so this sheet can be read side by side with the " +
+    "class response-totals grid and with the sheet the student answered on.";
+  footer.getCell(2).font = { size: 9 };
+  footer.commit();
+
+  sheet.getColumn(1).width = 32;
+  for (let c = 2; c <= Math.max(6, matrix.columns.length + 1); c++) sheet.getColumn(c).width = 14;
+  sheet.views = [{ state: "frozen", xSplit: 1, ySplit: headerRowNumber }];
+}
+
+/**
+ * Every question on every assignment with this student's answer, flat.
+ *
+ * The grid sheets are the source file's shape and have no room for question
+ * wording, which CLAUDE.md rule 1 forbids paraphrasing or abbreviating. The
+ * class workbook resolves that by keeping wording on its own "Assignment N
+ * Questions" sheets; a one-student workbook has none, so it carries this
+ * one instead — verbatim wording against the code, the source cell, and the
+ * value.
+ */
+function writeStudentAnswersSheet(sheet: ExcelJS.Worksheet, data: StudentWorkbookData): void {
+  const lines = metadataLines(data.metadata);
+  const provenance: Array<[string, string]> = [
+    ["Student", data.student.name],
+    ["Student identifier", data.student.identifier ?? "—"],
+    ["Internal student ID", data.student.id],
+    ...(data.student.isSynthetic
+      ? ([["SYNTHETIC DEMO RECORD", SYNTHETIC_STUDENT_NOTE]] as Array<[string, string]>)
+      : []),
+    ...lines,
+  ];
+
+  provenance.forEach(([key, value], i) => {
+    const row = sheet.getRow(i + 1);
+    row.getCell(1).value = key;
+    row.getCell(2).value = value;
+    row.getCell(1).font = { bold: true, size: 9 };
+    row.getCell(2).font = { size: 9 };
+    row.commit();
+  });
+
+  const headerRowNumber = provenance.length + 2;
+  const headerRow = sheet.getRow(headerRowNumber);
+  STUDENT_ANSWERS_HEADERS.forEach((header, i) => {
+    headerRow.getCell(i + 1).value = header;
+  });
+  headerRow.font = { bold: true };
+  headerRow.commit();
+
+  let r = headerRowNumber + 1;
+  for (const assignment of data.assignments) {
+    for (const group of assignment.groups) {
+      for (const answer of group.rows) {
+        const row = sheet.getRow(r);
+        [
+          `${assignment.title} (sequence ${assignment.sequenceNumber})`,
+          questionLabel({
+            questionText: answer.questionText,
+            energySource: answer.energySource,
+            criterion: answer.criterion,
+            code: answer.code,
+          }),
+          answer.code,
+          answer.energySource,
+          answer.criterion,
+          answer.originalCell,
+          answer.value,
+          responseValueLabel(answer.value),
+        ].forEach((value, c) => {
+          row.getCell(c + 1).value = value === undefined ? null : value;
+        });
+        row.commit();
+        r += 1;
+      }
+    }
+  }
+
+  sheet.getColumn(1).width = 26;
+  sheet.getColumn(2).width = 60;
+  for (let c = 3; c <= STUDENT_ANSWERS_HEADERS.length; c++) sheet.getColumn(c).width = 20;
+  sheet.views = [{ state: "frozen", ySplit: headerRowNumber }];
+}
+
+export async function buildStudentWorkbook(data: StudentWorkbookData): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "EVALUATING ENERGY SOURCES";
+  workbook.created = new Date(data.metadata.generatedAt);
+  workbook.description =
+    `${data.student.name} — ${data.metadata.className} — generated ${data.metadata.generatedAt}` +
+    (data.student.isSynthetic ? " — SYNTHETIC DEMO RECORD" : "");
+
+  // One grid sheet per assignment, in sequence order, then the flat list.
+  for (const assignment of data.assignments) {
+    const sheet = workbook.addWorksheet(studentGridSheetName(assignment));
+    writeStudentGridSheet(sheet, assignment, data);
+  }
+  writeStudentAnswersSheet(workbook.addWorksheet(STUDENT_ANSWERS_SHEET), data);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);

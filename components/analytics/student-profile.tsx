@@ -1,7 +1,8 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useId, useMemo, useState } from "react";
 import { QuestionLabel } from "@/components/questions/question-label";
+import { StudentResponseGrid } from "@/components/analytics/student-response-grid";
 import { LocalDateTime } from "@/components/ui/local-date-time";
 import { focusRing } from "@/components/analytics/chart-card";
 import { FilterRow, FilterSearch, FilterSelect, ResetFiltersButton } from "@/components/analytics/filter-row";
@@ -25,11 +26,20 @@ import {
  * 0/1 they actually recorded. Since the assignment grid became
  * aggregate-only, this is the single place an individual answer is shown.
  *
+ * IT LEADS WITH THE GRID. The submission is shown in the shape it was made
+ * in — the source spreadsheet's own grid, the same geometry the student
+ * answered on and the professor's class totals use — because 285 answers as
+ * a flat list is a scroll, and as a grid it is a picture. The flat
+ * question-by-question list is still here, one click away, because it is
+ * the only place the verbatim question wording is readable and the only
+ * place the answers can be searched and filtered.
+ *
  * The "Opinion shift" tab that used to sit beside this one was removed with
  * the question-mapping feature: it showed how one student's answer moved
  * between a mapped pair of questions, and without an approved mapping there
  * is no record of which Assignment 1 question a given Assignment 2 question
- * corresponds to.
+ * corresponds to. Nothing has replaced it, and nothing here pairs an
+ * Assignment 1 answer with an Assignment 2 answer.
  *
  * Nothing here labels an answer right or wrong. 0 and 1 are two options.
  */
@@ -37,17 +47,30 @@ import {
 interface StudentProfileProps {
   studentName: string;
   assignments: StudentAssignmentResponses[];
+  /** GET route for the one-student .xlsx, or null to hide the button. */
+  exportHref?: string | null;
 }
 
-export function StudentProfile({ studentName, assignments }: StudentProfileProps) {
+export function StudentProfile({ studentName, assignments, exportHref }: StudentProfileProps) {
   return (
     <div className="mt-6 space-y-6">
-      <p className="text-sm text-ink-secondary">
-        Everything {studentName} recorded, question by question, on both assignments. Answers come
-        from each assignment&apos;s final submitted attempt.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="max-w-3xl text-sm text-ink-secondary">
+          Everything {studentName} recorded on both assignments, laid out as the original
+          spreadsheet. Answers come from each assignment&apos;s final submitted attempt.
+        </p>
+        {exportHref && assignments.length > 0 && (
+          <a href={exportHref} className="btn btn-secondary shrink-0">
+            Download as Excel
+          </a>
+        )}
+      </div>
       {assignments.map((assignment) => (
-        <RawResponses key={assignment.assignmentId} assignment={assignment} />
+        <RawResponses
+          key={assignment.assignmentId}
+          assignment={assignment}
+          studentName={studentName}
+        />
       ))}
       {assignments.length === 0 && (
         <p className="text-sm text-ink-muted">This class has no assignments yet.</p>
@@ -58,48 +81,18 @@ export function StudentProfile({ studentName, assignments }: StudentProfileProps
 
 // --------------------------------------------------------------- raw responses
 
-function RawResponses({ assignment }: { assignment: StudentAssignmentResponses }) {
-  const [search, setSearch] = useState("");
-  const [source, setSource] = useState("");
-  const [answer, setAnswer] = useState("");
-
-  const sourceOptions = useMemo(
-    () => assignment.groups.map((g) => g.energySource),
-    [assignment.groups]
-  );
-
-  // Counts are recomputed over the FILTERED rows so a group heading always
-  // describes what is on screen — a heading that counted hidden answers
-  // would silently disagree with the rows under it.
-  const groups = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return assignment.groups
-      .filter((g) => !source || g.energySource === source)
-      .map((g) => {
-        const rows = g.rows.filter((row) => {
-          if (answer === "1" && row.value !== 1) return false;
-          if (answer === "0" && row.value !== 0) return false;
-          if (answer === "blank" && row.value !== null) return false;
-          if (!needle) return true;
-          return (
-            (row.questionText ?? "").toLowerCase().includes(needle) ||
-            row.criterion.toLowerCase().includes(needle) ||
-            row.code.toLowerCase().includes(needle)
-          );
-        });
-        return {
-          energySource: g.energySource,
-          rows,
-          ones: rows.filter((r) => r.value === 1).length,
-          zeros: rows.filter((r) => r.value === 0).length,
-          blank: rows.filter((r) => r.value === null).length,
-        };
-      })
-      .filter((g) => g.rows.length > 0);
-  }, [assignment.groups, search, source, answer]);
-
-  const shown = groups.reduce((n, g) => n + g.rows.length, 0);
-  const filtersActive = Boolean(search || source || answer);
+function RawResponses({
+  assignment,
+  studentName,
+}: {
+  assignment: StudentAssignmentResponses;
+  studentName: string;
+}) {
+  // The list starts closed: the grid above it is the reading of this
+  // submission, and 285 rows of list under it would bury the next
+  // assignment's grid entirely.
+  const [listOpen, setListOpen] = useState(false);
+  const listId = useId();
   const blank = assignment.questionCount - assignment.answeredCount;
 
   return (
@@ -143,6 +136,91 @@ function RawResponses({ assignment }: { assignment: StudentAssignmentResponses }
         </div>
       </dl>
 
+      <StudentResponseGrid
+        grid={assignment.grid}
+        assignmentTitle={assignment.title}
+        studentName={studentName}
+      />
+
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => setListOpen((open) => !open)}
+          aria-expanded={listOpen}
+          aria-controls={listId}
+          className="btn btn-secondary"
+        >
+          {listOpen ? "Hide" : "Show"} question-by-question list
+        </button>
+        <p className="note-muted mt-1">
+          The same {assignment.questionCount} answers as a searchable list, with each
+          question&apos;s full wording — which a grid cell has no room for.
+        </p>
+      </div>
+
+      {/* The region keeps its id whether or not it is open, so the button's
+          aria-controls always points at something; its 285 rows are only
+          mounted while it is. */}
+      <div id={listId} hidden={!listOpen}>
+        {listOpen && <ResponseList assignment={assignment} />}
+      </div>
+    </section>
+  );
+}
+
+// ------------------------------------------------------- question-by-question
+
+/**
+ * The flat list under the grid: every question with its verbatim wording,
+ * searchable and filterable. It is the only surface that shows the wording
+ * in full — a grid cell has room for one digit — and the only one that can
+ * be narrowed to "just the blanks" or "just the 1s".
+ */
+function ResponseList({ assignment }: { assignment: StudentAssignmentResponses }) {
+  const [search, setSearch] = useState("");
+  const [source, setSource] = useState("");
+  const [answer, setAnswer] = useState("");
+
+  const sourceOptions = useMemo(
+    () => assignment.groups.map((g) => g.energySource),
+    [assignment.groups]
+  );
+
+  // Counts are recomputed over the FILTERED rows so a group heading always
+  // describes what is on screen — a heading that counted hidden answers
+  // would silently disagree with the rows under it.
+  const groups = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return assignment.groups
+      .filter((g) => !source || g.energySource === source)
+      .map((g) => {
+        const rows = g.rows.filter((row) => {
+          if (answer === "1" && row.value !== 1) return false;
+          if (answer === "0" && row.value !== 0) return false;
+          if (answer === "blank" && row.value !== null) return false;
+          if (!needle) return true;
+          return (
+            (row.questionText ?? "").toLowerCase().includes(needle) ||
+            row.criterion.toLowerCase().includes(needle) ||
+            row.code.toLowerCase().includes(needle)
+          );
+        });
+        return {
+          energySource: g.energySource,
+          rows,
+          ones: rows.filter((r) => r.value === 1).length,
+          zeros: rows.filter((r) => r.value === 0).length,
+          blank: rows.filter((r) => r.value === null).length,
+        };
+      })
+      .filter((g) => g.rows.length > 0);
+  }, [assignment.groups, search, source, answer]);
+
+  const shown = groups.reduce((n, g) => n + g.rows.length, 0);
+  const filtersActive = Boolean(search || source || answer);
+
+  return (
+    <>
       <div className="mt-3">
         <FilterRow>
           <FilterSearch
@@ -250,6 +328,6 @@ function RawResponses({ assignment }: { assignment: StudentAssignmentResponses }
         0 and 1 are the two options — neither is a preferred answer, and nothing here is a grade.
         &ldquo;No answer&rdquo; means the student left that question blank.
       </p>
-    </section>
+    </>
   );
 }

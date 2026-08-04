@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { detectOrientation, orderGridQuestions } from "@/lib/exports/response-grid";
+import { buildStudentGrid, type StudentGrid } from "@/lib/analytics/student-grid";
 
 /**
  * One student's FULL submission — every question on every assignment in the
@@ -23,6 +24,12 @@ import { detectOrientation, orderGridQuestions } from "@/lib/exports/response-gr
  * It covers EVERY question on the assignment. Since the question-mapping
  * feature was removed, this is the only per-student answer surface in the
  * app — there is no curated subset beside it.
+ *
+ * Each assignment comes back TWICE OVER, from one read: as `grid`, the
+ * source spreadsheet's own layout with the student's 0/1/blank in each cell
+ * (lib/analytics/student-grid.ts), and as `groups`, the flat
+ * question-by-question list that carries the verbatim wording a grid cell
+ * has no room for. Both describe the same answers.
  */
 
 /** Neutral labels — 0 and 1 are two options, neither is preferred. */
@@ -67,6 +74,13 @@ export interface StudentAssignmentResponses {
   ones: number;
   zeros: number;
   groups: StudentResponseGroup[];
+  /**
+   * The same answers again, laid out as the source spreadsheet's own grid.
+   * This is the primary reading of the submission — `groups` is the flat
+   * question-by-question list beneath it, which is the only place the
+   * verbatim question wording is readable.
+   */
+  grid: StudentGrid;
 }
 
 const NO_SOURCE = "(no energy source)";
@@ -78,6 +92,7 @@ interface QuestionRow {
   question_text: string | null;
   original_row_reference: string | null;
   original_column_reference: string | null;
+  original_worksheet: string | null;
   energy_source: string | null;
   criterion: string | null;
   display_order: number;
@@ -166,7 +181,7 @@ export async function getStudentFullResponses(
           supabase
             .from("questions")
             .select(
-              "id, external_question_code, question_text, original_row_reference, original_column_reference, energy_source, criterion, display_order"
+              "id, external_question_code, question_text, original_row_reference, original_column_reference, original_worksheet, energy_source, criterion, display_order"
             )
             .eq("assignment_id", assignment.id)
             .eq("is_active", true)
@@ -222,6 +237,15 @@ export async function getStudentFullResponses(
       }));
 
       const groups = groupStudentResponses(rows);
+      // The grid is the same answers in the source file's own shape. It is
+      // built from the questions rather than from `rows` because placement
+      // needs the row/column references separately, and `rows` has already
+      // joined them into one display string.
+      const grid = buildStudentGrid(
+        questions,
+        (questionId) => byQuestion.get(questionId) ?? null,
+        ordered[0]?.original_worksheet ?? null
+      );
       return {
         assignmentId: assignment.id,
         title: assignment.title,
@@ -235,6 +259,7 @@ export async function getStudentFullResponses(
         ones: groups.reduce((n, g) => n + g.ones, 0),
         zeros: groups.reduce((n, g) => n + g.zeros, 0),
         groups,
+        grid,
       };
     })
   );

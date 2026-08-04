@@ -80,8 +80,20 @@ spreadsheet's column order, plus a per-energy-source rollup, all read from
 `question_response_summary` / `energy_source_response_summary`. It holds no
 student rows. One student's raw 0/1 answers are read by
 `lib/analytics/student-responses.ts` and shown only on that student's
-profile page (`/classes/:id/analytics/students/:studentId`) — the single
-place in the app a per-person answer appears.
+profile page (`/classes/:id/analytics/students/:studentId`) and its .xlsx
+route (`…/:studentId/export`) — the single place in the app a per-person
+answer appears.
+
+**One grid geometry, four surfaces.** `detectOrientation`,
+`orderGridQuestions` and `buildGridMatrix` in `lib/exports/response-grid.ts`
+are the only definition of where a question sits. They are consumed by the
+student's editable answer grid (`lib/attempts/answer-grid.ts`), the
+professor's aggregate grid (`gatherResponseGrid`), the per-student grid
+(`lib/analytics/student-grid.ts`), and the Excel sheets for the latter two
+(`writeGridSheet` / `writeStudentGridSheet` in `lib/exports/workbook.ts`).
+The per-student grid is built with **no counts**, so its `columnTotals` are
+null by construction: summing one person's answers would read as a score,
+which this app does not have.
 
 **Invariants live in the database.** Attempt-state transitions, question
 immutability after responses, the `is_synthetic` flag authority, and

@@ -1,10 +1,10 @@
 # Authentication: Google Workspace SSO
 
 Replaces plain Supabase email/password auth with "log in with your
-university Google account," restricted to the institution's Workspace
-domain. This changes both **how people log in** and **how they get a
-role**, since Google only tells you an email address — it doesn't know
-this app has ADMIN/PROFESSOR/STUDENT roles.
+university Google account," optionally restricted to one Workspace domain.
+This changes both **how people log in** and **how they get a role**, since
+Google only tells you an email address — it doesn't know this app has
+ADMIN/PROFESSOR/STUDENT roles.
 
 > **Current state (verified 2026-08-06): there is no domain restriction in
 > force.** The `app_config` table on the hosted project has no
@@ -28,11 +28,55 @@ actually matters happens **server-side**, after Google returns the
 authenticated identity, by checking the verified email's domain against
 an allowlist before the account is allowed to do anything in the app.
 
-Set the real domain once you've confirmed it with the professor:
+### Where the allowed domain is stored
+
+The server-side allowlist lives in a table, **not** in a database setting.
+An earlier version of this document said to configure it with:
+
+```sql
+-- DOES NOT WORK on Supabase's managed Postgres.
+alter database postgres set app.settings.allowed_email_domain = 'ahduni.edu.in';
+```
+
+The project's connection role isn't permitted to set custom GUC namespaces
+at the database level (`permission denied to set parameter`), even though
+this works on a self-hosted instance. Migration
+`0003_app_config_and_domain_fix.sql` replaced that mechanism with a real
+`app_config` table, which `handle_new_user()` reads instead of
+`current_setting()`.
+
+```sql
+-- Turn a restriction on, or change it later. Read live by the trigger,
+-- so it takes effect on the next sign-in — no deploy needed.
+insert into app_config (key, value) values ('allowed_email_domain', 'ahduni.edu.in')
+on conflict (key) do update set value = excluded.value, updated_at = now();
+
+-- Turn it off entirely.
+delete from app_config where key = 'allowed_email_domain';
+```
+
+Run these from the Supabase SQL editor: `app_config` is admin-only under
+RLS (`app_config_admin_only`), which the SQL editor's role bypasses.
+`handle_new_user()` reads it as a security-definer function, so that policy
+never blocks provisioning.
+
+**With no `allowed_email_domain` row, there is no domain check at all** —
+the trigger skips it and any Google account can authenticate. That is the
+current production state (see the banner above); roster provisioning in §2
+is what actually grants access.
+
+Separately, the client-side courtesy — the "Restricted to …" line on the
+sign-in page and the `hd` hint sent to Google — comes from an environment
+variable, which is optional and purely cosmetic:
 
 ```
 NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN=<confirm with professor, e.g. ahduni.edu.in>
 ```
+
+Next inlines `NEXT_PUBLIC_*` at build time, so changing it needs a
+redeploy, not just an env edit. Keep it in step with the `app_config` row —
+a mismatch means the page names a restriction the database isn't
+enforcing, or stays silent about one it is.
 
 ## 2. Role assignment — roster-based provisioning, not self-service
 
@@ -49,9 +93,12 @@ the user supplies at sign-in:
   to sign in first.
 - **On first Google sign-in**, a database trigger on `auth.users` runs
   `handle_new_user()`:
-  1. Verifies the email's domain matches `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN`
-     — if not, the trigger does not create a profile and the user gets
-     "your account isn't provisioned for this app" rather than access.
+  1. Verifies the email's domain against the `allowed_email_domain` row in
+     `app_config` (§1), matching case-insensitively and ignoring stray
+     whitespace on both sides (migration 0006). If the row is absent this
+     step is skipped; if it's present and the domain doesn't match, the
+     trigger does not create a profile and the user gets "your account
+     isn't provisioned for this app" rather than access.
   2. Looks up the email in `roster_entries`. If found, creates the
      matching `profiles` row with that role (and, for students, the
      `class_members` link). If not found, the login succeeds against
@@ -103,9 +150,20 @@ See `supabase/migrations/0002_google_sso_provisioning.sql`:
 
 ## 5. What this means for demo/seed data
 
-Seed data (Phase 10) can't use fake Google accounts. For staging/demo
-purposes, keep Supabase email/password auth enabled *in addition to*
-Google, gated behind an environment flag, so automated tests and demo
-walkthroughs don't require a real Google Workspace account. Never enable
-that fallback in production — production should accept Google sign-in
-only, enforced in both Supabase provider settings and app-level checks.
+Seed data can't use fake Google accounts. What was built (this supersedes
+the earlier plan of an env-flagged password-login screen):
+
+- **Google OAuth is the only sign-in path in the UI.** Password auth is
+  still enabled at the Supabase level but no screen uses it, so there is no
+  fallback login to accidentally leave exposed in production.
+- **Tests** mint password-auth users through the admin API and clean them
+  up afterwards (`tests/integration/helpers.ts`, `e2e/helpers.ts`), which
+  needs no browser sign-in and no Workspace account.
+- **Demo cohorts** are synthetic rows written straight to the database and
+  permanently marked `is_synthetic` (migrations 0017/0020), not accounts
+  that log in. `npm run db:seed` and the load-test tooling both refuse a
+  non-local Supabase URL without an explicit override.
+
+The hosted project currently carries such a demo cohort alongside real
+data — filter on `is_synthetic` before presenting figures, or clear it with
+`npm run db:seed:demo-responses --clean`.

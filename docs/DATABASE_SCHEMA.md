@@ -42,8 +42,8 @@ is a status flip, not a delete — never destroy a class with responses.
 id, class_id, user_id, member_role, status, joined_at
 
 ## roster_entries
-Pre-provisioning for Google SSO (see docs/AUTH_SSO.md,
-docs/AUTH_SSO_UPDATE.md, migration 0002). Populated by roster import
+Pre-provisioning for Google SSO (see docs/AUTH_SSO.md, migration 0002).
+Populated by roster import
 (Phase 3) rather than writing to `profiles` directly — `profiles` rows only
 get created by `handle_new_user()` at a student's first sign-in, using
 whichever roster_entries row matches their email.

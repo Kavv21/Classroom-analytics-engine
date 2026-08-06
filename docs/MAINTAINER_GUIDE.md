@@ -13,6 +13,13 @@ Nobody signs up directly. Every account starts as a **roster entry** —
 a row saying "this email should become X once they log in" — and only
 turns into a real account the first time that person logs in with Google.
 
+> The `@ahduni.edu.in` addresses in the SQL throughout this guide are
+> **illustrative only**. No domain restriction is currently enforced —
+> `app_config` has no `allowed_email_domain` row, so any Google address
+> works and the roster row is the whole access decision. Use whatever
+> address the person actually signs in with. See `docs/AUTH_SSO.md` §1 to
+> turn a restriction on.
+
 ### Adding a student
 
 ```sql
@@ -32,8 +39,10 @@ one-off addition or when testing.
 
 ### Adding a professor
 
-There's no in-app "invite a professor" screen — that's an admin-level
-action, done by you directly:
+An admin can now do this in the app: **/admin/users → invite staff**
+writes the same `roster_entries` row, carrying the intended role. The raw
+SQL below is the equivalent, and is still how you create the *first*
+admin, when there's nobody with the role to grant it:
 
 ```sql
 insert into roster_entries (email, intended_role, class_id, full_name)

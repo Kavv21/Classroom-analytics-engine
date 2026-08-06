@@ -183,7 +183,6 @@ session. Otherwise:
 | [`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md) | You need the exact table/view/RPC list and what each one does |
 | [`docs/ANALYTICS_DEFINITIONS.md`](docs/ANALYTICS_DEFINITIONS.md) | You need the exact math behind consensus, disagreement, entropy |
 | [`docs/AUTH_SSO.md`](docs/AUTH_SSO.md) | You're touching login, roles, or roster provisioning |
-| [`docs/AUTH_SSO_UPDATE.md`](docs/AUTH_SSO_UPDATE.md) | Correction to AUTH_SSO.md §5 — read both together |
 | [`docs/TESTING_SSO.md`](docs/TESTING_SSO.md) | You're testing sign-in end to end with a real Google account |
 | [`docs/IMPORT_FORMAT.md`](docs/IMPORT_FORMAT.md) | You're preparing a spreadsheet for assignment import |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | You need the RLS/authz posture and what's enforced where |

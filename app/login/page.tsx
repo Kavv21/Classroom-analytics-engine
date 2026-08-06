@@ -42,8 +42,23 @@ export default function LoginPage() {
         <div className="card-elevated w-full max-w-xl">
           <p className="eyebrow">Sign in</p>
 
-          <h1 className="title-lg mt-4 max-w-[18ch] text-balance">
-            Evaluating Energy Sources
+          {/* The headline is the one centred element on this card: it is long
+              enough to wrap at every width, and `text-center` (not just a
+              centred block) is what keeps the wrapped lines centred against
+              each other. `mx-auto` centres the measure itself, so the optical
+              centre is the card's and not the left edge of a left-hung box.
+              28ch clears the balanced two-line break on desktop (widest line
+              426px) while staying inside the card's 512px content width.
+
+              `break-words` is the 320px safety net: FUTURETECTURE is 237px
+              set at 30px caps and the card's content box is only 208px there,
+              so without it the word runs past the padding. It is a
+              last-resort rule, so it costs nothing at 375px and up — measured
+              identical line counts and break points with and without.
+              `hyphens-auto` would be the prettier break but Chromium ships no
+              hyphenation dictionary for it here, so it is a no-op. */}
+          <h1 className="title-lg mx-auto mt-4 max-w-[28ch] text-balance break-words text-center">
+            FUTURETECTURE EVALUATING ENERGY SOURCES
           </h1>
 
           <p className="lede mt-4 max-w-[46ch] text-pretty">

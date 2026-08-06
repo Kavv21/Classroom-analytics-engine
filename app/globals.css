@@ -51,7 +51,7 @@
    ACCESSIBILITY
 
    Every pairing below is computed, not eyeballed, by
-   `node scripts/verify-contrast.mjs` (134 pairings, 0 failing). Where the
+   `node scripts/verify-contrast.mjs` (135 pairings, 0 failing). Where the
    reference's own colour failed, it was corrected rather than copied:
 
    - The reference's primary CTA is a vivid orange (#f97316-ish) carrying

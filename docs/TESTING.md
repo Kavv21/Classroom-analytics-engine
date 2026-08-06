@@ -28,13 +28,21 @@ SUPABASE_TEST_URL=$API_URL SUPABASE_TEST_ANON_KEY=$ANON_KEY \
 E2E and load tests **refuse** to run against a non-local URL without an
 explicit override, because the hosted project holds real data.
 
-## Suite composition (as of Phase 10)
+## Suite composition (verified 2026-08-06)
 
 | Suite | Files | Tests |
 |---|---|---|
-| Unit | 23 | 222 (+ the env-gated `analytics-definitions`) |
-| Integration | 5 | requires the local stack |
-| Playwright e2e | 4 | requires the local stack |
+| Unit | 30 | 288 without a database target |
+| Integration | 5 | requires a local stack |
+| Vitest total against `npx supabase start` | 35 | **352, all passing** |
+| Playwright e2e | 4 | requires the local stack; not part of the four-command gate |
+
+`npm run test` with no test-target variables set reports **5 failing
+files** — the four integration suites plus `tests/unit/analytics-
+definitions.test.ts`, which imports the same helper. That is the guard in
+`tests/integration/helpers.ts` refusing to touch the hosted project, not a
+regression. `npm run test:local` is the command that produces the 352
+number above.
 
 Unit coverage includes: binary/response validation, attempt-transition
 FSM, every Section 16 formula, question grouping by energy source across

@@ -27,7 +27,7 @@ script. No page or action uses it.
 
 | Layer | Location | Notes |
 |---|---|---|
-| Schema, RLS, RPCs, views | `supabase/migrations/` | 22 migrations, forward-only |
+| Schema, RLS, RPCs, views | `supabase/migrations/` | 25 migrations, forward-only, all applied to the hosted project |
 | Domain types & formulas | `lib/types/domain.ts` | Metric formulas live here, mirrored by SQL views |
 | Import parsing | `lib/imports/parse-grid.ts` | Pure; fails loudly on ambiguous rows |
 | Roster | `lib/roster/` | Parse, classify, commit |

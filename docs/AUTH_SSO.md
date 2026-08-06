@@ -6,6 +6,17 @@ domain. This changes both **how people log in** and **how they get a
 role**, since Google only tells you an email address — it doesn't know
 this app has ADMIN/PROFESSOR/STUDENT roles.
 
+> **Current state (verified 2026-08-06): there is no domain restriction in
+> force.** The `app_config` table on the hosted project has no
+> `allowed_email_domain` row, so the server-side check described in §1
+> passes for every domain, and `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN` is unset
+> in Vercel production, so neither the sign-in copy nor the `hd` hint
+> appears. Any Google account can authenticate; §2's roster provisioning is
+> the only thing granting access. To re-enable the restriction, insert
+> `('allowed_email_domain', '<domain>')` into `app_config` — read live, so
+> it takes effect immediately — and set the env var in Vercel (inlined at
+> build time, so it needs a redeploy).
+
 ## 1. Domain restriction — and why the obvious way isn't secure enough
 
 Google's OAuth consent screen supports an `hd` (hosted domain) query

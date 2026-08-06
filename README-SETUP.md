@@ -1,5 +1,12 @@
 # How to use this scaffold
 
+> **Historical.** This describes how the project was *built* — the
+> phase-by-phase, two-worktree Claude Code workflow that produced the app.
+> The build is finished and deployed; all ten phases are done. Nothing here
+> is a current instruction. For how to run, operate or extend the app as it
+> exists, read `README.md`, then `docs/HOW_IT_WORKS.md` and
+> `docs/MAINTAINER_GUIDE.md`.
+
 This is the Claude Code context/planning layer for the Classroom Opinion
 Analytics Platform — not the app itself. Drop it into an empty repo (or
 merge into an existing one), then let Claude Code build against it.

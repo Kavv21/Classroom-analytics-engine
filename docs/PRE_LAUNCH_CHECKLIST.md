@@ -4,6 +4,16 @@ Don't share the production URL with the professor until every box here is
 checked. This is stricter than "Phase 10 tests pass" — it's the client-
 readiness gate on top of that.
 
+> **Reality note (2026-08-06).** The app was deployed and used before this
+> checklist was fully satisfied. Known-unchecked items, so nobody assumes
+> otherwise at handover: there is **one** Supabase project rather than
+> separate staging and production; it is on the free tier, so **no
+> automatic backups or PITR**; it **does contain the labelled synthetic
+> demo cohort** (`is_synthetic`, 151 of 154 profiles); the **k6 load test
+> was never run against production-like infrastructure**; and **no domain
+> restriction is configured** (see `docs/AUTH_SSO.md` §1). Treat the boxes
+> below as the remaining work, not as history.
+
 ## Functional correctness
 - [ ] All Phase 1-9 verification commands pass on the merged, final tree
 - [ ] Playwright e2e covers full admin/professor/student workflows and is

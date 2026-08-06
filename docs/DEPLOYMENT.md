@@ -3,25 +3,38 @@
 This assumes Vercel (frontend/API) + Supabase (database/auth), per the
 required stack. Written for a real client engagement, not a demo.
 
-> **Status note (end of Phase 10).** Sections 1–8 below were written
-> during planning and still hold. Section 0 and Section 9 were added
-> afterwards to record what the build actually produced and what load
-> testing could and could not establish from a developer machine. Where
-> the two disagree, the later sections win.
+> **Status note.** Sections 1–8 below were written during planning.
+> Section 0 records what actually exists and is authoritative where the two
+> disagree; Section 9 records what load testing could and could not
+> establish from a developer machine.
 
-## 0. What exists now
+## 0. What exists now (verified 2026-08-06)
 
-- **15 migrations** (`supabase/migrations/0001`–`0015`), forward-only.
-  `0015` is indexes only and had not been pushed to any hosted project at
-  the time of writing — apply it deliberately.
+- **The app is deployed and live.** Vercel serves commit `c63d125` on
+  `classroom-analytics-engine.vercel.app` (GitHub deployment
+  `5739108461`, state `success`). Deployments are triggered by pushes to
+  `main`; there is no custom domain.
+- **25 migrations** (`supabase/migrations/0001`–`0025`), forward-only, and
+  **all 25 are applied to the hosted project** — confirm with
+  `npx supabase migration list` rather than assuming.
+- **One Supabase project, not two.** Section 1 below recommends separate
+  staging and production projects; that was not done. The hosted project
+  is both, and it carries the labelled synthetic demo cohort alongside
+  real data (`is_synthetic`).
 - **Seed script** (`npm run db:seed`) refuses any non-local Supabase URL
   unless `SEED_ALLOW_REMOTE=true`. It is for staging/demo only; production
   gets real accounts, never seed data.
 - **Load-test tooling** (`load-tests/`) likewise refuses non-local targets.
 - Google OAuth is the only sign-in path in the UI. Password auth exists in
   the database but no screen uses it.
-- There is **no admin UI**. Creating the first admin and professor is a
-  manual database/dashboard step (see §7.5).
+- **No domain restriction is configured.** `app_config` has no
+  `allowed_email_domain` row and `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN` is
+  unset in the Vercel production environment, so any Google account can
+  complete sign-in. Access is gated by `roster_entries` alone — see
+  `docs/AUTH_SSO.md` §1.
+- **The admin console exists** (`/admin/users`, `/admin/audit`, added
+  after Phase 10). §7.5's manual database step is still how the *first*
+  admin is created — there is no one to grant the role otherwise.
 
 ## 1. Environments — never share one Supabase project across dev/prod
 

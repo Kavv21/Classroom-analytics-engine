@@ -35,8 +35,13 @@ npm run db:migrate
 npm run db:seed
 ```
 
-All four (lint, typecheck, test, build) must pass before any phase is
-considered done. Never declare a phase complete without running them.
+All four (lint, typecheck, test, build) must pass before any change is
+considered done. Never declare work complete without running them.
+
+`npm run test` refuses to run the five DB-backed suites against the hosted
+project in `.env.local` and reports them as failing files — that is the
+guard, not a regression. For a real full-suite result: `npx supabase start`
+then `npm run test:local` (35 files / 352 tests as of 2026-08-06).
 
 ## Non-negotiable rules
 
@@ -67,16 +72,20 @@ considered done. Never declare a phase complete without running them.
 - Schema questions → `/docs/DATABASE_SCHEMA.md`
 - Metric formulas (consensus, disagreement, entropy, group count change) →
   `/docs/ANALYTICS_DEFINITIONS.md`
-- What phase am I on / what's the next task → `/plan/` (one file per phase,
-  numbered in build order)
+- What the app is and where everything lives → `/README.md`
+- How the build got here → `/plan/` (one file per phase, historical: the
+  build is finished and deployed, so these describe what was planned, not
+  what is current. `plan/phase-6-mapping-studio.md` documents a feature
+  that was removed — don't build from it.)
 - Anything explicitly out of scope → `/docs/EXCLUDED_FEATURES.md`
 
 ## Working agreement
 
-- Work one phase at a time from `/plan/`. Don't start phase N+1 until phase
-  N's verification commands pass.
-- After finishing a phase, update the relevant `/docs/*.md` file if reality
-  diverged from the plan (e.g. an extra table, a renamed field), so the next
-  session/agent isn't working from stale docs.
+- The app is built, deployed and in use. Work is now maintenance and
+  extension against a live database — not phase work. Assume real data
+  behind every schema change.
+- After any change, update the relevant `/docs/*.md` file if reality
+  diverged from what it describes (e.g. an extra table, a renamed field),
+  so the next session/agent isn't working from stale docs.
 - If a spreadsheet row or column can't be interpreted, fail loudly — do not
   silently skip it or guess its meaning.

@@ -18,8 +18,12 @@ screen.
 
 Open the class → **Import a roster**.
 
-Upload a CSV or Excel file with `email` and `full_name` columns (roll
-number, programme, year, and section are optional). You will see a preview
+Upload a CSV or Excel file with name, enrollment number, and email columns.
+Any other columns (programme, year, section) are optional and imported if
+present. Column headings don't have to match exactly — common variations
+like "Full Name", "Roll No." or "Email Address" are recognised, and if a
+required column can't be found the preview tells you which one and what it
+can be called. You will see a preview
 that classifies every row before anything is saved — new students,
 students already enrolled, duplicates, and invalid rows are listed
 separately. Nothing is written until you confirm.

@@ -76,9 +76,11 @@ comparable.
 - Create, edit, archive, unarchive a class; permanently delete one behind a
   typed `DELETE` confirmation that first shows the full census of what goes
   with it (students, assignments, questions, responses).
-- Roster import from CSV/Excel (`email`, `full_name`, optional roll number
-  etc.) with a preview/validation step. Roster rows are also the access
-  gate — see Authentication below.
+- Roster import from CSV/Excel — requires name, enrollment number and email;
+  programme/year/section are imported if present. Header matching tolerates
+  case, spacing and punctuation differences across institutional exports
+  (see `/docs/IMPORT_FORMAT.md`). Has a preview/validation step. Roster rows
+  are also the access gate — see Authentication below.
 - Per-student active/inactive toggle.
 
 **Assignments**

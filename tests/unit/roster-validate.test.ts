@@ -21,8 +21,11 @@ function context(overrides: Partial<ClassifyRosterRowsContext> = {}): ClassifyRo
   return { emailChecks: new Map(), allowedEmailDomain: null, ...overrides };
 }
 
+/** A row carrying the three required fields — name, enrollment number, email.
+ * Programme / year of study / section are deliberately absent: a file without
+ * them must still import cleanly. */
 function row(email: string, fullName = "Student Name", extra: Partial<RawRosterRow> = {}): RawRosterRow {
-  return { email, fullName, ...extra };
+  return { email, fullName, rollNumber: "AU2340001", ...extra };
 }
 
 describe("classifyRosterRows", () => {
@@ -42,6 +45,64 @@ describe("classifyRosterRows", () => {
   it("rejects a row missing a full name", () => {
     const results = classifyRosterRows([row("student@uni.edu", "")], context());
     expect(results[0]?.classification).toBe("INVALID");
+  });
+
+  it("rejects a row missing an enrollment number", () => {
+    const results = classifyRosterRows(
+      [row("student@uni.edu", "Student Name", { rollNumber: "" })],
+      context()
+    );
+    expect(results[0]?.classification).toBe("INVALID");
+    expect(results[0]?.errors).toContain("Enrollment number is required");
+  });
+
+  it("accepts a row carrying only name, enrollment number and email", () => {
+    const results = classifyRosterRows(
+      [{ fullName: "Student Name", rollNumber: "AU2340001", email: "student@uni.edu" }],
+      context()
+    );
+    expect(results[0]?.classification).toBe("NEW");
+    expect(results[0]?.data).toMatchObject({
+      programme: null,
+      yearOfStudy: null,
+      section: null,
+    });
+  });
+
+  it("keeps optional columns when the file happens to carry them", () => {
+    const results = classifyRosterRows(
+      [
+        row("student@uni.edu", "Student Name", {
+          programme: "B.Tech",
+          yearOfStudy: "2",
+          section: "A",
+        }),
+      ],
+      context()
+    );
+    expect(results[0]?.classification).toBe("NEW");
+    expect(results[0]?.data).toMatchObject({
+      programme: "B.Tech",
+      yearOfStudy: "2",
+      section: "A",
+    });
+  });
+
+  it("names the missing field rather than reporting a bare 'Required'", () => {
+    const results = classifyRosterRows([{ email: "student@uni.edu" }], context());
+    expect(results[0]?.errors).toEqual(["Name is required", "Enrollment number is required"]);
+    expect(results[0]?.errors).not.toContain("Required");
+  });
+
+  it("names the missing column, not the cell, when the file lacks it entirely", () => {
+    const results = classifyRosterRows(
+      [{ fullName: "Student Name", email: "student@uni.edu" }],
+      context({ presentFields: new Set(["fullName", "email"]) })
+    );
+    expect(results[0]?.classification).toBe("INVALID");
+    expect(results[0]?.errors).toEqual([
+      "Missing: Enrollment number column not found — expected one of: Enrollment Number, Roll Number, Student ID",
+    ]);
   });
 
   it("rejects an email outside the allowed domain", () => {
@@ -138,7 +199,7 @@ describe("buildRejectionReportCsv", () => {
     );
     const csv = buildRejectionReportCsv(results);
     const lines = csv.split("\n");
-    expect(lines[0]).toBe("row_number,email,full_name,classification,errors");
+    expect(lines[0]).toBe("row_number,email,full_name,roll_number,classification,errors");
     expect(lines).toHaveLength(2);
     expect(lines[1]).toContain("INVALID");
   });

@@ -153,6 +153,48 @@ export function RosterImportWizard({ classId }: { classId: string }) {
         <TabsContent value="review" className="mt-6 space-y-4">
           {preview && (
             <>
+              {/* A required column the file never had is a file-level problem,
+                  not 60 identical row errors — say so once, name the column,
+                  and show what we actually read so a mis-detected header row
+                  is obvious at a glance. */}
+              {preview.missingColumns.length > 0 && (
+                <Alert className="border-[color:var(--status-critical-text)]/30 bg-surface-critical">
+                  <AlertTitle className="text-[color:var(--status-critical-text)]">
+                    {preview.missingColumns.length === 1
+                      ? "A required column is missing"
+                      : `${preview.missingColumns.length} required columns are missing`}
+                  </AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc pl-4">
+                      {preview.missingColumns.map((message) => (
+                        <li key={message}>{message}</li>
+                      ))}
+                    </ul>
+                    {preview.detectedHeaders.length > 0 && (
+                      <p className="mt-2">
+                        Columns found in your file:{" "}
+                        <span className="font-medium">{preview.detectedHeaders.join(", ")}</span>
+                      </p>
+                    )}
+                    <p className="mt-2">
+                      Rename the column in your spreadsheet to one of the accepted headings and
+                      upload again.
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {preview.missingColumns.length === 0 && preview.unmatchedHeaders.length > 0 && (
+                <Alert>
+                  <AlertTitle>Some columns weren&apos;t recognised</AlertTitle>
+                  <AlertDescription>
+                    These columns were ignored:{" "}
+                    <span className="font-medium">{preview.unmatchedHeaders.join(", ")}</span>. Every
+                    required column matched, so the import can still go ahead.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="flex flex-wrap gap-3">
                 <Card className="min-w-32 p-0">
                   <CardContent className="p-4">

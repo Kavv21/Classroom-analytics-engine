@@ -41,7 +41,7 @@ considered done. Never declare work complete without running them.
 `npm run test` refuses to run the five DB-backed suites against the hosted
 project in `.env.local` and reports them as failing files — that is the
 guard, not a regression. For a real full-suite result: `npx supabase start`
-then `npm run test:local` (35 files / 352 tests as of 2026-08-06).
+then `npm run test:local` (36 files / 387 tests as of 2026-08-07).
 
 ## Non-negotiable rules
 

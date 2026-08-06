@@ -29,9 +29,11 @@ export default async function RosterImportPage({
       </p>
       <h1 className="title-md mt-1">Import roster</h1>
       <p className="mt-2 text-sm text-ink-secondary">
-        Upload a CSV or Excel file with columns for email, full name, roll number, programme, year
-        of study, and section. You&apos;ll see a preview — including any duplicates or validation
-        errors — before anything is imported.
+        Upload a CSV or Excel file with columns for name, enrollment number, and email. Other
+        columns are optional and will be imported if present. Column headings don&apos;t have to
+        match exactly — common variations like &ldquo;Full Name&rdquo;, &ldquo;Roll No.&rdquo; or
+        &ldquo;Email Address&rdquo; are recognised. You&apos;ll see a preview — including any
+        duplicates or validation errors — before anything is imported.
       </p>
 
       <div className="mt-6">

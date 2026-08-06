@@ -75,10 +75,35 @@ Parsed by `lib/roster/parse.ts`, classified by `lib/roster/validate.ts`.
 
 ### Columns
 
-Required: `email`, `full_name`.
-Optional: `roll_number`, `programme`, `year_of_study`, `section`.
+Required: name, enrollment number, email.
+Optional: `programme`, `year_of_study`, `section` — imported when the file
+carries them, never a reason to reject a row.
 
-Header matching is case- and whitespace-insensitive.
+Header matching is deliberately forgiving, because no two institutional
+exports name their columns the same way. `canonicalizeHeader()` folds case,
+surrounding and repeated whitespace, invisible/non-breaking spaces, unicode
+compatibility forms, and separator punctuation (`.`, `_`, `-`, `/`, …) before
+comparing. So `"Roll No."`, `"roll_no"` and `"  ROLL   NO  "` are all the
+same header.
+
+`ROSTER_FIELDS` in `lib/roster/parse.ts` is the single source of truth for
+which spellings map to which field — extend a spec's `aliases` there rather
+than adding a second normalisation path:
+
+| Field | Required | Accepted spellings include |
+|---|---|---|
+| `fullName` | yes | Name, Full Name, Student Name, Name of Student |
+| `rollNumber` | yes | Enrollment Number, Enrolment No, Roll Number, Roll No, Student ID, Registration No |
+| `email` | yes | Email, Email Address, Email ID, E-mail, Gmail, Student Email |
+| `programme` | no | Programme, Program, Course, Degree, Branch |
+| `yearOfStudy` | no | Year of Study, Year, Academic Year |
+| `section` | no | Section, Sec, Division, Batch |
+
+A required column that matches nothing is reported once at file level and on
+every row, naming the field and the accepted spellings — e.g. `Missing: Email
+column not found — expected one of: Email, Email Address, Email ID`. Headers
+matching no field are listed back to the professor rather than silently
+dropped.
 
 ### Row classification
 
@@ -92,7 +117,7 @@ Every row is classified against the database during preview and
 | `DUPLICATE_IN_FILE` | Appears twice in the uploaded file |
 | `DUPLICATE_ALREADY_IN_CLASS` | Already pending for this class |
 | `DUPLICATE_PENDING_OTHER_CLASS` | Pending for a different class — rejected, not silently reassigned |
-| `INVALID` | Missing or malformed email/name |
+| `INVALID` | Missing/malformed name, enrollment number or email — the message names which |
 
 `roster_entries.email` is globally unique, which is why the last two
 cases exist. Cross-class checks go through the `check_roster_emails` RPC,

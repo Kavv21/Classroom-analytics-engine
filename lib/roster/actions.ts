@@ -3,7 +3,13 @@
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { parseRosterFile, RosterFileFormatError, RosterFileTooLargeError } from "@/lib/roster/parse";
+import {
+  parseRosterFile,
+  missingColumnMessage,
+  RosterFileFormatError,
+  RosterFileTooLargeError,
+  type RosterHeaderMapping,
+} from "@/lib/roster/parse";
 import {
   classifyRosterRows,
   extractCandidateEmail,
@@ -78,22 +84,40 @@ async function parseAndClassify(
   supabase: SupabaseServerClient,
   classId: string,
   file: File
-): Promise<{ results: RosterRowResult[]; emailChecks: Map<string, RosterEmailCheck> }> {
-  const rawRows = await parseRosterFile(file);
+): Promise<{
+  results: RosterRowResult[];
+  emailChecks: Map<string, RosterEmailCheck>;
+  mapping: RosterHeaderMapping;
+}> {
+  const { rows: rawRows, mapping } = await parseRosterFile(file);
 
   const candidateEmails = Array.from(
     new Set(rawRows.map(extractCandidateEmail).filter((e): e is string => !!e))
   );
   const emailChecks = await fetchEmailChecks(supabase, classId, candidateEmails);
 
-  const context: ClassifyRosterRowsContext = { emailChecks, allowedEmailDomain: ALLOWED_EMAIL_DOMAIN };
-  return { results: classifyRosterRows(rawRows, context), emailChecks };
+  const context: ClassifyRosterRowsContext = {
+    emailChecks,
+    allowedEmailDomain: ALLOWED_EMAIL_DOMAIN,
+    presentFields: mapping.presentFields,
+  };
+  return { results: classifyRosterRows(rawRows, context), emailChecks, mapping };
 }
 
-function splitResults(results: RosterRowResult[]): RosterImportPreview {
+function splitResults(
+  results: RosterRowResult[],
+  mapping: RosterHeaderMapping
+): RosterImportPreview {
   const importableRows = results.filter((r) => isImportableClassification(r.classification));
   const rejectedRows = results.filter((r) => !isImportableClassification(r.classification));
-  return { totalRows: results.length, importableRows, rejectedRows };
+  return {
+    totalRows: results.length,
+    importableRows,
+    rejectedRows,
+    missingColumns: mapping.missingRequiredFields.map(missingColumnMessage),
+    unmatchedHeaders: mapping.unmatchedHeaders,
+    detectedHeaders: mapping.originalHeaders,
+  };
 }
 
 export async function previewRosterImport(
@@ -110,8 +134,8 @@ export async function previewRosterImport(
   if (!authorized) return { success: false, error: "Class not found, or you don't have access to it." };
 
   try {
-    const { results } = await parseAndClassify(supabase, classId, file);
-    return { success: true, data: splitResults(results) };
+    const { results, mapping } = await parseAndClassify(supabase, classId, file);
+    return { success: true, data: splitResults(results, mapping) };
   } catch (err) {
     if (err instanceof RosterFileTooLargeError || err instanceof RosterFileFormatError) {
       return { success: false, error: err.message };

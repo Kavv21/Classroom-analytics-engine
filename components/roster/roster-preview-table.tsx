@@ -49,7 +49,11 @@ const columns = [
   }),
   columnHelper.accessor((row) => row.data?.fullName ?? String(row.raw.fullName ?? ""), {
     id: "fullName",
-    header: "Full name",
+    header: "Name",
+  }),
+  columnHelper.accessor((row) => row.data?.rollNumber ?? String(row.raw.rollNumber ?? ""), {
+    id: "rollNumber",
+    header: "Enrollment no.",
   }),
   columnHelper.accessor("classification", {
     header: "Status",

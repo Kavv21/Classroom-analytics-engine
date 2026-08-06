@@ -43,9 +43,12 @@ export type RosterRowClassification =
 
 export interface RosterRowInput {
   rowNumber: number;
+  /** The three required fields — see ROSTER_FIELDS in lib/roster/parse.ts. */
   email: string;
   fullName: string;
-  rollNumber: string | null;
+  rollNumber: string;
+  /** Optional: imported opportunistically when the file carries the column,
+   * null when it doesn't. Never a reason to reject a row. */
   programme: string | null;
   yearOfStudy: string | null;
   section: string | null;
@@ -63,6 +66,15 @@ export interface RosterImportPreview {
   totalRows: number;
   importableRows: RosterRowResult[];
   rejectedRows: RosterRowResult[];
+  /** One message per required column the file is missing, e.g. "Email column
+   * not found — expected one of: Email, Email Address, Email ID". Empty when
+   * every required column matched. */
+  missingColumns: string[];
+  /** Column headers that matched no known field. Surfaced rather than
+   * silently ignored, so a mis-detected header row is visible. */
+  unmatchedHeaders: string[];
+  /** Header text exactly as it appears in the uploaded file. */
+  detectedHeaders: string[];
 }
 
 export interface RosterImportSummary {

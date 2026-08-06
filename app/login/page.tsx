@@ -12,9 +12,15 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
  * carrying an eyebrow, a headline, a short lede, the action, and a
  * hairline-separated line of fine print.
  *
+ * This screen is the one deliberate departure from that shape: the brand
+ * statement was moved up into the masthead, so the card drops its eyebrow
+ * and takes a plain small "Sign in" heading instead of an eyebrow plus a
+ * display-sized headline. The sibling screens keep the original pairing.
+ *
  * The masthead is transparent here, so the backdrop shows through behind
- * the wordmark; the footer line takes an explicit secondary ink because
- * the muted default is only 3.88:1 on that backdrop.
+ * the wordmark, and on this screen it is centred across the full page
+ * width rather than left-aligned; the footer line takes an explicit
+ * secondary ink because the muted default is only 3.88:1 on that backdrop.
  *
  * The domain line comes from NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN, never from a
  * literal in this file, so a deployment for another Google Workspace names
@@ -34,32 +40,28 @@ const ALLOWED_DOMAIN = process.env.NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN;
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="masthead flex items-baseline gap-3 px-6 py-5 sm:px-10">
-        <span className="wordmark text-lg">EVALUATING ENERGY SOURCES</span>
+      {/* The masthead carries the brand statement now, centred across the full
+          page width. The flex row is gone because it held one child and its
+          `items-baseline gap-3` only ever mattered for a second one: a plain
+          block with `text-center` centres the inline wordmark and, at widths
+          where it wraps, centres each line against the others rather than
+          centring one left-aligned box. Styling is untouched — same `wordmark`
+          role (display face, bold, uppercase, 0.06em tracking) at the same
+          text-lg. */}
+      <header className="masthead px-6 py-5 text-center sm:px-10">
+        <span className="wordmark text-lg">FUTURETECTURE EVALUATING ENERGY SOURCES</span>
       </header>
 
       <main className="flex flex-1 items-center px-6 py-16 sm:px-10">
         <div className="card-elevated w-full max-w-xl">
-          <p className="eyebrow">Sign in</p>
-
-          {/* The headline is the one centred element on this card: it is long
-              enough to wrap at every width, and `text-center` (not just a
-              centred block) is what keeps the wrapped lines centred against
-              each other. `mx-auto` centres the measure itself, so the optical
-              centre is the card's and not the left edge of a left-hung box.
-              28ch clears the balanced two-line break on desktop (widest line
-              426px) while staying inside the card's 512px content width.
-
-              `break-words` is the 320px safety net: FUTURETECTURE is 237px
-              set at 30px caps and the card's content box is only 208px there,
-              so without it the word runs past the padding. It is a
-              last-resort rule, so it costs nothing at 375px and up — measured
-              identical line counts and break points with and without.
-              `hyphens-auto` would be the prettier break but Chromium ships no
-              hyphenation dictionary for it here, so it is a no-op. */}
-          <h1 className="title-lg mx-auto mt-4 max-w-[28ch] text-balance break-words text-center">
-            FUTURETECTURE EVALUATING ENERGY SOURCES
-          </h1>
+          {/* The brand statement now lives in the masthead, so the card's own
+              heading is just the task at hand. The "SIGN IN" eyebrow that used
+              to sit above it is gone rather than kept: its job was to label a
+              card whose headline was the product name, and once the headline
+              *is* "Sign in" the two lines say the same word twice. This stays
+              the page's only <h1> — the masthead is a wordmark, not a heading,
+              so removing this would leave the document with no h1 at all. */}
+          <h1 className="title-sm">Sign in</h1>
 
           <p className="lede mt-4 max-w-[46ch] text-pretty">
             Use your university Google account. If you&rsquo;re a student, your professor adds you to

@@ -46,19 +46,53 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* The masthead carries the brand statement, centred across the full page
-          width, as the two-line display treatment (see `.brand-header` in
-          globals.css for the sizing and why it is container-relative). It is
-          the page's <h1> now: it is the largest, first, and most descriptive
-          thing on the screen, so making the card's "Sign in" the h1 instead
-          would put the document's outline out of order with what is on it.
-          `aria-label` restates the word so no assistive tech has to infer it
-          back out of the tracking — the text node is already the intact word,
-          so the two can never disagree. */}
-      <header className="masthead brand-header px-6 py-10 sm:px-10 sm:py-12">
-        <h1 className="brand-display" aria-label="FUTURETECTURE">
+          width, as a two-line display treatment. It is the page's <h1>: it is
+          the largest, first, and most descriptive thing on the screen, so
+          making the card's "Sign in" the h1 instead would put the document's
+          outline out of order with what is on it. `aria-label` restates the
+          word so no assistive tech has to infer it back out of the tracking —
+          the text node is already the intact word, so the two can never
+          disagree.
+
+          The tracking is CSS `letter-spacing`, never literal spaces in the
+          text ("F U T U R E…"): literal spaces make a screen reader announce
+          thirteen letters instead of a word, and give the line thirteen legal
+          wrap points. Same picture, intact word.
+
+          WHY THESE ARE UTILITIES AND NOT A `.brand-*` CLASS: they were classes
+          in globals.css, and production rendered this heading at 14px/400/no
+          tracking/left-aligned for it. The markup shipped in ae3f201; the
+          stylesheet rules defining those classes never left the working tree,
+          so the deployed CSS had the class NAMES in the HTML and zero rules to
+          match — Tailwind's preflight resets h1 to `font-size: inherit;
+          font-weight: inherit`, so an unmatched class is not a fallback, it is
+          14px body text. Utilities cannot fail that way: Tailwind generates
+          them FROM this file, so the rule ships if and only if the markup
+          does. Do not "tidy" these back into a shared class.
+
+          Sizing is fluid rather than stepped because the constraint is a
+          single unbreakable 13-character word: at 48px with this tracking it
+          wants ~500px of line, and a 320px viewport offers 272px between the
+          gutters. `vw` (not `cqw`) is correct here specifically because this
+          masthead is full-bleed — the viewport IS its container. It reaches
+          the specified 48px at 750px and holds there. Nothing here may gain
+          `break-words`: breaking mid-word is the failure the fluid size
+          exists to prevent.
+
+          `pl-[0.16em]` matches the tracking exactly: letter-spacing is painted
+          after the last glyph too, so a centred tracked line sits half a space
+          left of true centre until an equal pad on the leading edge cancels
+          it. */}
+      <header className="masthead px-6 py-10 text-center sm:px-10 sm:py-12">
+        <h1
+          aria-label="FUTURETECTURE"
+          className="font-display pl-[0.16em] text-[clamp(1.25rem,6.4vw,3rem)] font-bold uppercase leading-tight tracking-[0.16em] text-ink"
+        >
           FUTURETECTURE
         </h1>
-        <p className="brand-statement mt-3">Evaluating Energy Resources</p>
+        <p className="font-display mt-3 text-[clamp(1.125rem,4.8vw,2.25rem)] font-bold leading-snug tracking-[-0.012em] text-ink">
+          Evaluating Energy Resources
+        </p>
       </header>
 
       <main className="flex flex-1 items-center px-6 py-16 sm:px-10">

@@ -15,6 +15,7 @@ import type {
 export const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: "Administrator",
   PROFESSOR: "Professor",
+  TA: "Teaching assistant",
   STUDENT: "Student",
 };
 

@@ -28,20 +28,20 @@ SUPABASE_TEST_URL=$API_URL SUPABASE_TEST_ANON_KEY=$ANON_KEY \
 E2E and load tests **refuse** to run against a non-local URL without an
 explicit override, because the hosted project holds real data.
 
-## Suite composition (verified 2026-08-06)
+## Suite composition (verified 2026-08-10)
 
 | Suite | Files | Tests |
 |---|---|---|
-| Unit | 30 | 288 without a database target |
-| Integration | 5 | requires a local stack |
-| Vitest total against `npx supabase start` | 35 | **352, all passing** |
+| Unit | 31 | 326 without a database target |
+| Integration | 6 | requires a local stack |
+| Vitest total against `npx supabase start` | 37 | **435, all passing** |
 | Playwright e2e | 4 | requires the local stack; not part of the four-command gate |
 
-`npm run test` with no test-target variables set reports **5 failing
-files** — the four integration suites plus `tests/unit/analytics-
+`npm run test` with no test-target variables set reports **6 failing
+files** — the five integration suites plus `tests/unit/analytics-
 definitions.test.ts`, which imports the same helper. That is the guard in
 `tests/integration/helpers.ts` refusing to touch the hosted project, not a
-regression. `npm run test:local` is the command that produces the 352
+regression. `npm run test:local` is the command that produces the 435
 number above.
 
 Unit coverage includes: binary/response validation, attempt-transition
@@ -63,6 +63,15 @@ assignment import (including atomic rollback on a bad row), question
 approval and publication, draft saving, submission, reopening,
 resubmission, analytics generation against the real views, the Excel
 export, and RLS access across professors/students.
+
+`tests/integration/ta-scope.test.ts` covers the teaching-assistant
+boundary as a 2×2 — {TA of class X, professor of class X} × {class X,
+class Y}. A TA must match the professor on class X except on the two
+exclusions (archiving/restoring/deleting/reassigning the class, and
+managing other TAs), match a stranger on class Y, and change nothing for
+the STUDENT role. Everything is asserted against the database through a
+really signed-in client: what the UI renders is not evidence, so no
+assertion in that file looks at it.
 
 E2E covers the three workflows end to end in a browser: professor (class →
 assignment → publish → analytics → export), student

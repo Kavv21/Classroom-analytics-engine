@@ -28,6 +28,7 @@ Standing rules, learned from two real incidents in this project:
    policy cycle (Postgres `42P17`) — see `DATABASE_SCHEMA.md` §"RLS
    recursion". All such reaches go through `security definer` helpers
    (`is_professor_of_class`, `is_class_member`, `is_professor_of_student`,
+   `is_ta_of_class`, `can_manage_class_content`, `is_ta_of_person`,
    `owns_dashboard`).
 2. **Every `SECURITY DEFINER` function sets `search_path = public` and
    schema-qualifies every table reference.** A definer function that
@@ -47,9 +48,24 @@ Standing rules, learned from two real incidents in this project:
   could save a row whose `class_id` pointed at a class they did not own —
   making `class_id` an attacker-controlled value that any export path
   trusting it would turn into a cross-class read. Both clauses are now
-  explicit and require `class_id is null or is_professor_of_class(class_id)`.
+  explicit and require `class_id is null or can_manage_class_content(class_id)`
+  (`is_professor_of_class` until migration 0028 widened it to TAs).
 
 ## Data boundaries that are structural, not procedural
+
+- **A teaching assistant's authority is one class, and stops short of the
+  class itself and of other TAs.** A TA is a `class_members` row, never a
+  change to anyone's global `profiles.role`, and every professor-equivalent
+  policy and RPC asks the single helper `can_manage_class_content`, so the
+  two authorisation paths cannot drift apart. The two exclusions are
+  enforced where a policy alone could not express them: archiving,
+  restoring or reassigning a class is a comparison of the old row to the
+  new one, so it lives in the `classes_status_authority` BEFORE UPDATE
+  trigger; managing other TAs is a predicate on the row's own role, so the
+  TA policies on `class_members` and `roster_entries` carry
+  `member_role = 'STUDENT'` / `intended_role = 'STUDENT'` in **both**
+  `USING` and `WITH CHECK`. Migrations 0027/0028, verified in
+  `tests/integration/ta-scope.test.ts`.
 
 - **Analytics cannot pair one student's two assignments.** Question
   mappings — the record that declared two questions comparable — and every

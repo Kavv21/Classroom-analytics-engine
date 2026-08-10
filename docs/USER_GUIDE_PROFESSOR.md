@@ -148,6 +148,24 @@ Every export records the class, assignments, when it was generated, the
 filters in effect and the metric definitions — so a file opened months
 later can still be read correctly.
 
+## 9. Teaching assistants
+
+**Teaching assistants** on a class's page. Add someone by email; if they
+already have an account they get access immediately, and if they have never
+signed in they get it the first time they do. Their own role elsewhere is
+untouched — a colleague who is a professor of their own classes stays one.
+
+A teaching assistant can do everything on this list for that one class:
+roster, assignments, questions, publishing, reopening, analytics, exports,
+and archiving or deleting an *assignment*. They cannot archive or delete
+the **class**, and they cannot add or remove other assistants. Those two
+stay with you, and they are refused by the database, not just hidden from
+the page.
+
+Removing an assistant takes their access away at once. Nothing they did to
+the class is undone, and their account and any other class they belong to
+are unaffected.
+
 ## What this tool does not do
 
 No grades, marks, or correct answers. No proctoring, tab-switch detection,

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { AnalyticsNav } from "@/components/analytics/analytics-nav";
 import { StudentProfile } from "@/components/analytics/student-profile";
 import { Button } from "@/components/ui/button";
-import { requireProfessorClassPage } from "@/lib/analytics/page-data";
+import { requireClassStaffPage } from "@/lib/analytics/page-data";
 import { getStudentFullResponses } from "@/lib/analytics/student-responses";
 
 /**
@@ -14,7 +14,8 @@ import { getStudentFullResponses } from "@/lib/analytics/student-responses";
  * totals per question and no student rows — so a professor who needs to see
  * what one person actually recorded comes here.
  *
- * Access: professor-of-this-class only. `requireProfessorClassPage` yields a
+ * Access: staff-of-this-class only (its professor or one of its TAs).
+ * `requireClassStaffPage` yields a
  * clean 404 for anyone else, and RLS is the real boundary underneath it. The
  * student must also be a member of THIS class, so a professor cannot reach
  * another class's student by editing the URL.
@@ -26,7 +27,7 @@ export default async function StudentProfilePage({
   params: Promise<{ classId: string; studentId: string }>;
 }) {
   const { classId, studentId } = await params;
-  const { supabase, classRow } = await requireProfessorClassPage(classId);
+  const { supabase, classRow } = await requireClassStaffPage(classId);
   if (!classRow) notFound();
 
   // The membership row and the responses are both keyed on

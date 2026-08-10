@@ -22,6 +22,7 @@ const professor: ShellUser = {
   fullName: "Ada Professor",
   email: "ada@example.edu",
   role: "PROFESSOR",
+  assistsAClass: false,
 };
 
 /** Mirrors RootLayout: the sidebar's collapsed tooltips need the provider. */
@@ -65,7 +66,7 @@ describe("app shell", () => {
   });
 
   it("shows the notice exactly once, for every role", () => {
-    for (const role of ["PROFESSOR", "STUDENT", "ADMIN"]) {
+    for (const role of ["PROFESSOR", "STUDENT", "TA", "ADMIN"]) {
       cleanup();
       renderShell({ ...professor, role });
       expect(
@@ -78,5 +79,31 @@ describe("app shell", () => {
   it("still renders the page body beneath it", () => {
     renderShell();
     expect(screen.getByText("page body")).toBeTruthy();
+  });
+
+  /**
+   * TA-ness is a class_members row, not profiles.role, so the two facts
+   * are independent and the nav has to read both. A student who assists a
+   * class has real access to /classes; without this door they could not
+   * reach it from anywhere in the app.
+   */
+  describe("navigation for someone who assists a class", () => {
+    it("gives a TA-role account the classes door and not the student one", () => {
+      renderShell({ ...professor, role: "TA", assistsAClass: true });
+      expect(screen.getByText("Classes you assist")).toBeTruthy();
+      expect(screen.queryByText("Your assignments")).toBeNull();
+    });
+
+    it("gives a STUDENT who assists a class both doors", () => {
+      renderShell({ ...professor, role: "STUDENT", assistsAClass: true });
+      expect(screen.getByText("Your assignments")).toBeTruthy();
+      expect(screen.getByText("Classes you assist")).toBeTruthy();
+    });
+
+    it("leaves a plain student with only their own assignments", () => {
+      renderShell({ ...professor, role: "STUDENT", assistsAClass: false });
+      expect(screen.getByText("Your assignments")).toBeTruthy();
+      expect(screen.queryByText("Classes you assist")).toBeNull();
+    });
   });
 });

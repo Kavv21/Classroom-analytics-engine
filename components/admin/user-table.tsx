@@ -64,6 +64,13 @@ import { PILL } from "@/lib/ui/tone";
 import { PersonChip } from "@/components/ui/person-avatar";
 import type { UserRole } from "@/lib/types/domain";
 
+/** One class this person belongs to, and how. */
+export interface ClassMembership {
+  name: string;
+  /** class_members.member_role = 'TA' for this class specifically. */
+  isTa: boolean;
+}
+
 export interface AdminUserRow {
   id: string;
   email: string;
@@ -72,13 +79,14 @@ export interface AdminUserRow {
   rollNumber: string | null;
   programme: string | null;
   isActive: boolean;
-  classes: string[];
+  classes: ClassMembership[];
 }
 
-/** A role is chrome, not a judgement — three hues to tell them apart. */
+/** A role is chrome, not a judgement — one hue each to tell them apart. */
 const ROLE_TONE: Record<string, string> = {
   ADMIN: PILL.purple,
   PROFESSOR: PILL.blue,
+  TA: PILL.amber,
   STUDENT: PILL.slate,
 };
 
@@ -111,6 +119,11 @@ export function UserTable({ rows }: { rows: AdminUserRow[] }) {
       ALL: rows.length,
       ADMIN: rows.filter((r) => r.role === "ADMIN").length,
       PROFESSOR: rows.filter((r) => r.role === "PROFESSOR").length,
+      // Accounts whose global role is TA — i.e. people first provisioned
+      // as an assistant. It is NOT the number of people assisting a class:
+      // a professor or student who assists one keeps their own role, and
+      // shows up here only by the TA marker on their class list.
+      TA: rows.filter((r) => r.role === "TA").length,
       STUDENT: rows.filter((r) => r.role === "STUDENT").length,
     }),
     [rows]
@@ -248,6 +261,7 @@ export function UserTable({ rows }: { rows: AdminUserRow[] }) {
               <TabsTrigger value="ALL">All ({counts.ALL})</TabsTrigger>
               <TabsTrigger value="ADMIN">Admins ({counts.ADMIN})</TabsTrigger>
               <TabsTrigger value="PROFESSOR">Professors ({counts.PROFESSOR})</TabsTrigger>
+              <TabsTrigger value="TA">Assistants ({counts.TA})</TabsTrigger>
               <TabsTrigger value="STUDENT">Students ({counts.STUDENT})</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -309,7 +323,17 @@ export function UserTable({ rows }: { rows: AdminUserRow[] }) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-ink-secondary">
-                    {row.classes.length === 0 ? "—" : row.classes.join(", ")}
+                    {row.classes.length === 0
+                      ? "—"
+                      : row.classes.map((c, i) => (
+                          <span key={`${c.name}-${i}`}>
+                            {i > 0 && ", "}
+                            {c.name}
+                            {c.isTa && (
+                              <span className="badge badge-amber ml-1 align-middle">TA</span>
+                            )}
+                          </span>
+                        ))}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -324,6 +348,10 @@ export function UserTable({ rows }: { rows: AdminUserRow[] }) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Change role</DropdownMenuLabel>
+                        {/* TA is deliberately absent: being an assistant is
+                            a membership of one class, granted from that
+                            class's page, not a global role to hand out
+                            here. changeUserRole refuses it server-side. */}
                         {(["ADMIN", "PROFESSOR", "STUDENT"] as UserRole[]).map((r) => (
                           <DropdownMenuItem
                             key={r}

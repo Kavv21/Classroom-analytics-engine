@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ResponseGridTable } from "@/components/assignments/response-grid-table";
 import { LocalDateTime } from "@/components/ui/local-date-time";
 import { gatherResponseGrid, orientationDescription } from "@/lib/exports/response-grid";
-import { requireProfessorClassPage } from "@/lib/analytics/page-data";
+import { requireClassStaffPage } from "@/lib/analytics/page-data";
 
 /**
  * The live response grid — the same layout as the Excel grid sheet, kept in
@@ -33,7 +33,7 @@ export default async function ResponseGridPage({
   params: Promise<{ classId: string; assignmentId: string }>;
 }) {
   const { classId, assignmentId } = await params;
-  const { supabase, classRow } = await requireProfessorClassPage(classId);
+  const { supabase, classRow } = await requireClassStaffPage(classId);
   if (!classRow) notFound();
 
   const grid = await gatherResponseGrid(supabase, assignmentId);

@@ -13,23 +13,62 @@ interface ClassAssignmentStatusRow {
   status: string;
 }
 
+interface ClassRow {
+  id: string;
+  name: string;
+  course_name: string | null;
+  academic_year: string | null;
+  semester: string | null;
+  section: string | null;
+  status: string;
+}
+
+const CLASS_COLUMNS = "id, name, course_name, academic_year, semester, section, status";
+
 export default async function ClassesPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: classes } = user
-    ? await supabase
-        .from("classes")
-        .select("id, name, course_name, academic_year, semester, section, status")
-        .eq("professor_id", user.id)
-        .order("created_at", { ascending: false })
-    : { data: null };
+  // Two relationships lead here and they are not the same relationship:
+  // classes this person owns, and classes they assist as a TA. Both are
+  // listed, and the ones they assist say so — a TA should never have to
+  // guess which of these they can archive.
+  const [{ data: owned }, { data: assisting }, { data: profile }] = user
+    ? await Promise.all([
+        supabase
+          .from("classes")
+          .select(CLASS_COLUMNS)
+          .eq("professor_id", user.id)
+          .order("created_at", { ascending: false })
+          .returns<ClassRow[]>(),
+        supabase
+          .from("class_members")
+          .select(`classes(${CLASS_COLUMNS})`)
+          .eq("user_id", user.id)
+          .eq("member_role", "TA")
+          .eq("status", "ACTIVE")
+          .returns<{ classes: ClassRow | null }[]>(),
+        supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }, { data: null }];
+
+  const ownedIds = new Set((owned ?? []).map((c) => c.id));
+  const assistedClasses = (assisting ?? [])
+    .map((m) => m.classes)
+    .filter((c): c is ClassRow => !!c && !ownedIds.has(c.id));
+  const assistedIds = new Set(assistedClasses.map((c) => c.id));
+
+  // Creating a class is a global capability (lib/classes/actions.ts refuses
+  // anyone else), not a per-class one — assisting five classes does not
+  // make someone able to start a sixth.
+  const canCreateClasses = profile?.role === "PROFESSOR" || profile?.role === "ADMIN";
+  const classes: ClassRow[] = [...(owned ?? []), ...assistedClasses];
 
   // Second, cheap read (indexed on class_id, at most two rows per class) so
   // each row can show where its assignments stand without opening the class.
-  const classIds = (classes ?? []).map((c) => c.id);
+  const classIds = classes.map((c) => c.id);
   const { data: assignmentStatuses } =
     classIds.length > 0
       ? await supabase
@@ -50,16 +89,19 @@ export default async function ClassesPage() {
     <main className="page-standard">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="title-md">Your classes</h1>
-        <Button asChild>
-          <Link href="/classes/new">Create a class</Link>
-        </Button>
+        {canCreateClasses && (
+          <Button asChild>
+            <Link href="/classes/new">Create a class</Link>
+          </Button>
+        )}
       </div>
 
-      {!classes || classes.length === 0 ? (
+      {classes.length === 0 ? (
         <Alert className="mt-6">
           <AlertDescription>
-            You haven&rsquo;t created a class yet. Create one to import a roster
-            and set up assignments.
+            {canCreateClasses
+              ? "You haven’t created a class yet. Create one to import a roster and set up assignments."
+              : "You’re not assisting any classes yet. A professor adds you to one from that class’s page."}
           </AlertDescription>
         </Alert>
       ) : (
@@ -77,7 +119,14 @@ export default async function ClassesPage() {
               >
                 <div className="min-w-0">
                   {context.length > 0 && <p className="eyebrow">{context.join(" · ")}</p>}
-                  <p className="mt-0.5 font-medium">{c.name}</p>
+                  <p className="mt-0.5 font-medium">
+                    {c.name}
+                    {assistedIds.has(c.id) && (
+                      <span className="badge badge-blue ml-2 align-middle">
+                        You assist this class
+                      </span>
+                    )}
+                  </p>
                   {classAssignments.length > 0 && (
                     <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       {classAssignments.map((a) => (

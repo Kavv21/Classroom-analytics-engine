@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { canManageClassContent } from "@/lib/classes/access";
 import { buildCsv } from "@/lib/exports/csv";
 import { buildDashboardPdf } from "@/lib/exports/pdf";
 import { buildExportMetadata } from "@/lib/exports/metadata";
@@ -28,20 +29,25 @@ export async function POST(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const { data: classRow, error: classError } = await supabase
-    .from("classes")
-    .select("id, name, professor_id")
-    .eq("id", classId)
-    .maybeSingle();
+  const [{ data: classRow, error: classError }, access] = await Promise.all([
+    supabase.from("classes").select("id, name").eq("id", classId).maybeSingle(),
+    canManageClassContent(supabase, classId),
+  ]);
   if (classError) {
     return NextResponse.json(
       { error: `Could not verify access: ${classError.message}` },
       { status: 500 }
     );
   }
-  if (!classRow || classRow.professor_id !== user.id) {
+  if (access.error) {
     return NextResponse.json(
-      { error: "Class not found, or you are not its professor." },
+      { error: `Could not verify access: ${access.error.message}` },
+      { status: 500 }
+    );
+  }
+  if (!classRow || !access.allowed) {
+    return NextResponse.json(
+      { error: "Class not found, or you do not manage it." },
       { status: 403 }
     );
   }

@@ -1,6 +1,10 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { isUnauthenticatedPath, isUnprovisionedPath } from "@/lib/auth/public-paths";
+import {
+  isAlwaysPublicPath,
+  isUnauthenticatedPath,
+  isUnprovisionedPath,
+} from "@/lib/auth/public-paths";
 import { bucketForPath, hit, RULES } from "@/lib/rate-limit";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
@@ -13,6 +17,14 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
  * existed for them at first sign-in. See docs/AUTH_SSO.md.
  */
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Machine endpoints answer identically in every auth state, so they skip
+  // the session check rather than being classified by it. Without this the
+  // matcher below would catch /api/health and redirect an anonymous caller
+  // to /login — a 307, not the 200 the keep-alive cron asserts on.
+  if (isAlwaysPublicPath(pathname)) return NextResponse.next({ request });
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -37,8 +49,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
 
   if (!user) {
     if (isUnauthenticatedPath(pathname)) return response;

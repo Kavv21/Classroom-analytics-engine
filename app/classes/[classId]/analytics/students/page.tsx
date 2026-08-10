@@ -7,7 +7,7 @@ import { StudentAnalytics } from "@/components/analytics/student-analytics";
 import {
   getClassAssignments,
   getClassStudentRoster,
-  requireProfessorClassPage,
+  requireClassStaffPage,
 } from "@/lib/analytics/page-data";
 
 export default async function StudentAnalyticsPage({
@@ -16,7 +16,7 @@ export default async function StudentAnalyticsPage({
   params: Promise<{ classId: string }>;
 }) {
   const { classId } = await params;
-  const { supabase, classRow } = await requireProfessorClassPage(classId);
+  const { supabase, classRow } = await requireClassStaffPage(classId);
   if (!classRow) notFound();
 
   const [students, assignments] = await Promise.all([

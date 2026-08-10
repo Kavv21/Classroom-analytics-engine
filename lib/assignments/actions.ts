@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { canManageClassContent } from "@/lib/classes/access";
 import {
   assignmentFormSchema,
   questionLabelsSchema,
@@ -133,11 +134,13 @@ async function logAudit(
 }
 
 /**
- * Professor-of-class check via RLS: the classes row is only visible to its
- * professor (or a member). A lookup error is surfaced, never conflated with
- * "not yours" — see the class-creation postmortem in lib/classes/actions.ts.
+ * May this user manage the class's content — its professor, or one of its
+ * TAs? Delegated to the database's own `can_manage_class_content`, so this
+ * cannot drift from the policies that actually gate the writes below. A
+ * lookup error is surfaced, never conflated with "not yours" — see the
+ * class-creation postmortem in lib/classes/actions.ts.
  */
-async function requireProfessorForClass(classId: string) {
+async function requireClassStaff(classId: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -145,26 +148,15 @@ async function requireProfessorForClass(classId: string) {
 
   if (!user) return { supabase, user: null, authorized: false, checkError: null } as const;
 
-  const { data: classRow, error: checkError } = await supabase
-    .from("classes")
-    .select("id, professor_id")
-    .eq("id", classId)
-    .maybeSingle();
+  const { allowed, error: checkError } = await canManageClassContent(supabase, classId);
 
-  if (checkError) {
-    console.error("requireProfessorForClass: class lookup failed", checkError);
-  }
-
-  return {
-    supabase,
-    user,
-    authorized: !!classRow && classRow.professor_id === user.id,
-    checkError,
-  } as const;
+  return { supabase, user, authorized: allowed, checkError } as const;
 }
 
-/** Same boundary, entered from an assignment id. */
-async function requireProfessorForAssignment(assignmentId: string) {
+/** Same boundary, entered from an assignment id — and left to RLS, which
+ *  since migration 0028 shows an assignment to its class's professor and
+ *  to its TAs through the one `assignments_staff_manage` policy. */
+async function requireClassStaffForAssignment(assignmentId: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -181,7 +173,7 @@ async function requireProfessorForAssignment(assignmentId: string) {
     .maybeSingle();
 
   if (checkError) {
-    console.error("requireProfessorForAssignment: lookup failed", checkError);
+    console.error("requireClassStaffForAssignment: lookup failed", checkError);
   }
 
   return { supabase, user, assignment, checkError } as const;
@@ -214,7 +206,7 @@ export async function createAssignment(
     };
   }
 
-  const { supabase, user, authorized, checkError } = await requireProfessorForClass(classId);
+  const { supabase, user, authorized, checkError } = await requireClassStaff(classId);
   if (!user || !authorized || checkError) return accessError(checkError, "Class");
 
   const v = parsed.data;
@@ -302,7 +294,7 @@ export async function updateAssignment(
   }
 
   const { supabase, user, assignment, checkError } =
-    await requireProfessorForAssignment(assignmentId);
+    await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
 
   const v = parsed.data;
@@ -417,7 +409,7 @@ export async function transitionAssignment(
   toStatus: AssignmentStatus
 ): Promise<AssignmentActionResult<{ id: string; status: AssignmentStatus }>> {
   const { supabase, user, assignment, checkError } =
-    await requireProfessorForAssignment(assignmentId);
+    await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
 
   const from = assignment.status as AssignmentStatus;
@@ -521,7 +513,7 @@ export async function unarchiveAssignment(
   assignmentId: string
 ): Promise<AssignmentActionResult<{ id: string; status: AssignmentStatus }>> {
   const { supabase, user, assignment, checkError } =
-    await requireProfessorForAssignment(assignmentId);
+    await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
 
   if (assignment.status !== "ARCHIVED") {
@@ -558,7 +550,7 @@ export async function deleteAssignmentPermanently(
   assignmentId: string
 ): Promise<AssignmentActionResult<AssignmentDeletionCounts>> {
   const { supabase, user, assignment, checkError } =
-    await requireProfessorForAssignment(assignmentId);
+    await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
 
   const { data, error } = await supabase.rpc("delete_assignment_permanently", {
@@ -582,7 +574,7 @@ export async function duplicateAssignment(
   assignmentId: string
 ): Promise<AssignmentActionResult<{ id: string }>> {
   const { supabase, user, assignment, checkError } =
-    await requireProfessorForAssignment(assignmentId);
+    await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
 
   const { data, error } = await supabase.rpc("duplicate_assignment", {
@@ -604,7 +596,7 @@ export async function reorderQuestions(
   orderedQuestionIds: string[]
 ): Promise<AssignmentActionResult<null>> {
   const { supabase, user, assignment, checkError } =
-    await requireProfessorForAssignment(assignmentId);
+    await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
 
   const { data: existing, error: fetchError } = await supabase
@@ -655,7 +647,7 @@ export async function updateQuestionLabels(
   }
 
   const { supabase, user, assignment, checkError } =
-    await requireProfessorForAssignment(assignmentId);
+    await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
 
   const { data, error } = await supabase
@@ -728,7 +720,7 @@ export async function previewAssignmentImport(
   assignmentId: string,
   formData: FormData
 ): Promise<AssignmentActionResult<AssignmentImportPreview>> {
-  const { user, assignment, checkError } = await requireProfessorForAssignment(assignmentId);
+  const { user, assignment, checkError } = await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
 
   if (assignment.status !== "DRAFT") {
@@ -757,7 +749,7 @@ export async function commitAssignmentImport(
   formData: FormData
 ): Promise<AssignmentActionResult<AssignmentImportSummary>> {
   const { supabase, user, assignment, checkError } =
-    await requireProfessorForAssignment(assignmentId);
+    await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
 
   const parsed = await parseUpload(formData, assignment.sequence_number);

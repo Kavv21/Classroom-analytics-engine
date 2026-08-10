@@ -29,6 +29,8 @@ export interface ShellUser {
   fullName: string | null;
   email: string;
   role: string;
+  /** ACTIVE TA of at least one class. Independent of `role`. */
+  assistsAClass: boolean;
 }
 
 interface NavItem {
@@ -37,11 +39,17 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-/** Navigation is role-derived: nobody is shown a door they can't open. */
-function navFor(role: string): NavItem[] {
-  if (role === "STUDENT") {
-    return [{ href: "/assignments", label: "Your assignments", icon: ClipboardList }];
-  }
+/**
+ * Navigation is role-derived: nobody is shown a door they can't open.
+ *
+ * TA-ness is not in `role` — it is a per-class membership, and someone's
+ * global role stays whatever it already was when they were made a TA
+ * (see lib/types/domain.ts). So a STUDENT who assists a class gets BOTH
+ * doors: their own assignments, and the classes they help run. Without the
+ * second one they would have a real, RLS-backed access to /classes and no
+ * link anywhere in the app that reaches it.
+ */
+function navFor(role: string, assistsAClass: boolean): NavItem[] {
   if (role === "ADMIN") {
     return [
       { href: "/admin/users", label: "People", icon: Users },
@@ -49,7 +57,22 @@ function navFor(role: string): NavItem[] {
       { href: "/classes", label: "Classes", icon: BookOpen },
     ];
   }
-  return [{ href: "/classes", label: "Your classes", icon: BookOpen }];
+  if (role === "STUDENT") {
+    const items: NavItem[] = [
+      { href: "/assignments", label: "Your assignments", icon: ClipboardList },
+    ];
+    if (assistsAClass) {
+      items.push({ href: "/classes", label: "Classes you assist", icon: BookOpen });
+    }
+    return items;
+  }
+  return [
+    {
+      href: "/classes",
+      label: role === "TA" ? "Classes you assist" : "Your classes",
+      icon: BookOpen,
+    },
+  ];
 }
 
 /**
@@ -78,7 +101,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
-  const items = navFor(user.role);
+  const items = navFor(user.role, user.assistsAClass);
   const displayName = user.fullName ?? user.email;
 
   async function signOut() {

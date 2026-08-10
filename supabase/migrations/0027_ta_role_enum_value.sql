@@ -1,0 +1,35 @@
+-- ============================================================
+-- 0027 — Add 'TA' to the user_role enum.
+--
+-- WHY THIS IS ITS OWN MIGRATION FILE
+--
+-- `alter type ... add value` is subject to a Postgres restriction that has
+-- nothing to do with this feature's design: a newly added enum label
+-- cannot be USED in the same transaction that added it (PG 12+ relaxed the
+-- "not inside a transaction block at all" rule, but not this part). The
+-- Supabase CLI runs each migration file in one transaction, so the label
+-- has to land in a file of its own and everything that references it —
+-- the helpers, the policies, the RPCs — goes in 0028.
+--
+-- WHY THE SHARED ENUM AT ALL, WHEN TA-NESS IS PER-CLASS
+--
+-- `class_members.member_role` (0001_init.sql) is typed `user_role`. It is
+-- the column that carries "this person is a TA of THIS class", and it
+-- cannot hold a value the type does not have. So extending `user_role` is
+-- not a choice between the per-class model and a global-role model — it is
+-- the minimum needed for the per-class model to be expressible at all.
+--
+-- `profiles.role` and `roster_entries.intended_role` share the type and
+-- therefore also gain 'TA' as a legal value. That is used for exactly one
+-- thing (see 0028 §7): provisioning a brand-new TA who has never signed in
+-- and so has no `profiles` row for a `class_members` row to point at.
+-- `profiles.role = 'TA'` confers NO authority anywhere in the database:
+-- no policy, helper or RPC in this schema reads it. Every TA permission is
+-- decided by `is_ta_of_class(class_id)`, which reads `class_members` and
+-- nothing else.
+--
+-- Sorted after PROFESSOR so `order by role` in the admin console reads
+-- ADMIN, PROFESSOR, TA, STUDENT — descending authority, as it already did.
+-- ============================================================
+
+alter type user_role add value if not exists 'TA' after 'PROFESSOR';

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnalyticsNav } from "@/components/analytics/analytics-nav";
 import { QueryBuilder } from "@/components/analytics/query-builder";
-import { requireProfessorClassPage } from "@/lib/analytics/page-data";
+import { requireClassStaffPage } from "@/lib/analytics/page-data";
 import { DEFAULT_QUERY, type QueryDefinition } from "@/lib/query-builder/schema";
 import type {
   DashboardSummary,
@@ -23,7 +23,7 @@ export default async function VisualisationBuilderPage({
   params: Promise<{ classId: string }>;
 }) {
   const { classId } = await params;
-  const { supabase, classRow } = await requireProfessorClassPage(classId);
+  const { supabase, classRow } = await requireClassStaffPage(classId);
   if (!classRow) notFound();
 
   // The saved queries/visualisations/dashboards are class-scoped and were

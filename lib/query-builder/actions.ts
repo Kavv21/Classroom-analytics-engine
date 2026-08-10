@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { canManageClassContent } from "@/lib/classes/access";
 import {
   executeQuery,
   QueryValidationError,
@@ -21,26 +22,26 @@ export type BuilderResult<T> =
  * (migration 0014 also blocks saving a row against someone else's class).
  * A lookup error is surfaced, never conflated with "not yours".
  */
-async function requireProfessorForClass(classId: string) {
+async function requireClassStaff(classId: string) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { supabase, user: null, authorized: false, checkError: null } as const;
+  if (!user) return { supabase, user: null, classRow: null, authorized: false, checkError: null } as const;
 
-  const { data: classRow, error: checkError } = await supabase
-    .from("classes")
-    .select("id, name, professor_id")
-    .eq("id", classId)
-    .maybeSingle();
+  const [{ data: classRow, error: lookupError }, access] = await Promise.all([
+    supabase.from("classes").select("id, name").eq("id", classId).maybeSingle(),
+    canManageClassContent(supabase, classId),
+  ]);
+  const checkError = lookupError ?? access.error;
   if (checkError) {
-    console.error("query-builder: class lookup failed", checkError);
+    console.error("query-builder: class access check failed", checkError);
   }
   return {
     supabase,
     user,
     classRow,
-    authorized: !!classRow && classRow.professor_id === user.id,
+    authorized: !!classRow && access.allowed,
     checkError,
   } as const;
 }
@@ -49,7 +50,7 @@ function accessError<T>(checkError: { message: string } | null): BuilderResult<T
   if (checkError) {
     return { success: false, error: `Could not verify access: ${checkError.message}` };
   }
-  return { success: false, error: "Class not found, or you are not its professor." };
+  return { success: false, error: "Class not found, or you do not manage it." };
 }
 
 async function buildContext(
@@ -104,7 +105,7 @@ export async function runBuilderQuery(
     return { success: false, error: summariseIssues(validation) };
   }
 
-  const { supabase, user, authorized, checkError } = await requireProfessorForClass(classId);
+  const { supabase, user, authorized, checkError } = await requireClassStaff(classId);
   if (!user || !authorized || checkError) return accessError(checkError);
 
   try {
@@ -165,7 +166,7 @@ export async function saveQuery(
     };
   }
 
-  const { supabase, user, authorized, checkError } = await requireProfessorForClass(classId);
+  const { supabase, user, authorized, checkError } = await requireClassStaff(classId);
   if (!user || !authorized || checkError) return accessError(checkError);
 
   const { data, error } = await supabase
@@ -198,7 +199,7 @@ export async function saveVisualisation(
     };
   }
 
-  const { supabase, user, authorized, checkError } = await requireProfessorForClass(classId);
+  const { supabase, user, authorized, checkError } = await requireClassStaff(classId);
   if (!user || !authorized || checkError) return accessError(checkError);
 
   const { data, error } = await supabase
@@ -224,7 +225,7 @@ export async function deleteSavedItem(
   kind: "query" | "visualisation" | "dashboard",
   id: string
 ): Promise<BuilderResult<null>> {
-  const { supabase, user, authorized, checkError } = await requireProfessorForClass(classId);
+  const { supabase, user, authorized, checkError } = await requireClassStaff(classId);
   if (!user || !authorized || checkError) return accessError(checkError);
 
   const table =
@@ -249,7 +250,7 @@ export async function createDashboard(
   const trimmed = name.trim();
   if (trimmed === "") return { success: false, error: "Give the dashboard a name." };
 
-  const { supabase, user, authorized, checkError } = await requireProfessorForClass(classId);
+  const { supabase, user, authorized, checkError } = await requireClassStaff(classId);
   if (!user || !authorized || checkError) return accessError(checkError);
 
   const { data, error } = await supabase

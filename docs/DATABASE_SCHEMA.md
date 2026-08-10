@@ -31,6 +31,13 @@ audit_logs
 id, email, full_name, role, student_identifier, roll_number, programme,
 year_of_study, section, is_active, created_at, updated_at
 
+`role` is the `user_role` enum: `ADMIN` | `PROFESSOR` | `TA` | `STUDENT`
+(`TA` added in migration 0027). `TA` here is an identity label with **no
+authority attached** — nothing in the schema reads `profiles.role` to
+decide whether someone may act on a class. It exists so a person invited as
+a teaching assistant before they have ever signed in can be provisioned at
+all; their actual authority is the `class_members` row it produces.
+
 ## classes
 id, professor_id, name, course_name, academic_year, semester, section,
 class_code, start_date, end_date, status, created_at, updated_at
@@ -40,6 +47,13 @@ is a status flip, not a delete — never destroy a class with responses.
 
 ## class_members
 id, class_id, user_id, member_role, status, joined_at
+
+`member_role` is typed `user_role` and carries the class-scoped role:
+`STUDENT` for an enrolment, `TA` for a teaching assistant (migrations
+0027/0028). It is the authoritative statement of TA-ness — a person's
+`profiles.role` is not consulted anywhere in the TA authorisation path, so
+someone can be a `PROFESSOR` globally and a `TA` of a colleague's class at
+the same time. See "Teaching assistants" below.
 
 ## roster_entries
 Pre-provisioning for Google SSO (see docs/AUTH_SSO.md, migration 0002).
@@ -267,6 +281,11 @@ data. `profiles_professor_class_students_select` (migration
 students" — scoped to profiles that are a `class_members` row in one of
 that professor's classes; it grants read only, never write.
 
+Teaching assistants: everything a professor can do with ONE class's
+content, and two exceptions — archiving/restoring/deleting/reassigning the
+class itself, and managing that class's other TAs. See "Teaching
+assistants" below.
+
 Admins: system-level management per explicit policies (not blanket access).
 
 ## RLS recursion: the classes / class_members helper functions (migration 0008)
@@ -324,8 +343,100 @@ just `professor_id = auth.uid()`) are unchanged.
 
 **Rule for future policies**: never write a raw correlated subquery from
 one RLS-protected table into `classes` or `class_members` (or chain through
-a table that itself does). Use `is_professor_of_class(...)` /
-`is_class_member(...)` instead.
+a table that itself does). Use `can_manage_class_content(...)` /
+`is_professor_of_class(...)` / `is_class_member(...)` instead.
+
+## Teaching assistants (migrations 0027, 0028)
+
+A TA is a `class_members` row with `member_role = 'TA'` and
+`status = 'ACTIVE'` — the same kind of object as a student's enrolment, and
+scoped to one class. Nobody's `profiles.role` is rewritten when they are
+made a TA.
+
+`user_role` had to gain `TA` (migration 0027, its own file because a new
+enum label cannot be used in the transaction that added it) because
+`class_members.member_role` is typed `user_role`. `profiles.role` and
+`roster_entries.intended_role` share the type and therefore also accept
+`TA`; only `roster_entries.intended_role = 'TA'` is load-bearing, as the
+pre-authorisation for someone who has never signed in.
+
+### Helpers
+
+- `is_ta_of_class(p_class_id uuid) returns boolean` — an ACTIVE
+  `class_members` row with `member_role = 'TA'` for the caller and this
+  class. Same rules as the 0008 helpers: `security definer`, `stable`,
+  `set search_path = public`, schema-qualified.
+- `can_manage_class_content(p_class_id uuid) returns boolean` —
+  `is_professor_of_class(...) OR is_ta_of_class(...)`. **Every** policy and
+  RPC where a TA has professor-equivalent authority calls this and never
+  spells the OR out inline, so the two authorisation paths cannot drift.
+- `is_ta_of_person(p_person_id uuid) returns boolean` — the TA counterpart
+  of `is_professor_of_student`, backing `profiles_ta_class_members_select`.
+
+### What a TA may do
+
+Policies switched from `is_professor_of_class` to
+`can_manage_class_content` (and renamed `*_professor_*` → `*_staff_*`,
+because a policy named for professors that admits TAs misleads whoever
+reads `pg_policies` next):
+
+| Table | Policy |
+| --- | --- |
+| assignments | `assignments_staff_manage` (was `assignments_professor_manage`) |
+| questions | `questions_staff_manage` (was `questions_professor_manage`) |
+| assignment_attempts | `attempts_staff_select` (was `attempts_professor_select`) |
+| responses | `responses_staff_select` (was `responses_professor_select`) |
+| saved_queries | `saved_queries_owner` (class branch only) |
+| saved_visualisations | `saved_visualisations_owner` (class branch only) |
+| dashboards | `dashboards_owner` (class branch only) |
+
+Policies ADDED for TAs, leaving the professor's own policy untouched
+(these carry a `class_id is null` branch, or a role predicate, that is not
+a TA's to have):
+
+| Table | Policy | Scope |
+| --- | --- | --- |
+| classes | `classes_ta_update` | UPDATE only; reads already come via `classes_member_select` |
+| class_members | `class_members_ta_manage_students` | rows with `member_role = 'STUDENT'` only, USING **and** WITH CHECK |
+| roster_entries | `roster_entries_ta_manage_students` | `class_id is not null` and `intended_role = 'STUDENT'`, both sides |
+| profiles | `profiles_ta_class_members_select` | SELECT only, via `is_ta_of_person` |
+| imports | `imports_ta` | `class_id is not null` |
+| import_rows | `import_rows_ta` | through a class-scoped `imports` row |
+
+RPCs switched to `can_manage_class_content`: `commit_roster_import`,
+`check_roster_emails`, `set_student_active`, `commit_assignment_import`,
+`record_failed_assignment_import`, `duplicate_assignment`,
+`reopen_attempt`, `reopen_assignment_attempts`,
+`assignment_deletion_counts`, `unarchive_assignment`,
+`delete_assignment_permanently`.
+
+`set_student_active` is narrowed further than the others: a TA may flip
+`is_active` only for a member whose `member_role` is `STUDENT`. That column
+is global, and without the extra check two TAs of one class could switch
+each other off — managing another TA by a different door.
+
+### The two things a TA may NOT do, and where each is enforced
+
+1. **The class itself.** `class_deletion_counts` and
+   `delete_class_permanently` (migration 0025) keep their
+   `is_professor_of_class` gate unchanged. Archive/restore is not an RPC —
+   it is a plain UPDATE of `classes.status` — so it is enforced by the
+   `classes_status_authority` BEFORE UPDATE trigger, which raises unless
+   `is_professor_of_class(old.id) or is_admin()`. The same trigger guards
+   `professor_id`. It enforces only for the `authenticated` role;
+   `service_role` and the migration role are server-side paths that already
+   bypass RLS, and `anon` has no write privilege on `classes`.
+   Assignment-level archive/unarchive/delete is deliberately NOT restricted.
+2. **Other TAs.** `class_members_ta_manage_students` and
+   `roster_entries_ta_manage_students` are predicated on the row's role
+   being `STUDENT` in both USING and WITH CHECK, so a TA cannot insert,
+   promote, demote or delete a TA row by any route. Adding and removing TAs
+   goes through `add_class_ta` / `remove_class_ta`, which are
+   professor-or-admin only.
+
+Proven end to end in `tests/integration/ta-scope.test.ts` (45 tests): a TA
+of class X matches its professor except on those two, has zero elevated
+access to class Y, and the STUDENT role is unchanged in every direction.
 
 ## Security-definer RPCs (bypass RLS deliberately, narrowly)
 
@@ -428,11 +539,15 @@ is what authorises the write. EXECUTE is revoked from anon on all of them:
   status, without the assignment ever being reopened.
 
 Migration 0025 adds unarchive and permanent deletion. All five are
-`security definer` with an explicit `is_professor_of_class` gate; the
-first two exist because a professor has no DELETE policy over other
-students' response rows and should not be given one, and because the
-cascade would otherwise be blocked by
-`questions_immutable_after_responses`:
+`security definer`; the first two exist because a professor has no DELETE
+policy over other students' response rows and should not be given one, and
+because the cascade would otherwise be blocked by
+`questions_immutable_after_responses`. Since migration 0028 the three
+ASSIGNMENT-level ones (`assignment_deletion_counts`,
+`unarchive_assignment`, `delete_assignment_permanently`) gate on
+`can_manage_class_content`, so a TA can use them; the two CLASS-level ones
+(`class_deletion_counts`, `delete_class_permanently`) deliberately keep
+`is_professor_of_class`:
 
 - `assignment_deletion_counts(p_assignment_id)` /
   `class_deletion_counts(p_class_id)` — `stable`; the census of what a
@@ -460,7 +575,30 @@ cascade would otherwise be blocked by
   class_members, roster_entries, saved_queries, saved_visualisations and
   dashboards. `profiles` rows are NOT touched — deleting a class deletes
   its record of a student, not the student's account. Audit action
-  `CLASS_DELETED_PERMANENTLY`.
+  `CLASS_DELETED_PERMANENTLY`. Professor-only: this is exclusion 1 of the
+  TA model, and the reason it did not move to `can_manage_class_content`.
+
+Migration 0028 adds the two TA-management RPCs. Both are `security definer`
+solely because adding a TA by email needs a `profiles` lookup across the
+whole table, which a professor's own RLS cannot do for a person who is not
+yet in their class; neither returns any profile field beyond the id it acts
+on, so neither can be used to browse accounts. Both refuse anyone who is
+not the class's professor or an admin:
+
+- `add_class_ta(p_class_id, p_email, p_full_name)` — writes
+  `class_members.member_role = 'TA'` when the email already has an account
+  anywhere, or a pending `roster_entries` row with `intended_role = 'TA'`
+  when it does not. Never modifies an existing account's `profiles.role`.
+  Refuses an email already pending on another class's roster (the same rule
+  the roster import's `DUPLICATE_PENDING_OTHER_CLASS` encodes). Returns
+  `{mode: 'ENROLLED' | 'PREAUTHORISED', email, userId}`. Audit actions
+  `CLASS_TA_ADDED` / `CLASS_TA_PREAUTHORISED`.
+- `remove_class_ta(p_class_id, p_email)` — deletes the TA's
+  `class_members` row and/or their pending `roster_entries` row for this
+  class, and raises if they were neither. The membership goes entirely
+  rather than being demoted to STUDENT: a TA was never enrolled as a
+  student here, and quietly making them one would put them in the roster
+  and in the analytics denominators. Audit action `CLASS_TA_REMOVED`.
 
 Both delete functions take the census and write the `audit_logs` entry
 **before** the DELETE, inside the same transaction. `audit_logs` has no FK

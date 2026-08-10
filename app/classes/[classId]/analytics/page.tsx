@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import {
   getClassAssignments,
-  requireProfessorClassPage,
+  requireClassStaffPage,
 } from "@/lib/analytics/page-data";
 
 /**
@@ -43,7 +43,7 @@ export default async function AnalyticsOverviewPage({
   params: Promise<{ classId: string }>;
 }) {
   const { classId } = await params;
-  const { supabase, classRow } = await requireProfessorClassPage(classId);
+  const { supabase, classRow } = await requireClassStaffPage(classId);
   if (!classRow) notFound();
 
   const [summaries, progress, assignments] = await Promise.all([

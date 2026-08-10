@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { roleLabel } from "@/lib/ui/labels";
+import { hasAnyTaMembership } from "@/lib/classes/access";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -10,20 +11,33 @@ export default async function HomePage() {
   } = await supabase.auth.getUser();
 
   let profile: { full_name: string | null; email: string; role: string } | null = null;
+  let assistsAClass = false;
   if (user) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("full_name, email, role")
-      .eq("id", user.id)
-      .maybeSingle();
+    const [{ data, error }, isTa] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, email, role")
+        .eq("id", user.id)
+        .maybeSingle(),
+      hasAnyTaMembership(user.id),
+    ]);
     if (error) throw new Error(`Failed to load your profile: ${error.message}`);
     profile = data;
+    assistsAClass = isTa;
   }
 
+  // A student who also assists a class still lands on their own
+  // assignments — that is the obligation with a deadline. The classes they
+  // assist are one click away in the rail.
   const destination =
     profile?.role === "STUDENT"
       ? { href: "/assignments", label: "Go to your assignments" }
-      : { href: "/classes", label: "Go to your classes" };
+      : {
+          href: "/classes",
+          label: assistsAClass && profile?.role === "TA"
+            ? "Go to the classes you assist"
+            : "Go to your classes",
+        };
 
   return (
     <main>

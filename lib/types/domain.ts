@@ -5,7 +5,34 @@
  * /docs/DATABASE_SCHEMA.md and supabase/migrations/0001_init.sql.
  */
 
-export type UserRole = "ADMIN" | "PROFESSOR" | "STUDENT";
+/**
+ * The `user_role` enum (migrations 0001, 0027).
+ *
+ * It types three different columns, and "TA" means the same thing in only
+ * one of them:
+ *
+ *   * `class_members.member_role` — THE authoritative one. `TA` here is a
+ *     teaching assistant OF THAT CLASS, with professor-equivalent access
+ *     to its content but not to the class itself or to its other TAs.
+ *   * `roster_entries.intended_role` — a pre-authorisation waiting to
+ *     become the two rows above at first sign-in.
+ *   * `profiles.role` — a global identity label. `TA` there confers no
+ *     authority anywhere; it exists so a TA who has never signed in can be
+ *     provisioned at all. Someone can be a `PROFESSOR` globally and a `TA`
+ *     of a colleague's class at the same time — ask
+ *     `can_manage_class_content(classId)`, never `profiles.role`.
+ */
+export type UserRole = "ADMIN" | "PROFESSOR" | "TA" | "STUDENT";
+
+/** How the signed-in user relates to one particular class. */
+export interface ClassAccess {
+  /** Owns the class: everything, including archiving, deleting and TAs. */
+  isProfessor: boolean;
+  /** Assists the class: everything except those three. */
+  isTa: boolean;
+  /** Professor-equivalent access to the class's CONTENT. */
+  canManageContent: boolean;
+}
 
 export type ClassStatus = "ACTIVE" | "ARCHIVED";
 

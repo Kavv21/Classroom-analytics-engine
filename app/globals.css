@@ -921,6 +921,58 @@
     letter-spacing: 0.06em;
   }
 
+  /* ---------- The two-line brand heading ---------------------------------
+     The professor's masthead treatment, used verbatim on /login and on the
+     home page: the wordmark at display size with visible air between its
+     letters, and the statement line directly beneath it.
+
+     The air is CSS `letter-spacing` on one intact string, never literal
+     spaces in the text ("F U T U R E…"). Literal spaces make a screen
+     reader announce thirteen letters instead of a word, and give the line
+     thirteen legal wrap points. Same picture, intact word.
+
+     Sizing is fluid, not stepped, because the constraint is a single
+     unbreakable 13-character word: at 48px with this tracking it wants
+     ~520px of line and a 320px viewport offers 272px between the gutters.
+     A breakpoint step would still overflow at every width below the step,
+     so the size tracks the *container* and tops out at the specified 48px
+     (line 1) / 36px (line 2), which both reach at ~570px of content width.
+     Container units, not vw: the home page sits inside the app frame
+     beside the rail, so the same viewport leaves it ~150px less room than
+     the full-bleed login masthead, and only the container knows that. The
+     `clamp()` above each `min()` is the fallback for engines without
+     container query units — it is deliberately duplicate, not dead.
+
+     Two things must not be "tidied" here: nothing may gain `break-words`
+     (breaking mid-word is exactly the failure the fluid size prevents),
+     and the multipliers carry ~15% slack because system-ui is a different
+     face per platform and the widest of them (DejaVu Sans Bold on Linux)
+     sets ~10% wider than the narrowest. */
+  .brand-header {
+    container-type: inline-size;
+    @apply text-center;
+  }
+  .brand-display {
+    font-family: var(--font-display);
+    @apply font-bold uppercase leading-tight;
+    font-size: clamp(1.125rem, 6.4vw, 3rem);
+    font-size: min(3rem, 8.4cqw);
+    letter-spacing: 0.16em;
+    /* Tracking is painted after the last glyph too, so a centred line sits
+       half a space left of true centre. An equal pad on the leading edge
+       puts the glyphs back on the axis. */
+    padding-left: 0.16em;
+    color: var(--text-primary);
+  }
+  .brand-statement {
+    font-family: var(--font-display);
+    @apply font-bold leading-snug;
+    font-size: clamp(1rem, 4.8vw, 2.25rem);
+    font-size: min(2.25rem, 6.3cqw);
+    letter-spacing: -0.012em;
+    color: var(--text-primary);
+  }
+
   /* ---------- The navy rail ----------------------------------------------
      Icon-only navigation. The label still ships in the DOM for every item
      (as the accessible name and as the collapsed tooltip) — this is a

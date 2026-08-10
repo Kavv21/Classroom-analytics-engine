@@ -1,31 +1,36 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { canManageClassContent } from "@/lib/classes/access";
 
 /**
- * Shared server-side plumbing for the analytics pages: the professor-only
+ * Shared server-side plumbing for the analytics pages: the class-staff
  * boundary (RLS is the enforcement; this yields a clean 404 for anyone
  * else) and the student-name map for drill-downs. Errors are surfaced,
  * never swallowed.
+ *
+ * "Staff" is the class's professor or one of its TAs — the same question
+ * `can_manage_class_content` answers for every policy behind these pages.
+ * It used to compare `classes.professor_id` to the caller here, which was
+ * the same answer until TAs existed and a stale copy of the rule after.
  */
 
-export async function requireProfessorClassPage(classId: string): Promise<{
+export async function requireClassStaffPage(classId: string): Promise<{
   supabase: Awaited<ReturnType<typeof createClient>>;
   classRow: { id: string; name: string } | null;
 }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  const { data: classRow, error } = await supabase
-    .from("classes")
-    .select("id, name, professor_id")
-    .eq("id", classId)
-    .maybeSingle();
+  const [{ data: classRow, error }, access] = await Promise.all([
+    supabase.from("classes").select("id, name").eq("id", classId).maybeSingle(),
+    canManageClassContent(supabase, classId),
+  ]);
   if (error) {
     throw new Error(`Could not verify access: ${error.message}`);
   }
-  if (!classRow || !user || classRow.professor_id !== user.id) {
+  if (access.error) {
+    throw new Error(`Could not verify access: ${access.error.message}`);
+  }
+  if (!classRow || !access.allowed) {
     return { supabase, classRow: null };
   }
   return { supabase, classRow: { id: classRow.id, name: classRow.name } };

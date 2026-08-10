@@ -10,7 +10,7 @@ import {
 } from "@/lib/analytics/queries";
 import {
   getClassAssignments,
-  requireProfessorClassPage,
+  requireClassStaffPage,
 } from "@/lib/analytics/page-data";
 
 export default async function AssignmentAnalyticsPage({
@@ -19,7 +19,7 @@ export default async function AssignmentAnalyticsPage({
   params: Promise<{ classId: string }>;
 }) {
   const { classId } = await params;
-  const { supabase, classRow } = await requireProfessorClassPage(classId);
+  const { supabase, classRow } = await requireClassStaffPage(classId);
   if (!classRow) notFound();
 
   // Only the per-question summaries need the assignment list; progress

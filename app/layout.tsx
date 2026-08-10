@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { createClient } from "@/lib/supabase/server";
-import { AppShell } from "@/components/shell/app-shell";
+import { AppShell, type ShellUser } from "@/components/shell/app-shell";
+import { hasAnyTaMembership } from "@/lib/classes/access";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -34,14 +35,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  let shellUser: { fullName: string | null; email: string; role: string } | null = null;
+  let shellUser: ShellUser | null = null;
   if (user) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("full_name, email, role")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (data) shellUser = { fullName: data.full_name, email: data.email, role: data.role };
+    // TA-ness lives in class_members, not in profiles.role, so the shell
+    // needs both reads to decide which doors to show. Two indexed lookups
+    // in one round-trip.
+    const [{ data }, assistsAClass] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, email, role")
+        .eq("id", user.id)
+        .maybeSingle(),
+      hasAnyTaMembership(user.id),
+    ]);
+    if (data) {
+      shellUser = {
+        fullName: data.full_name,
+        email: data.email,
+        role: data.role,
+        assistsAClass,
+      };
+    }
   }
 
   return (

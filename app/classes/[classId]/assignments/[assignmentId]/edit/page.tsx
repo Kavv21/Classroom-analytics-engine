@@ -5,14 +5,6 @@ import { AssignmentForm } from "@/components/assignments/assignment-form";
 import { updateAssignment } from "@/lib/assignments/actions";
 import { positionForSequenceNumber } from "@/lib/assignments/sequence";
 
-/** timestamptz → the local "YYYY-MM-DDTHH:mm" a datetime-local input needs. */
-function toLocalInput(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 export default async function EditAssignmentPage({
   params,
 }: {
@@ -55,8 +47,12 @@ export default async function EditAssignmentPage({
             instructions: assignment.instructions ?? "",
             assignmentStage: assignment.assignment_stage,
             sequencePosition: positionForSequenceNumber(assignment.sequence_number),
-            openAt: toLocalInput(assignment.open_at),
-            closeAt: toLocalInput(assignment.close_at),
+            // Handed over as the raw stored instants. The form converts
+            // them to the professor's wall clock in the browser — doing it
+            // here would read Vercel's timezone instead of theirs, which is
+            // the bug that made every schedule silently UTC.
+            openAt: assignment.open_at ?? "",
+            closeAt: assignment.close_at ?? "",
             allowDraftEditing: assignment.allow_draft_editing,
             allowResubmission: assignment.allow_resubmission,
             responseZeroLabel: assignment.response_zero_label,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import {
   assignmentFormSchema,
   type AssignmentFormValues,
 } from "@/lib/assignments/schema";
+import { isoToLocalInput, localInputToIso } from "@/lib/assignments/schedule";
 import type { AssignmentActionResult } from "@/lib/assignments/actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Busy } from "@/components/ui/busy";
@@ -74,10 +75,13 @@ export function AssignmentForm({
 }: AssignmentFormProps) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
+  const [timeZone, setTimeZone] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
     control,
+    getValues,
+    setValue,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<AssignmentFormValues>({
@@ -98,9 +102,36 @@ export function AssignmentForm({
     },
   });
 
+  /**
+   * The schedule is stored as instants (`timestamptz`) and edited as wall
+   * clock times, and only the browser knows the professor's timezone — so
+   * both halves of the conversion happen here, in an effect and at submit,
+   * never on the server. Doing it server-side is what made a 5 PM close
+   * time mean 17:00 UTC (see lib/assignments/schedule.ts).
+   *
+   * The effect runs once: `defaultValues` arrives holding ISO instants from
+   * the database, which a datetime-local input cannot display, so the
+   * fields start empty and fill in on mount. Re-running it over an
+   * already-converted value would be harmless (the conversion is
+   * idempotent) but would also stomp on whatever the professor has typed
+   * since.
+   */
+  useEffect(() => {
+    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    for (const field of ["openAt", "closeAt"] as const) {
+      const stored = getValues(field);
+      if (stored) setValue(field, isoToLocalInput(stored));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function onSubmit(values: AssignmentFormValues) {
     setFormError(null);
-    const result = await onSubmitAction(values);
+    const result = await onSubmitAction({
+      ...values,
+      openAt: localInputToIso(values.openAt),
+      closeAt: localInputToIso(values.closeAt),
+    });
 
     if (!result.success) {
       setFormError(result.error);
@@ -200,18 +231,48 @@ export function AssignmentForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-1.5">
-          <Label htmlFor="openAt">Opens at (optional)</Label>
-          <Input id="openAt" type="datetime-local" {...register("openAt")} />
-          {fieldError("openAt")}
+      <fieldset className="grid gap-1.5 rounded-md border border-hairline p-4">
+        <legend className="eyebrow px-1">Schedule</legend>
+        <p id="schedule-help" className="note">
+          These two times are what let students in. Once you have marked the
+          assignment ready, it opens itself at the first time and stops
+          accepting answers at the second &mdash; there is no button to press.
+          Leave them empty while you are still preparing: students can&apos;t
+          reach an assignment with no schedule.
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="openAt">Opens at</Label>
+            <Input
+              id="openAt"
+              type="datetime-local"
+              aria-describedby="schedule-help schedule-timezone"
+              aria-invalid={!!errors.openAt}
+              {...register("openAt")}
+            />
+            {fieldError("openAt")}
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="closeAt">Closes at</Label>
+            <Input
+              id="closeAt"
+              type="datetime-local"
+              aria-describedby="schedule-help schedule-timezone"
+              aria-invalid={!!errors.closeAt}
+              {...register("closeAt")}
+            />
+            {fieldError("closeAt")}
+          </div>
         </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="closeAt">Closes at (optional)</Label>
-          <Input id="closeAt" type="datetime-local" {...register("closeAt")} />
-          {fieldError("closeAt")}
-        </div>
-      </div>
+        {/* Rendered only after mount: the timezone name comes from the
+            browser, and printing anything here during SSR would be the
+            server's zone (UTC) masquerading as the professor's. */}
+        <p id="schedule-timezone" className="note-muted mt-1">
+          {timeZone
+            ? `Times are in your own timezone (${timeZone}).`
+            : "Times are in your own timezone."}
+        </p>
+      </fieldset>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-1.5">

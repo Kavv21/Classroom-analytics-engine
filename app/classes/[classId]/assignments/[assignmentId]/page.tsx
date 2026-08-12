@@ -12,8 +12,9 @@ import {
   QuestionManager,
   type QuestionRow,
 } from "@/components/assignments/question-manager";
+import { EffectiveStatusBadge } from "@/components/assignments/effective-status";
 import type { AssignmentStatus } from "@/lib/types/domain";
-import { assignmentStatusLabel, assignmentStatusTone } from "@/lib/ui/labels";
+import { effectiveAssignmentStatus } from "@/lib/assignments/schedule";
 
 interface ProgressRow {
   enrolled_students: number;
@@ -111,6 +112,22 @@ export default async function AssignmentDetailPage({
   const hasResponses = (responseCount ?? 0) > 0;
   const editable = status === "DRAFT" || status === "READY";
 
+  // Computed here, in the Server Component, and passed down: it depends on
+  // now(), so a client component deriving it would disagree with the SSR
+  // HTML and break hydration.
+  const schedule = { openAt: assignment.open_at, closeAt: assignment.close_at };
+  const effective = effectiveAssignmentStatus(status, schedule);
+
+  // Progress and attempts are worth showing from the moment students could
+  // have started — which, for a scheduled assignment, is a date passing
+  // rather than a status changing.
+  const showStudentSections =
+    status === "OPEN" ||
+    status === "CLOSED" ||
+    hasResponses ||
+    effective.kind === "OPEN" ||
+    effective.kind === "WINDOW_PASSED";
+
   const attemptTableRows: AttemptTableRow[] = (
     (attemptRows ?? []) as unknown as Array<{
       id: string;
@@ -140,7 +157,7 @@ export default async function AssignmentDetailPage({
       </nav>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
         <h1 className="title-md">{assignment.title}</h1>
-        <span className={assignmentStatusTone(status)}>{assignmentStatusLabel(status)}</span>
+        <EffectiveStatusBadge status={effective} />
       </div>
 
       <div className="note mt-2 flex flex-wrap gap-x-4 gap-y-1">
@@ -150,15 +167,19 @@ export default async function AssignmentDetailPage({
         <span>
           Answer labels: {assignment.response_zero_label} / {assignment.response_one_label}
         </span>
-        {assignment.open_at && (
+        {assignment.open_at ? (
           <span>
             Opens <LocalDateTime value={assignment.open_at} />
           </span>
+        ) : (
+          status !== "DRAFT" && <span>No opening time set</span>
         )}
-        {assignment.close_at && (
+        {assignment.close_at ? (
           <span>
             Closes <LocalDateTime value={assignment.close_at} />
           </span>
+        ) : (
+          status !== "DRAFT" && <span>No closing time set</span>
         )}
       </div>
 
@@ -191,17 +212,21 @@ export default async function AssignmentDetailPage({
         )}
       </div>
 
-      <h2 className="title-sm mt-10">Publishing</h2>
+      <h2 className="title-sm mt-10">Availability</h2>
       <div className="mt-3">
         <StatusActions
           assignmentId={assignmentId}
           classId={classId}
           status={status}
           questionCount={questions?.length ?? 0}
+          effective={effective}
+          openAt={assignment.open_at}
+          closeAt={assignment.close_at}
+          editHref={`/classes/${classId}/assignments/${assignmentId}/edit`}
         />
       </div>
 
-      {(status === "OPEN" || status === "CLOSED" || hasResponses) && progress && (
+      {showStudentSections && progress && (
         <>
           <h2 className="title-sm mt-10">Submission progress</h2>
           <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
@@ -222,7 +247,7 @@ export default async function AssignmentDetailPage({
         </>
       )}
 
-      {(status === "OPEN" || status === "CLOSED" || attemptTableRows.length > 0) && (
+      {(showStudentSections || attemptTableRows.length > 0) && (
         <>
           <h2 className="title-sm mt-10">Student attempts</h2>
           <AttemptsTable

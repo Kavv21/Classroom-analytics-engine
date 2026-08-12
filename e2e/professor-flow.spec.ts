@@ -58,16 +58,21 @@ test("professor creates a class end to end", async ({ page }) => {
   await expect(page.getByRole("link", { name: "View analytics" })).toBeVisible();
 });
 
-test("assignment detail shows imported questions and the publishing controls", async ({ page }) => {
+test("assignment detail shows imported questions and the availability controls", async ({ page }) => {
   const { classId, a1Id } = await seededClass(admin);
   await page.goto(`/classes/${classId}/assignments/${a1Id}`);
 
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Assignment 1");
   // The real spreadsheet import produced 30 questions for Assignment 1.
   await expect(page.getByRole("heading", { name: /^Questions \(30\)$/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Publishing" })).toBeVisible();
-  // Seeded assignments are already OPEN, so closing is the offered action.
-  await expect(page.getByRole("button", { name: "Close assignment" })).toBeVisible();
+  // "Publishing" became "Availability" in migration 0029: the dates are
+  // what let students in, so there is no publish button to head a section
+  // with. Seeded assignments are OPEN with no dates — the legacy shape —
+  // so what is offered is the schedule and the retire step.
+  await expect(page.getByRole("heading", { name: "Availability" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Set the schedule" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close to students now" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publish to students" })).toHaveCount(0);
 });
 
 test("analytics pages render real figures from the seeded responses", async ({ page }) => {

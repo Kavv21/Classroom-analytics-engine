@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AnswerGrid } from "@/components/attempts/answer-grid";
 import { buildAnswerGrid, type AnswerGridQuestion } from "@/lib/attempts/answer-grid";
 import { canAnswerAssignment } from "@/lib/attempts/workable";
+import { assignmentAcceptsAnswers } from "@/lib/assignments/schedule";
 import type { AttemptState, ResponseValue } from "@/lib/types/domain";
 
 interface AttemptPayload {
@@ -50,7 +51,7 @@ export default async function TakeAssignmentPage({
     supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
     supabase
       .from("assignments")
-      .select("id, title, instructions, status, allow_draft_editing")
+      .select("id, title, instructions, status, open_at, close_at, allow_draft_editing")
       .eq("id", assignmentId)
       .maybeSingle(),
     supabase
@@ -72,15 +73,14 @@ export default async function TakeAssignmentPage({
   if (!assignment) notFound();
   if (questionsError) throw new Error(`Failed to load questions: ${questionsError.message}`);
 
-  // A CLOSED assignment is still answerable by a student whose own attempt
-  // the professor reopened — the per-student reopen exists precisely so one
-  // student can finish without republishing to the class. The rule lives in
-  // `attempt_is_workable` (migration 0023); this check only decides where
-  // to send someone who can't answer, and the RPC below remains the
-  // boundary. Any other status is a hard no.
-  if (assignment.status !== "OPEN") {
-    if (assignment.status !== "CLOSED") redirect(`/assignments/${assignmentId}/receipt`);
-
+  // Outside the schedule window, an assignment is still answerable by a
+  // student whose own attempt the professor reopened — the per-student
+  // reopen exists precisely so one student can finish without reopening the
+  // window for the class. The rule lives in `attempt_is_workable`
+  // (migration 0029); this check only decides where to send someone who
+  // can't answer, and the RPC below remains the boundary.
+  const schedule = { openAt: assignment.open_at, closeAt: assignment.close_at };
+  if (!assignmentAcceptsAnswers(assignment.status, schedule)) {
     const { data: existing, error: existingError } = await supabase
       .from("assignment_attempts")
       .select("state, reopened_at")
@@ -92,9 +92,13 @@ export default async function TakeAssignmentPage({
     }
     const answerable = canAnswerAssignment(
       assignment.status,
-      existing ? { state: existing.state as AttemptState, reopenedAt: existing.reopened_at } : null
+      existing ? { state: existing.state as AttemptState, reopenedAt: existing.reopened_at } : null,
+      schedule
     );
-    if (!answerable) redirect(`/assignments/${assignmentId}/receipt`);
+    // Someone who has never had an attempt has no receipt to look at
+    // either — a student arriving before the opening time belongs on the
+    // list, where the row says when it opens.
+    if (!answerable) redirect(existing ? `/assignments/${assignmentId}/receipt` : "/assignments");
   }
 
   // The attempt must not be created until the assignment is known to be

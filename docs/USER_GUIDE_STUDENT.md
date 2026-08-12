@@ -11,7 +11,15 @@ again.
 ## Your assignments
 
 After signing in you land on **Your assignments**. Each one shows the
-class, the closing time if there is one, and where you are with it:
+class, when it opens or closes, and where you are with it:
+
+Assignments open and close at set times. One that hasn't opened yet is
+listed as **Not open yet** with the time it opens — you can see it is
+coming, but not its questions. Once the closing time passes it stops
+accepting answers, including saves, so don't leave the last cell until the
+final minute. All times shown are in your own timezone.
+
+Your state on each one:
 
 - **Not started**
 - **In progress** — you've answered at least one question

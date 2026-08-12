@@ -120,11 +120,24 @@ export type AssignmentStage =
 export type AssignmentStatus = "DRAFT" | "READY" | "OPEN" | "CLOSED" | "ARCHIVED";
 
 /**
- * DRAFT -> READY -> OPEN -> CLOSED -> ARCHIVED, plus READY -> DRAFT
- * (un-approve to resume editing) and CLOSED -> OPEN (reopen to students).
+ * DRAFT -> READY -> CLOSED -> ARCHIVED, plus READY -> DRAFT (un-approve to
+ * resume editing) and CLOSED -> READY (retire, then reschedule).
  * Enforced at the DB layer by the assignments_status_transition trigger
- * (migrations 0009, 0023) — this map exists so the UI and server actions
- * can fail fast with a friendly message, not as the boundary itself.
+ * (migrations 0009, 0023, 0029) — this map exists so the UI and server
+ * actions can fail fast with a friendly message, not as the boundary
+ * itself.
+ *
+ * READY is where a scheduled assignment LIVES. Since migration 0029 the
+ * dates in `open_at`/`close_at` decide when students can answer, so a
+ * scheduled assignment stays at READY from approval until the professor
+ * retires it — it never passes through OPEN. READY -> CLOSED and
+ * CLOSED -> READY were added there so that "retire this" and "put it back
+ * on the calendar" still have edges, and so ARCHIVED stays reachable.
+ *
+ * OPEN survives for the assignments already published by hand before 0029,
+ * and keeps its OPEN -> CLOSED / CLOSED -> OPEN edges so those can still be
+ * closed and reopened. Nothing in the UI moves an assignment INTO OPEN any
+ * more.
  *
  * CLOSED -> OPEN was missing until 0023, and its absence was a dead end
  * rather than a safety property: closing was irreversible, so a professor
@@ -134,9 +147,9 @@ export type AssignmentStatus = "DRAFT" | "READY" | "OPEN" | "CLOSED" | "ARCHIVED
  */
 export const VALID_ASSIGNMENT_TRANSITIONS: Record<AssignmentStatus, AssignmentStatus[]> = {
   DRAFT: ["READY"],
-  READY: ["DRAFT", "OPEN"],
+  READY: ["DRAFT", "OPEN", "CLOSED"],
   OPEN: ["CLOSED"],
-  CLOSED: ["OPEN", "ARCHIVED"],
+  CLOSED: ["OPEN", "READY", "ARCHIVED"],
   ARCHIVED: [],
 };
 

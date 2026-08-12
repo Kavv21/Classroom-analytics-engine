@@ -38,6 +38,22 @@ function nullIfBlank(value: string | undefined): string | null {
 }
 
 /**
+ * Schedule field -> a UTC instant, or null.
+ *
+ * The form sends ISO (it converts the professor's wall clock in the
+ * browser, where the timezone is actually known). Normalising again here
+ * costs nothing and makes what lands in `timestamptz` explicit rather than
+ * dependent on how Postgres reads whatever string arrived — a server action
+ * is a public entry point and does not get to assume its caller is the UI.
+ */
+function toInstant(value: string | undefined): string | null {
+  const raw = nullIfBlank(value);
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/**
  * The paired positions (first/second) must be unique per class among
  * assignments still in play.
  *
@@ -226,8 +242,8 @@ export async function createAssignment(
     description: nullIfBlank(v.description),
     instructions: nullIfBlank(v.instructions),
     assignment_stage: v.assignmentStage,
-    open_at: nullIfBlank(v.openAt),
-    close_at: nullIfBlank(v.closeAt),
+    open_at: toInstant(v.openAt),
+    close_at: toInstant(v.closeAt),
     allow_draft_editing: v.allowDraftEditing,
     allow_resubmission: v.allowResubmission,
     response_zero_label: v.responseZeroLabel.trim(),
@@ -365,8 +381,8 @@ export async function updateAssignment(
       instructions: nullIfBlank(v.instructions),
       assignment_stage: v.assignmentStage,
       sequence_number: sequenceNumber,
-      open_at: nullIfBlank(v.openAt),
-      close_at: nullIfBlank(v.closeAt),
+      open_at: toInstant(v.openAt),
+      close_at: toInstant(v.closeAt),
       allow_draft_editing: v.allowDraftEditing,
       allow_resubmission: v.allowResubmission,
       response_zero_label: v.responseZeroLabel.trim(),

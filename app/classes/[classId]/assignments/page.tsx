@@ -2,20 +2,25 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-import { assignmentStatusLabel } from "@/lib/ui/labels";
+import { effectiveAssignmentStatus } from "@/lib/assignments/schedule";
 import { PILL } from "@/lib/ui/tone";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
-/* Mirrors assignmentStatusTone() in lib/ui/labels.ts — same five hues, in
-   the shadcn <Badge> shape this list uses. Lifecycle order, not merit
-   order: no state here is better than another. */
-const STATUS_TONE: Record<string, string> = {
+/* Keyed by EFFECTIVE status, not by the status column: a scheduled
+   assignment sits at READY through its whole window, so colouring by the
+   raw column would paint an assignment the class is answering right now the
+   same as one nobody can reach. Lifecycle order, not merit order: no state
+   here is better than another. */
+const KIND_TONE: Record<string, string> = {
   DRAFT: PILL.amber,
-  READY: PILL.blue,
+  NOT_SCHEDULED: PILL.amber,
+  SCHEDULED: PILL.blue,
   OPEN: PILL.green,
+  WINDOW_PASSED: PILL.purple,
   CLOSED: PILL.purple,
   ARCHIVED: PILL.slate,
 };
@@ -71,7 +76,12 @@ export default async function AssignmentsPage({
         </Alert>
       ) : (
         <Card className="mt-6 p-0"><CardContent className="p-0"><ul className="divide-y">
-          {assignments.map((a) => (
+          {assignments.map((a) => {
+            const effective = effectiveAssignmentStatus(a.status, {
+              openAt: a.open_at,
+              closeAt: a.close_at,
+            });
+            return (
             <li key={a.id}>
               <Link
                 href={`/classes/${classId}/assignments/${a.id}`}
@@ -86,12 +96,22 @@ export default async function AssignmentsPage({
                     {a.assignment_stage.replaceAll("_", " ").toLowerCase()}
                   </p>
                 </div>
-                <Badge variant="outline" className={STATUS_TONE[a.status] ?? ""}>
-                  {assignmentStatusLabel(a.status)}
+                <Badge
+                  variant="outline"
+                  className={`shrink-0 ${KIND_TONE[effective.kind] ?? ""}`}
+                >
+                  {effective.label}
+                  {effective.detail && effective.at && (
+                    <>
+                      {` ${effective.detail} `}
+                      <LocalDateTime value={effective.at} />
+                    </>
+                  )}
                 </Badge>
               </Link>
             </li>
-          ))}
+            );
+          })}
         </ul></CardContent></Card>
       )}
     </main>

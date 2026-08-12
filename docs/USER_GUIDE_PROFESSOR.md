@@ -47,16 +47,42 @@ saved. Fix the file and upload again.
 You can adjust the answer labels (what "0" and "1" mean) per question, and
 reorder questions.
 
-## 5. Publish
+## 5. Approve, then schedule
 
-On the assignment page, under **Publishing**:
+There is no "publish" button. An assignment opens and closes **on its own,
+at the times you set** — you do not have to be at a computer at 9am to let
+the class in, or at midnight to shut them out.
+
+On the assignment page, under **Availability**:
 
 1. Tick "I have reviewed all N questions" and choose **Mark ready to
-   publish**. Students still cannot see it.
-2. Choose **Publish to students**. It is now open.
+   schedule**. This is still a deliberate approval of the question list,
+   and it is still yours to give — nothing about the dates replaces it.
+   Students still cannot see the assignment.
+2. Choose **Set the schedule**, and fill in **Opens at** and **Closes at**.
+   Both are required: an assignment with only one of them is not scheduled,
+   and nobody can reach it. The times are in **your own timezone** (the
+   form says which one it detected).
 
-Later: **Close assignment** stops submissions; **Archive assignment** puts
-it away.
+That is all. At the opening time students can start; at the closing time
+the assignment stops accepting answers, saves and submissions alike. In
+between, the assignment page reads "Open until …" rather than a status you
+have to translate.
+
+**To end it early or run it longer, change the closing time** — that is the
+normal way to adjust access. Before it opens, students can see that the
+assignment is coming and when, but not its questions.
+
+Two other buttons, which are not schedule changes:
+
+* **Close to students now** retires the assignment whatever the dates say.
+  Use it when you are finished with it — it is the step before archiving.
+  A retired assignment can be put back on the calendar with **Reschedule**.
+* **Archive assignment** puts it away entirely.
+
+*If you have assignments from before this change, they are still in the old
+"open until you close it" mode and keep working. Give one an opening and a
+closing time to move it onto the calendar.*
 
 Once any student has answered, question wording and labels lock. You can
 still reorder. To change the questions themselves, use **Duplicate** and

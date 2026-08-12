@@ -97,19 +97,71 @@ Stages: PRE_INSTRUCTION, POST_INSTRUCTION, FOLLOW_UP, OTHER
 Statuses: DRAFT, READY, OPEN, CLOSED, ARCHIVED
 
 Status transitions are enforced by the `assignments_status_transition`
-trigger (migrations 0009, 0023), not just the UI:
+trigger (migrations 0009, 0023, 0029), not just the UI:
 ```
 DRAFT  → READY      (requires ≥1 active question; READY = "professor saw
                      and approved the full question list")
 READY  → DRAFT      (un-approve, resume editing)
-READY  → OPEN       (publish)
-OPEN   → CLOSED
-CLOSED → OPEN       (reopen to the whole class — added in 0023)
+READY  → CLOSED     (retire a scheduled assignment — added in 0029)
+CLOSED → READY      (put it back on the calendar — added in 0029)
 CLOSED → ARCHIVED
+READY  → OPEN       (legacy manual publish; no longer offered in the UI)
+OPEN   → CLOSED     (legacy)
+CLOSED → OPEN       (legacy reopen-to-class — added in 0023)
 ```
 Everything else is rejected with an exception. The TS mirror of this map is
 `VALID_ASSIGNMENT_TRANSITIONS` in `lib/types/domain.ts` (friendly errors
 only — the trigger is the boundary).
+
+### Scheduling: `open_at` / `close_at` are the access control (0029)
+
+`open_at` and `close_at` existed from 0001 and were read by nothing — the
+form collected them, the detail page printed them, and student access was
+decided entirely by whether a professor had pressed "Publish to students"
+(READY → OPEN). Since **migration 0029 the window IS the mechanism**, and
+the publish/close buttons are gone from the UI.
+
+```
+assignment_accepts_answers(status, open_at, close_at)   -- stable, reads now()
+  READY  → open_at IS NOT NULL AND close_at IS NOT NULL
+           AND now() BETWEEN open_at AND close_at        (both bounds inclusive)
+  OPEN   → (open_at IS NULL OR now() >= open_at)
+           AND (close_at IS NULL OR now() <= close_at)
+  else   → false
+```
+
+* **A scheduled assignment lives at READY.** It is approved, it has a
+  window, and it never passes through OPEN. The status column therefore
+  reads `READY` the whole time the class is answering — which is why the
+  UI prints an *effective* status (`effectiveAssignmentStatus` in
+  `lib/assignments/schedule.ts`: Draft / Not scheduled / Scheduled — opens X
+  / Open until X / Closed / Archived) and never the raw column.
+* **A READY assignment with either date missing is unreachable.** Fail
+  closed, deliberately: READY has always meant "approved, not yet
+  released", so a missing schedule must not come to mean "open to
+  everyone". The form requires the two dates together.
+* **OPEN is legacy.** Every assignment published by hand before 0029 sits
+  in it, so there a NULL bound is an ABSENT bound and a dateless OPEN row
+  behaves exactly as it did before. Nothing in the UI moves an assignment
+  into OPEN any more.
+* **Evaluated lazily, at request time.** There is no cron job, no scheduled
+  function and no status-flipping worker: `get_or_create_attempt`,
+  `save_attempt_responses`, `submit_attempt` and the two student-facing RLS
+  policies each compare `now()` against the row when they run.
+* `assignment_has_opened(status, open_at)` is the weaker sibling: has this
+  ever been in front of students? It gates student access to `questions`
+  (which must outlive the window, for receipts) and the per-attempt reopen.
+* `assignments_window_ordered` — CHECK `close_at >= open_at`, added NOT
+  VALID in 0029 so it binds new writes without rejecting historical rows.
+  `alter table public.assignments validate constraint
+  assignments_window_ordered;` once the existing rows have been checked.
+
+Timezones: `open_at`/`close_at` are `timestamptz`, and the conversion
+to/from the `datetime-local` inputs happens **in the browser only**
+(`isoToLocalInput` / `localInputToIso`). Doing it in a Server Component —
+which is what the edit page used to do — reads Vercel's timezone (UTC)
+instead of the professor's, and silently stored every schedule off by their
+UTC offset.
 
 ARCHIVED is the only terminal status *within the FSM*. CLOSED → OPEN was
 absent until 0023, which made closing irreversible and left the
@@ -250,9 +302,15 @@ No anti-cheat or browser-violation event tables — see EXCLUDED_FEATURES.md.
 
 ## Row-Level Security (enforced at the DB layer, not just frontend)
 
-Students: read own profile; read classes they're enrolled in; read open
-assignments for their classes; read/write only their own draft responses;
-submit only their own attempts; read only their own submission receipts.
+Students: read own profile; read classes they're enrolled in; read
+assignments for their classes that are OPEN, CLOSED, or READY **and
+scheduled** (`assignments_student_select`, rewritten in 0029 — an approved
+but unscheduled assignment stays invisible); read the QUESTIONS of one only
+once it has actually opened (`questions_student_select`, gated on
+`assignment_has_opened`, so the text is hidden before the opening time and
+still readable afterwards for receipts); read/write only their own draft
+responses; submit only their own attempts; read only their own submission
+receipts.
 Students may NOT read another student's responses, class analytics, alter
 submitted data, or export class datasets.
 
@@ -494,8 +552,11 @@ is what authorises the write. EXECUTE is revoked from anon on all of them:
 - `get_or_create_attempt(p_assignment_id)` — idempotent entry point;
   requires the caller a class member and the assignment answerable (see
   `attempt_is_workable` below); creates the NOT_STARTED row on first call,
-  returns the existing one after. A row is only ever created while the
-  assignment is OPEN.
+  returns the existing one after. A row is only ever created while
+  `assignment_accepts_answers` is true — i.e. inside the schedule window
+  (0029), where it used to mean "while the status is OPEN". Refusals name
+  the date ("this assignment is not open yet — it opens at …") rather than
+  the status.
 - `save_attempt_responses(p_attempt_id, p_answers)` — batched autosave.
   Upserts on (attempt_id, question_id) so retried batches converge;
   validates each value against {0, 1, null} and each question against the
@@ -513,9 +574,12 @@ is what authorises the write. EXECUTE is revoked from anon on all of them:
 - `reopen_attempt(p_attempt_id, p_assignment_id)` — professor-only,
   `security definer`. SUBMITTED → REOPENED with reopened_at/reopened_by;
   clears responses.is_final; audit-logged. RESUBMITTED is terminal and
-  cannot be reopened. Since 0023 it refuses an assignment that is not OPEN
-  or CLOSED, rather than minting a REOPENED attempt the student could never
-  act on. Since 0024 the assignment id is a required second argument and
+  cannot be reopened. Since 0023 it refuses an assignment the student could
+  never act on, rather than minting an unusable REOPENED attempt; since
+  0029 that test is `assignment_has_opened(status, open_at)` instead of
+  `status in ('OPEN','CLOSED')`, because a scheduled assignment sits at
+  READY and reopening one student after the window shuts is the whole point
+  of this RPC. Since 0024 the assignment id is a required second argument and
   must match the attempt's own: it affects exactly one (assignment,
   student) pair, and the caller has to say which assignment it believed it
   was acting on. The single-argument form was dropped.
@@ -525,14 +589,24 @@ is what authorises the write. EXECUTE is revoked from anon on all of them:
   REOPENED/RESUBMITTED attempts and the assignment's own status untouched
   (it is not CLOSED → OPEN); one ATTEMPT_REOPENED audit event per attempt
   plus one ASSIGNMENT_ATTEMPTS_REOPENED summary; returns the count.
-- `attempt_is_workable(status, state, reopened_at)` (0023, `immutable`) —
-  the single definition of "may this student still write to this attempt":
-  true while the assignment is OPEN, and for an individually reopened
-  attempt (`reopened_at is not null`, state REOPENED or DRAFT) whose
-  assignment is CLOSED, until they submit again. DRAFT is inside the
-  allowance because the first autosave moves REOPENED → DRAFT. Mirrored
-  for the UI by `canAnswerAssignment` in `lib/attempts/workable.ts`; the
-  SQL is the boundary.
+- `assignment_accepts_answers(status, open_at, close_at)` (0029,
+  `stable`) — may the CLASS answer this right now? See "Scheduling" under
+  `assignments` for the full rule. Mirrored by `assignmentAcceptsAnswers`
+  in `lib/assignments/schedule.ts`.
+- `assignment_has_opened(status, open_at)` (0029, `stable`) — has this ever
+  been in front of students? Gates `questions_student_select` and both
+  reopen RPCs.
+- `attempt_is_workable(status, open_at, close_at, state, reopened_at)`
+  (0023, rewritten in 0029, `stable`) — the single definition of "may this
+  student still write to this attempt": true while
+  `assignment_accepts_answers`, and for an individually reopened attempt
+  (`reopened_at is not null`, state REOPENED or DRAFT) on an assignment
+  that has opened but is no longer accepting answers, until they submit
+  again. DRAFT is inside the allowance because the first autosave moves
+  REOPENED → DRAFT. The pre-0029 three-argument form was dropped, not kept
+  alongside: its whole answer was "status = OPEN". Mirrored for the UI by
+  `canAnswerAssignment` in `lib/attempts/workable.ts`; the SQL is the
+  boundary.
   Note that `save_attempt_responses`/`submit_attempt` check the synthetic
   seeding exception (0020) FIRST — a synthetic attempt bypasses this
   predicate entirely and writes into a published assignment whatever its

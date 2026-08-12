@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canAnswerAssignment } from "@/lib/attempts/workable";
+import { assignmentAcceptsAnswers } from "@/lib/assignments/schedule";
 import type { AttemptState } from "@/lib/types/domain";
 import { LocalDateTime } from "@/components/ui/local-date-time";
 
@@ -67,6 +68,10 @@ export default async function StudentAssignmentsPage() {
     (attempts ?? []).map((a) => [a.assignment_id, a])
   );
 
+  // One clock for the whole list, so two rows can't be judged a millisecond
+  // apart and disagree about which side of a shared deadline they are on.
+  const now = new Date();
+
   return (
     <main className="page-standard">
       <h1 className="title-md">Your assignments</h1>
@@ -82,10 +87,16 @@ export default async function StudentAssignmentsPage() {
             const attempt = attemptByAssignment.get(a.id);
             const state = attempt?.state ?? "NOT_STARTED";
             const finished = state === "SUBMITTED" || state === "RESUBMITTED";
-            const open = a.status === "OPEN";
+            // "Open" is now a question about the clock, not about a status
+            // a professor set (lib/assignments/schedule.ts).
+            const schedule = { openAt: a.open_at, closeAt: a.close_at };
+            const open = assignmentAcceptsAnswers(a.status, schedule, now);
+            const notYet = !!a.open_at && now < new Date(a.open_at);
             const answerable = canAnswerAssignment(
               a.status,
-              attempt ? { state: attempt.state, reopenedAt: attempt.reopened_at } : null
+              attempt ? { state: attempt.state, reopenedAt: attempt.reopened_at } : null,
+              schedule,
+              now
             );
             const href = finished
               ? `/assignments/${a.id}/receipt`
@@ -99,13 +110,19 @@ export default async function StudentAssignmentsPage() {
                     <p className="font-medium">{a.title}</p>
                     <p className="note mt-0.5">
                       {a.classes?.name}
-                      {a.close_at && open && (
+                      {open && a.close_at && (
                         <>
                           {" · closes "}
                           <LocalDateTime value={a.close_at} />
                         </>
                       )}
-                      {!open && (
+                      {notYet && (
+                        <>
+                          {" · opens "}
+                          <LocalDateTime value={a.open_at} />
+                        </>
+                      )}
+                      {!open && !notYet && (
                         <>
                           {" "}
                           · closed{answerable && " to the class, reopened for you"}
@@ -128,7 +145,7 @@ export default async function StudentAssignmentsPage() {
                             : "Continue"}
                     </Link>
                   ) : (
-                    <span className="badge">Closed</span>
+                    <span className="badge">{notYet ? "Not open yet" : "Closed"}</span>
                   )}
                 </div>
               </li>

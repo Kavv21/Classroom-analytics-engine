@@ -25,7 +25,11 @@ export default async function SubmissionReceiptPage({
     { data: attempt, error: attemptError },
     { count: total, error: totalError },
   ] = await Promise.all([
-    supabase.from("assignments").select("id, title, status").eq("id", assignmentId).maybeSingle(),
+    supabase
+      .from("assignments")
+      .select("id, title, status, open_at, close_at")
+      .eq("id", assignmentId)
+      .maybeSingle(),
     supabase
       .from("assignment_attempts")
       .select("id, state, submitted_at, submission_version, reopened_at")
@@ -52,10 +56,14 @@ export default async function SubmissionReceiptPage({
     // the two pages bounce a reopened student between each other and the
     // list, which is what "reopened but I can't get in" looked like.
     if (
-      canAnswerAssignment(assignment.status, {
-        state: attempt.state as AttemptState,
-        reopenedAt: attempt.reopened_at,
-      })
+      canAnswerAssignment(
+        assignment.status,
+        {
+          state: attempt.state as AttemptState,
+          reopenedAt: attempt.reopened_at,
+        },
+        { openAt: assignment.open_at, closeAt: assignment.close_at }
+      )
     ) {
       redirect(`/assignments/${assignmentId}`);
     }

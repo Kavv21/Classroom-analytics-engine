@@ -4,13 +4,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { assignmentStatusLabel, assignmentStatusTone } from "@/lib/ui/labels";
+import { effectiveAssignmentStatus } from "@/lib/assignments/schedule";
 import { PILL } from "@/lib/ui/tone";
 
 interface ClassAssignmentStatusRow {
   class_id: string;
   sequence_number: number;
   status: string;
+  open_at: string | null;
+  close_at: string | null;
 }
 
 interface ClassRow {
@@ -73,7 +75,7 @@ export default async function ClassesPage() {
     classIds.length > 0
       ? await supabase
           .from("assignments")
-          .select("class_id, sequence_number, status")
+          .select("class_id, sequence_number, status, open_at, close_at")
           .in("class_id", classIds)
           .in("sequence_number", [1, 2])
           .order("sequence_number")
@@ -129,11 +131,21 @@ export default async function ClassesPage() {
                   </p>
                   {classAssignments.length > 0 && (
                     <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      {classAssignments.map((a) => (
-                        <span key={a.sequence_number} className={assignmentStatusTone(a.status)}>
-                          A{a.sequence_number}: {assignmentStatusLabel(a.status)}
-                        </span>
-                      ))}
+                      {/* Effective status, not the raw column: a scheduled
+                          assignment stays at READY the whole time it is
+                          being answered. No timestamp here — this is a
+                          glance, and the detail page carries the dates. */}
+                      {classAssignments.map((a) => {
+                        const effective = effectiveAssignmentStatus(a.status, {
+                          openAt: a.open_at,
+                          closeAt: a.close_at,
+                        });
+                        return (
+                          <span key={a.sequence_number} className={effective.tone}>
+                            A{a.sequence_number}: {effective.label}
+                          </span>
+                        );
+                      })}
                     </p>
                   )}
                 </div>

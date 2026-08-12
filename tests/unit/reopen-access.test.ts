@@ -22,17 +22,10 @@ import { canAnswerAssignment } from "@/lib/attempts/workable";
 
 const REOPENED_AT = "2026-08-02T12:00:00.000Z";
 
+// The exact map (and the READY <-> CLOSED edges migration 0029 added for
+// scheduled assignments) is asserted once, in assignment-schedule.test.ts.
+// What matters here is the dead end this file was written about.
 describe("VALID_ASSIGNMENT_TRANSITIONS", () => {
-  it("matches docs/DATABASE_SCHEMA.md exactly — nothing added, nothing missing", () => {
-    expect(VALID_ASSIGNMENT_TRANSITIONS).toEqual({
-      DRAFT: ["READY"],
-      READY: ["DRAFT", "OPEN"],
-      OPEN: ["CLOSED"],
-      CLOSED: ["OPEN", "ARCHIVED"],
-      ARCHIVED: [],
-    });
-  });
-
   it("lets a closed assignment be reopened to students", () => {
     expect(VALID_ASSIGNMENT_TRANSITIONS.CLOSED).toContain("OPEN");
   });

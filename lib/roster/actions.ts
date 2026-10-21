@@ -17,6 +17,7 @@ import {
   type ClassifyRosterRowsContext,
   type RosterEmailCheck,
 } from "@/lib/roster/validate";
+import { describeProvisioningFailure } from "@/lib/roster/provisioning-failure";
 import type { RosterImportPreview, RosterImportSummary, RosterRowResult } from "@/lib/types/domain";
 
 export type RosterActionResult<T> = { success: true; data: T } | { success: false; error: string };
@@ -201,16 +202,42 @@ export async function commitRosterImport(
     p_rejected_rows: rejectedRows,
   });
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    console.error("commitRosterImport: commit_roster_import failed", { classId, error });
+    return { success: false, error: error.message };
+  }
 
   revalidatePath(`/classes/${classId}`);
 
-  const summary = data as { importId: string; imported: number; rejected: number; total: number };
+  const summary = data as {
+    importId: string;
+    imported: number;
+    needsAttention: { rowNumber: number; email: string; errorCode: string; errorMessage: string }[];
+    rejected: number;
+    total: number;
+  };
+
+  // Rows on the roster whose provisioning failed. The import still
+  // succeeded; the raw cause goes to the log, the professor gets a reason.
+  for (const row of summary.needsAttention) {
+    console.error("commitRosterImport: roster entry added but not provisioned", {
+      classId,
+      importId: summary.importId,
+      ...row,
+    });
+  }
+
   return {
     success: true,
     data: {
       importId: summary.importId,
       imported: summary.imported,
+      needsAttention: summary.needsAttention.map((row) => ({
+        rowNumber: row.rowNumber,
+        email: row.email,
+        errorCode: row.errorCode,
+        reason: describeProvisioningFailure(row.errorCode),
+      })),
       rejected: summary.rejected,
       total: summary.total,
     },

@@ -32,7 +32,7 @@ export async function addClassTa(
   classId: string,
   email: string,
   fullName: string
-): Promise<ActionResult<{ mode: "ENROLLED" | "PREAUTHORISED"; email: string }>> {
+): Promise<ActionResult<{ mode: "ENROLLED" | "PREAUTHORISED" | "NEEDS_ATTENTION"; email: string }>> {
   const normalised = email.trim().toLowerCase();
   if (normalised === "") {
     return { success: false, error: "Enter an email address." };
@@ -50,7 +50,7 @@ export async function addClassTa(
   revalidatePath(`/classes/${classId}`);
   return {
     success: true,
-    data: data as { mode: "ENROLLED" | "PREAUTHORISED"; email: string },
+    data: data as { mode: "ENROLLED" | "PREAUTHORISED" | "NEEDS_ATTENTION"; email: string },
   };
 }
 

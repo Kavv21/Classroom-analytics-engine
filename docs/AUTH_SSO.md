@@ -104,10 +104,13 @@ the user supplies at sign-in:
      `class_members` link). If not found, the login succeeds against
      Google but the app treats them as unprovisioned — no profile, no
      access, until a professor/admin adds them to a roster.
-- This means **order matters**: a student's roster entry must exist
-  before their first login for them to land in the right class
-  automatically. Document this for the professor in the user guide —
-  import rosters before publishing an assignment, not after.
+- **Order no longer matters** (migration 0030). Someone who signs in
+  before being rostered is provisioned the moment their roster entry is
+  created, by a trigger on `roster_entries` that calls
+  `provision_roster_entry()`. Both paths share `apply_roster_entry()` and
+  an advisory lock on the email, so they cannot drift or race. A failure
+  on the roster path is recorded in `provisioning_failures` rather than
+  aborting the import. See `docs/DATABASE_SCHEMA.md` → roster_entries.
 
 ## 3. What changes in the schema
 

@@ -57,11 +57,17 @@ export function ManageTas({ classId, tas }: { classId: string; tas: ClassTa[] })
       }
       setEmail("");
       setFullName("");
-      toast.success(
-        result.data.mode === "ENROLLED"
-          ? `${result.data.email} is now a teaching assistant for this class.`
-          : `${result.data.email} is pre-authorised. They become a teaching assistant when they first sign in.`
-      );
+      if (result.data.mode === "NEEDS_ATTENTION") {
+        toast.error(
+          `${result.data.email} has an account that couldn't be linked to this class automatically. An administrator needs to look at it.`
+        );
+      } else {
+        toast.success(
+          result.data.mode === "ENROLLED"
+            ? `${result.data.email} is now a teaching assistant for this class.`
+            : `${result.data.email} is pre-authorised. They become a teaching assistant when they first sign in.`
+        );
+      }
       router.refresh();
     });
   }

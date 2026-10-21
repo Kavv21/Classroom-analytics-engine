@@ -87,6 +87,47 @@ read access to another class's `roster_entries`/`profiles`, so this
 security-definer function answers only the yes/no questions import needs,
 never a full row.
 
+### Provisioning from both directions (migration 0030)
+
+A roster entry is provisioned by whichever of these happens **second**:
+- `handle_new_user()` on `auth.users` INSERT (first Google sign-in), or
+- the `on_roster_entry_created` AFTER INSERT trigger on `roster_entries`,
+  which calls `provision_roster_entry(id)` — for a person who signed in
+  *before* being rostered and so already has an `auth.users` row but no
+  profile.
+
+Both go through `apply_roster_entry(roster_id, user_id)` (the single
+roster → `profiles`/`class_members` mapping; never overwrites an existing
+profile) and `email_domain_allowed(email)`, and both take
+`pg_advisory_xact_lock(hashtext(lower(trim(email))))` before any lookup,
+so a roster insert and a first sign-in racing each other cannot both miss.
+
+`provision_roster_entry` returns `PROVISIONED`, `PENDING_SIGNUP`,
+`DOMAIN_NOT_ALLOWED`, `ALREADY_PROVISIONED` or `FAILED`. A failure (e.g. a
+`profiles.email` clash, or more than one `auth.users` row for the email —
+`DUPLICATE_AUTH_ACCOUNTS`) never aborts the roster INSERT: it is written to
+`provisioning_failures`, raised as a Postgres WARNING, and the entry stays
+`provisioned = false`. Fix the cause, then retry with
+`select public.provision_roster_entry('<roster_entry_id>')` as service_role.
+
+`commit_roster_import` reports such rows separately: its result carries
+`needsAttention: [{rowNumber, email, errorCode, errorMessage}]`, and
+`imported` counts only rows that went through cleanly.
+
+Emergency revert of the sign-in path to the 0006 `handle_new_user`:
+`supabase/rollbacks/0031_rollback_handle_new_user.sql` (not a migration).
+
+## provisioning_failures
+id, roster_entry_id (FK roster_entries, on delete cascade), email,
+error_code (SQLSTATE or `DUPLICATE_AUTH_ACCOUNTS`), error_message,
+created_at.
+
+RLS enabled with **no policies**; all privileges revoked from anon and
+authenticated, granted to service_role. Written only by the
+security-definer `record_provisioning_failure`. Staff read one entry's
+latest failure through `roster_entry_provisioning_failure(roster_entry_id)`,
+which requires `can_manage_class_content` on that entry's class (or admin).
+
 ## assignments
 id, class_id, title, description, instructions, assignment_stage,
 sequence_number, open_at, close_at, status, allow_draft_editing,
@@ -664,9 +705,13 @@ not the class's professor or an admin:
   anywhere, or a pending `roster_entries` row with `intended_role = 'TA'`
   when it does not. Never modifies an existing account's `profiles.role`.
   Refuses an email already pending on another class's roster (the same rule
-  the roster import's `DUPLICATE_PENDING_OTHER_CLASS` encodes). Returns
-  `{mode: 'ENROLLED' | 'PREAUTHORISED', email, userId}`. Audit actions
-  `CLASS_TA_ADDED` / `CLASS_TA_PREAUTHORISED`.
+  the roster import's `DUPLICATE_PENDING_OTHER_CLASS` encodes). Since 0030
+  a pending entry for someone who already has an auth account is
+  provisioned on the spot, so the mode is read back, not assumed. Returns
+  `{mode: 'ENROLLED' | 'PREAUTHORISED' | 'NEEDS_ATTENTION', email, userId}`
+  (`NEEDS_ATTENTION` = they have an account but provisioning failed; see
+  `provisioning_failures`). Audit actions `CLASS_TA_ADDED` /
+  `CLASS_TA_PREAUTHORISED`.
 - `remove_class_ta(p_class_id, p_email)` — deletes the TA's
   `class_members` row and/or their pending `roster_entries` row for this
   class, and raises if they were neither. The membership goes entirely

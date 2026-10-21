@@ -79,7 +79,13 @@ export function RosterImportWizard({ classId }: { classId: string }) {
     }
     setSummary(result.data);
     setPhase("committed");
-    toast.success(`Imported ${result.data.imported} student${result.data.imported === 1 ? "" : "s"}.`);
+    const attention = result.data.needsAttention.length;
+    const added = `${result.data.imported} student${result.data.imported === 1 ? "" : "s"} added`;
+    if (attention > 0) {
+      toast.warning(`${added}, ${attention} need${attention === 1 ? "s" : ""} attention.`);
+    } else {
+      toast.success(`${added}.`);
+    }
     router.refresh();
   }
 
@@ -258,6 +264,30 @@ export function RosterImportWizard({ classId }: { classId: string }) {
         </TabsContent>
 
         <TabsContent value="done" className="mt-6">
+          {summary && summary.needsAttention.length > 0 && (
+            <Alert className="mb-4 border-[color:var(--status-critical-text)]/30 bg-surface-critical">
+              <AlertTitle className="text-[color:var(--status-critical-text)]">
+                {summary.imported} added, {summary.needsAttention.length} need
+                {summary.needsAttention.length === 1 ? "s" : ""} attention
+              </AlertTitle>
+              <AlertDescription>
+                <p>
+                  These students are on the roster, but their accounts could not be linked to this
+                  class, so they cannot get in yet.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {summary.needsAttention.map((row) => (
+                    <li key={row.rowNumber}>
+                      <span className="font-medium">
+                        Row {row.rowNumber} · {row.email}
+                      </span>{" "}
+                      — {row.reason}
+                    </li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
           {summary && (
             <Alert className="border-[color:var(--status-good-text)]/30 bg-surface-good">
               <AlertTitle className="text-[color:var(--status-good-text)]">
@@ -267,6 +297,9 @@ export function RosterImportWizard({ classId }: { classId: string }) {
                 <ul className="text-[color:var(--status-good-text)]">
                   <li>Total rows: {summary.total}</li>
                   <li>Imported: {summary.imported}</li>
+                  {summary.needsAttention.length > 0 && (
+                    <li>Need attention: {summary.needsAttention.length}</li>
+                  )}
                   <li>Rejected: {summary.rejected}</li>
                 </ul>
                 <div className="mt-3 flex flex-wrap gap-3">

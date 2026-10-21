@@ -104,9 +104,23 @@ export interface RosterImportPreview {
   detectedHeaders: string[];
 }
 
+/** A row that was added to the roster but whose student could not be
+ * provisioned (supabase/migrations/0030, `provisioning_failures`). The
+ * roster entry exists and stays pending; someone has to look at it. */
+export interface RosterNeedsAttentionRow {
+  rowNumber: number;
+  email: string;
+  errorCode: string;
+  /** Plain-language reason for the professor — the raw Postgres message is
+   * logged server-side, not shown. */
+  reason: string;
+}
+
 export interface RosterImportSummary {
   importId: string;
+  /** Rows added cleanly — excludes `needsAttention`. */
   imported: number;
+  needsAttention: RosterNeedsAttentionRow[];
   rejected: number;
   total: number;
 }

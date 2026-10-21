@@ -137,7 +137,7 @@ a build-specific hash and is not stable enough to key on.
 
 | Bucket | Path | Limit | Why |
 |---|---|---|---|
-| `attempt` | `/assignments/{id}` | 120 / min | Autosave **and** submission. The client debounces at 800 ms and batches every pending cell into one call, so even a student filling the grid as fast as they can read stays well under 75/min. 120 leaves ~2× headroom for rapid clicking plus the offline retry queue flushing on reconnect, while still cutting off a runaway loop. |
+| `attempt` | `/assignments/{id}` | 120 / min | Autosave **and** submission. The client batches every pending cell into one call, sent after 800 ms of quiet or 2 s after the first unsaved change, whichever comes first, so even a student filling the grid as fast as they can read stays well under 75/min. 120 leaves ~2× headroom for rapid clicking plus the offline retry queue flushing on reconnect, while still cutting off a runaway loop. |
 | `general` | everything else | 300 / min | Professor writes — importing a roster legitimately fires several in a row. |
 
 Submission had its own tighter bucket (20/min at `/assignments/{id}/review`)
@@ -149,10 +149,14 @@ rejects a repeat submission with `ALREADY_SUBMITTED` whatever the rate —
 the tighter limit only ever existed to stop a hot loop, which 120/min also
 stops.
 
-Exceeding a limit returns **429** with `Retry-After` and a message in the
-interface's own voice (the autosave message says answers are safe in the
-browser and will sync, because they are). Every response carries
-`X-RateLimit-Limit` and `X-RateLimit-Remaining`.
+Exceeding a limit returns **429** with `Retry-After` and a JSON message.
+Students never see that body: a 429 (or a 500) from middleware is not a
+Server Action response, so Next.js throws "An unexpected response was
+received from the server", and the grid and submit button catch that and
+treat it as a transient failure — retried silently with backoff, and only
+after ~15 s of failures does the student see "Some answers haven't saved
+yet. Keep this tab open — we'll keep trying." (`lib/attempts/save-failure.ts`).
+Every response carries `X-RateLimit-Limit` and `X-RateLimit-Remaining`.
 
 **Storage choice and its tradeoff.** Counters live in a module-level Map,
 which on Vercel means one counter set per serverless/edge isolate.

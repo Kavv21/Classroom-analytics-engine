@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { submitAttempt } from "@/lib/attempts/actions";
 import { clearPending } from "@/lib/attempts/local-store";
+import { describeSubmitFailure } from "@/lib/attempts/save-failure";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -23,6 +24,12 @@ interface SubmitAttemptButtonProps {
   /** Serializable path string (never a function across the boundary). */
   receiptPath: string;
   unansweredCount: number;
+  /**
+   * Makes sure every answer has reached the database before submitting.
+   * Resolves to null when it has, or to a sentence for the student when it
+   * hasn't — in which case nothing is submitted.
+   */
+  ensureSaved?: () => Promise<string | null>;
 }
 
 /**
@@ -37,6 +44,7 @@ export function SubmitAttemptButton({
   attemptId,
   receiptPath,
   unansweredCount,
+  ensureSaved,
 }: SubmitAttemptButtonProps) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -46,11 +54,26 @@ export function SubmitAttemptButton({
   async function doSubmit() {
     setError(null);
     setBusy(true);
-    const result = await submitAttempt(attemptId);
+
+    const unsaved = ensureSaved ? await ensureSaved() : null;
+    if (unsaved) {
+      setBusy(false);
+      setError(unsaved);
+      return;
+    }
+
+    let result: Awaited<ReturnType<typeof submitAttempt>>;
+    try {
+      result = await submitAttempt(attemptId);
+    } catch {
+      // No action result came back (network, or a rate-limit / error page
+      // in front of the action). Never show what the framework says.
+      result = { success: false, error: describeSubmitFailure("TEMPORARY"), code: "TEMPORARY" };
+    }
     setBusy(false);
 
     if (!result.success) {
-      if (result.error === "ALREADY_SUBMITTED") {
+      if (result.code === "ALREADY_SUBMITTED") {
         clearPending(attemptId);
         router.push(receiptPath);
         router.refresh();
@@ -108,7 +131,7 @@ export function SubmitAttemptButton({
 
       {error && (
         <p role="alert" className="banner banner-critical">
-          We couldn&rsquo;t submit: {error} Your answers are still saved — try again.
+          {error}
         </p>
       )}
     </div>

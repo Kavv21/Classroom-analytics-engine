@@ -7,11 +7,72 @@ import {
   validateAnswerValues,
   type AnswerSetQuestion,
 } from "@/lib/attempts/commit-answers";
+import {
+  classifyAttemptError,
+  describeSaveFailure,
+  describeSubmitFailure,
+  type AttemptFailureCode,
+} from "@/lib/attempts/save-failure";
 import type { AttemptState, ResponseValue } from "@/lib/types/domain";
 
 export type AttemptActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string };
+
+/** A student-facing failure: `error` is a plain sentence from
+ * lib/attempts/save-failure.ts, `code` tells the grid whether to retry.
+ * The raw cause is in the server log, never in here. */
+export type StudentActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string; code: AttemptFailureCode };
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Logs a failed save/submit with everything needed to find it again:
+ * the raw error, who, which attempt, which assignment. Only runs on the
+ * failure path, so the two extra lookups cost nothing when things work.
+ * The lookups themselves never throw — a log line must not become a
+ * second failure.
+ */
+async function logAttemptFailure(
+  supabase: SupabaseServerClient,
+  action: "saveResponses" | "submitAttempt",
+  attemptId: string,
+  code: AttemptFailureCode,
+  cause: unknown,
+  extra: Record<string, unknown> = {}
+): Promise<void> {
+  let userId: string | null = null;
+  let assignmentId: string | null = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    userId = data.user?.id ?? null;
+    const { data: attempt } = await supabase
+      .from("assignment_attempts")
+      .select("assignment_id")
+      .eq("id", attemptId)
+      .maybeSingle();
+    assignmentId = (attempt?.assignment_id as string | undefined) ?? null;
+  } catch {
+    // Keep whatever was found; the error itself is what matters.
+  }
+
+  const error =
+    cause instanceof Error
+      ? { name: cause.name, message: cause.message, stack: cause.stack }
+      : cause;
+
+  console.error(`${action}: failed`, {
+    code,
+    terminal: code !== "TEMPORARY",
+    userId,
+    attemptId,
+    assignmentId,
+    error,
+    ...extra,
+  });
+}
 
 export interface AnswerInput {
   questionId: string;
@@ -37,23 +98,38 @@ export interface SaveResult {
 export async function saveResponses(
   attemptId: string,
   answers: AnswerInput[]
-): Promise<AttemptActionResult<SaveResult>> {
+): Promise<StudentActionResult<SaveResult>> {
+  const supabase = await createClient();
+
   if (answers.length === 0) {
-    return { success: false, error: "Nothing to save." };
+    await logAttemptFailure(supabase, "saveResponses", attemptId, "ASSIGNMENT_CHANGED", "empty batch");
+    return { success: false, error: describeSaveFailure("ASSIGNMENT_CHANGED"), code: "ASSIGNMENT_CHANGED" };
   }
   const issues = validateAnswerValues(answers);
   if (issues.length > 0) {
-    return { success: false, error: issues[0]!.message };
+    await logAttemptFailure(supabase, "saveResponses", attemptId, "ASSIGNMENT_CHANGED", issues, {
+      batchSize: answers.length,
+    });
+    return { success: false, error: describeSaveFailure("ASSIGNMENT_CHANGED"), code: "ASSIGNMENT_CHANGED" };
   }
 
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("save_attempt_responses", {
-    p_attempt_id: attemptId,
-    p_answers: answers,
-  });
+  let rpcError: unknown = null;
+  try {
+    const { data, error } = await supabase.rpc("save_attempt_responses", {
+      p_attempt_id: attemptId,
+      p_answers: answers,
+    });
+    if (!error) return { success: true, data: data as SaveResult };
+    rpcError = error;
+  } catch (err) {
+    rpcError = err;
+  }
 
-  if (error) return { success: false, error: error.message };
-  return { success: true, data: data as SaveResult };
+  const code = classifyAttemptError(rpcError as { code?: string; message?: string });
+  await logAttemptFailure(supabase, "saveResponses", attemptId, code, rpcError, {
+    batchSize: answers.length,
+  });
+  return { success: false, error: describeSaveFailure(code), code };
 }
 
 /**
@@ -66,7 +142,7 @@ export async function saveResponses(
  * assignment is still checked, so an answer belonging elsewhere is caught.
  */
 async function validateSavedAnswers(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseServerClient,
   attemptId: string
 ): Promise<string | null> {
   const { data: attempt, error: attemptError } = await supabase
@@ -141,23 +217,48 @@ export interface SubmitReceipt {
  */
 export async function submitAttempt(
   attemptId: string
-): Promise<AttemptActionResult<SubmitReceipt>> {
+): Promise<StudentActionResult<SubmitReceipt>> {
   const supabase = await createClient();
 
-  const validation = await validateSavedAnswers(supabase, attemptId);
-  if (validation) return { success: false, error: validation };
-
-  const { data, error } = await supabase.rpc("submit_attempt", {
-    p_attempt_id: attemptId,
-  });
-
-  if (error) {
-    if (error.message.includes("already submitted")) {
-      return { success: false, error: "ALREADY_SUBMITTED" };
-    }
-    return { success: false, error: error.message };
+  let validation: string | null;
+  try {
+    validation = await validateSavedAnswers(supabase, attemptId);
+  } catch (err) {
+    await logAttemptFailure(supabase, "submitAttempt", attemptId, "TEMPORARY", err, {
+      stage: "validate",
+    });
+    return { success: false, error: describeSubmitFailure("TEMPORARY"), code: "TEMPORARY" };
   }
-  return { success: true, data: data as SubmitReceipt };
+  if (validation) {
+    // validateSavedAnswers returns either a read error's message (worth
+    // another try) or the final-check sentence (it won't change on retry).
+    const code: AttemptFailureCode = validation.startsWith("Your saved answers didn't pass")
+      ? "FINAL_CHECK_FAILED"
+      : classifyAttemptError({ message: validation });
+    await logAttemptFailure(supabase, "submitAttempt", attemptId, code, validation, {
+      stage: "validate",
+    });
+    return { success: false, error: describeSubmitFailure(code), code };
+  }
+
+  let rpcError: unknown = null;
+  try {
+    const { data, error } = await supabase.rpc("submit_attempt", {
+      p_attempt_id: attemptId,
+    });
+    if (!error) return { success: true, data: data as SubmitReceipt };
+    rpcError = error;
+  } catch (err) {
+    rpcError = err;
+  }
+
+  const code = classifyAttemptError(rpcError as { code?: string; message?: string });
+  // A second submission is the expected outcome of a double click or a
+  // second tab — the button sends the student to their receipt.
+  if (code !== "ALREADY_SUBMITTED") {
+    await logAttemptFailure(supabase, "submitAttempt", attemptId, code, rpcError, { stage: "submit" });
+  }
+  return { success: false, error: describeSubmitFailure(code), code };
 }
 
 /**

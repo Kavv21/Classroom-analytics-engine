@@ -10,6 +10,12 @@ import {
 } from "@/lib/attempts/local-store";
 import { answerCellContext, type AnswerGridLayout } from "@/lib/attempts/answer-grid";
 import { SubmitAttemptButton } from "@/components/attempts/submit-attempt-button";
+import {
+  describeSaveFailure,
+  isTerminal,
+  STILL_SAVING_MESSAGE,
+  type AttemptFailureCode,
+} from "@/lib/attempts/save-failure";
 import { questionLabel } from "@/lib/ui/question-label";
 import type { GridMatrixCell } from "@/lib/exports/response-grid";
 import type { ResponseValue } from "@/lib/types/domain";
@@ -52,11 +58,33 @@ export interface AnswerGridProps {
   allowDraftEditing: boolean;
 }
 
-type SaveStatus = "idle" | "saving" | "saved" | "error";
+/**
+ * "saving" covers silent retries too — a blip the student never needs to
+ * hear about. "stalled": retries have gone on long enough to say so,
+ * calmly. "blocked": a terminal failure; retrying would never work.
+ */
+type SaveStatus = "idle" | "saving" | "saved" | "stalled" | "blocked";
 type Stage = "grid" | "review";
 
+/** Save after this much quiet... */
 const DEBOUNCE_MS = 800;
-const RETRY_MS = 5000;
+/** ...or after this long since the first unsaved change, whichever comes
+ * first — so a student clicking steadily faster than the debounce still
+ * has their answers reach the database every couple of seconds. */
+const MAX_WAIT_MS = 2000;
+/** Transient-failure backoff: ~1s, 2s, 4s, 8s, 16s, then every ~30s. */
+const RETRY_BASE_MS = 1000;
+const RETRY_MAX_MS = 30_000;
+/** Failed tries (~15s) before the student is told anything at all. */
+const SILENT_RETRIES = 4;
+
+const REVIEW_BLOCKED_MESSAGE =
+  "Some answers haven't saved yet, so you can't submit just now. Keep this tab open — we'll keep trying, and you can review and submit as soon as they've saved.";
+
+function retryDelay(failures: number): number {
+  const base = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** (failures - 1));
+  return Math.round(base * (0.8 + Math.random() * 0.4));
+}
 
 /** Arrow key → [row delta, column delta]. */
 const ARROW_MOVES: Record<string, [number, number] | undefined> = {
@@ -86,31 +114,61 @@ export function AnswerGrid({
 
   const [answers, setAnswers] = useState<Record<string, ResponseValue>>(initialAnswers);
   const [status, setStatus] = useState<SaveStatus>("idle");
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [blockedCode, setBlockedCode] = useState<AttemptFailureCode | null>(null);
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  const [openingReview, setOpeningReview] = useState(false);
   const [stage, setStage] = useState<Stage>("grid");
 
   const answersRef = useRef(answers);
   const dirtyRef = useRef<Set<string>>(new Set());
   const pendingStoreRef = useRef<PendingMap>({});
-  const savingRef = useRef(false);
+  /** The save currently on its way, if any. Everyone who needs the
+   * answers saved waits on THIS rather than assuming there isn't one. */
+  const inFlightRef = useRef<Promise<void> | null>(null);
+  /** Consecutive transient failures; 0 after any success. */
+  const failuresRef = useRef(0);
+  const blockedRef = useRef<AttemptFailureCode | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const maxWaitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushRef = useRef<() => Promise<void>>(async () => {});
+
+  // With draft editing off, the database refuses to change an answer once
+  // a value is saved. Cells answered in this session join the locked set
+  // as their saves land, so the grid never sends a change the database
+  // would reject — one such change would sink its whole batch.
+  const [savedThisSession, setSavedThisSession] = useState<ReadonlySet<string>>(new Set());
+  const lockedQuestions = useMemo(() => {
+    if (allowDraftEditing) return new Set<string>();
+    return new Set([
+      ...Object.entries(initialAnswers)
+        .filter(([, v]) => v !== null)
+        .map(([id]) => id),
+      ...savedThisSession,
+    ]);
+  }, [allowDraftEditing, initialAnswers, savedThisSession]);
 
   // ----------------------------------------------------------------
-  // Autosave: batched, debounced, retried. One request per window, not
-  // one per cell — filling a row of 15 cells is one save, not fifteen.
+  // Autosave: batched, debounced with a maximum wait, retried. One
+  // request per window, not one per cell.
   // ----------------------------------------------------------------
-  const flush = useCallback(async () => {
-    if (savingRef.current) return;
-    const ids = [...dirtyRef.current];
-    if (ids.length === 0) return;
+  function clearScheduled() {
+    for (const timer of [debounceTimer, maxWaitTimer, retryTimer]) {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+    }
+  }
 
-    savingRef.current = true;
-    setStatus("saving");
-    setSaveError(null);
+  function scheduleFlush() {
+    if (blockedRef.current) return;
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => void flushRef.current(), DEBOUNCE_MS);
+    maxWaitTimer.current ??= setTimeout(() => void flushRef.current(), MAX_WAIT_MS);
+  }
 
-    const batch = ids.map((questionId) => ({
+  /** Sends every dirty cell as one batch and deals with the answer. */
+  async function sendBatch(): Promise<void> {
+    const batch = [...dirtyRef.current].map((questionId) => ({
       questionId,
       value: answersRef.current[questionId] ?? null,
     }));
@@ -118,44 +176,89 @@ export function AnswerGrid({
     let result: Awaited<ReturnType<typeof saveResponses>>;
     try {
       result = await saveResponses(attemptId, batch);
-    } catch (err) {
-      result = {
-        success: false,
-        error: err instanceof Error ? err.message : "Network error while saving.",
-      };
+    } catch {
+      // The request never came back as an action result: the network
+      // dropped, or something in front of the action answered instead (a
+      // rate-limit or error page). Next.js surfaces that as a thrown
+      // "unexpected response" — never shown, always worth another try.
+      result = { success: false, error: STILL_SAVING_MESSAGE, code: "TEMPORARY" };
     }
-    savingRef.current = false;
 
     if (result.success) {
+      failuresRef.current = 0;
+      const landed: string[] = [];
       for (const sent of batch) {
         // Only mark clean if the cell wasn't changed again mid-save.
         if (answersRef.current[sent.questionId] === sent.value) {
           dirtyRef.current.delete(sent.questionId);
           delete pendingStoreRef.current[sent.questionId];
+          if (sent.value !== null) landed.push(sent.questionId);
         }
       }
       storePending(attemptId, pendingStoreRef.current);
-      if (dirtyRef.current.size > 0) {
-        scheduleFlush(DEBOUNCE_MS);
-        return;
+      if (!allowDraftEditing && landed.length > 0) {
+        setSavedThisSession((prev) => new Set([...prev, ...landed]));
       }
-      setStatus("saved");
-    } else {
-      setStatus("error");
-      setSaveError(result.error);
-      if (retryTimer.current) clearTimeout(retryTimer.current);
-      retryTimer.current = setTimeout(() => void flush(), RETRY_MS);
+      if (dirtyRef.current.size > 0) {
+        setStatus("saving");
+        scheduleFlush();
+      } else {
+        setStatus("saved");
+        setReviewNotice(null);
+      }
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attemptId]);
 
-  const scheduleFlush = useCallback(
-    (delay: number) => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-      debounceTimer.current = setTimeout(() => void flush(), delay);
-    },
-    [flush]
-  );
+    if (isTerminal(result.code)) {
+      // It will fail the same way every time. Stop, and say what happened.
+      // The cells stay in this browser (pendingStoreRef / localStorage).
+      blockedRef.current = result.code;
+      setBlockedCode(result.code);
+      setStatus("blocked");
+      clearScheduled();
+      return;
+    }
+
+    failuresRef.current += 1;
+    setStatus(failuresRef.current > SILENT_RETRIES ? "stalled" : "saving");
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+    retryTimer.current = setTimeout(
+      () => void flushRef.current(),
+      retryDelay(failuresRef.current)
+    );
+  }
+
+  /**
+   * Saves what is dirty now. If a save is already on its way, WAITS for it
+   * first and then sends whatever it didn't carry — it never returns early
+   * on an in-flight save. That early return was the bug behind the false
+   * "haven't reached" banner at Review & submit.
+   */
+  async function flush(): Promise<void> {
+    while (inFlightRef.current) await inFlightRef.current;
+    if (blockedRef.current || dirtyRef.current.size === 0) return;
+
+    clearScheduled();
+    const run = sendBatch();
+    inFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      inFlightRef.current = null;
+    }
+  }
+  flushRef.current = flush;
+
+  /** Flushes until nothing is dirty, or a try fails. True when every
+   * answer the student has given is saved. */
+  async function saveEverything(): Promise<boolean> {
+    for (;;) {
+      await flush();
+      if (blockedRef.current) return false;
+      if (dirtyRef.current.size === 0) return true;
+      if (failuresRef.current > 0) return false;
+    }
+  }
 
   // Restore any unsynced local draft on mount (a refresh mid-assignment
   // shows the student's cells back immediately, before the server has said
@@ -168,18 +271,20 @@ export function AnswerGrid({
       dirtyRef.current = new Set(dirtyIds);
       answersRef.current = merged;
       setAnswers(merged);
-      scheduleFlush(200);
+      debounceTimer.current = setTimeout(() => void flushRef.current(), 200);
     }
 
-    // Reconnect => retry queued SAVES. This is the only global listener in
-    // the answering flow; nothing here reacts to visibility, blur,
-    // fullscreen or unload, and nothing anywhere auto-submits.
-    const onOnline = () => void flush();
+    // Reconnect => retry queued SAVES at once. This is the only global
+    // listener in the answering flow; nothing here reacts to visibility,
+    // blur, fullscreen or unload, and nothing anywhere auto-submits.
+    const onOnline = () => {
+      failuresRef.current = 0;
+      void flushRef.current();
+    };
     window.addEventListener("online", onOnline);
     return () => {
       window.removeEventListener("online", onOnline);
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-      if (retryTimer.current) clearTimeout(retryTimer.current);
+      clearScheduled();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attemptId]);
@@ -187,15 +292,6 @@ export function AnswerGrid({
   // ----------------------------------------------------------------
   // Answers
   // ----------------------------------------------------------------
-  const lockedQuestions = useMemo(() => {
-    if (allowDraftEditing) return new Set<string>();
-    return new Set(
-      Object.entries(initialAnswers)
-        .filter(([, v]) => v !== null)
-        .map(([id]) => id)
-    );
-  }, [allowDraftEditing, initialAnswers]);
-
   const setAnswer = useCallback(
     (questionId: string, value: ResponseValue) => {
       if (lockedQuestions.has(questionId)) return;
@@ -205,10 +301,11 @@ export function AnswerGrid({
       dirtyRef.current.add(questionId);
       pendingStoreRef.current[questionId] = { value, changedAt: Date.now() };
       storePending(attemptId, pendingStoreRef.current);
-      setStatus("saving");
-      scheduleFlush(DEBOUNCE_MS);
+      if (blockedRef.current) return;
+      setStatus((s) => (s === "stalled" ? s : "saving"));
+      scheduleFlush();
     },
-    [attemptId, lockedQuestions, scheduleFlush]
+    [attemptId, lockedQuestions]
   );
 
   // ----------------------------------------------------------------
@@ -353,18 +450,29 @@ export function AnswerGrid({
     return list;
   }, [answers, matrix]);
 
+  /**
+   * The one place the student must know whether everything is saved:
+   * flush, WAIT for it to land, and only then open review. Submission is
+   * reachable only from review, so it is blocked until the answers are in.
+   */
   async function openReview() {
-    setReviewError(null);
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    if (dirtyRef.current.size > 0) await flush();
-    if (dirtyRef.current.size > 0) {
-      setReviewError(
-        "Your latest answers haven't reached the server yet — hold on, we're retrying. " +
-          "Nothing is lost; they're saved in this browser."
-      );
+    setReviewNotice(null);
+    setOpeningReview(true);
+    const saved = await saveEverything();
+    setOpeningReview(false);
+    if (saved) {
+      setStage("review");
       return;
     }
-    setStage("review");
+    // A terminal failure already has its own sentence above the grid.
+    if (!blockedRef.current) setReviewNotice(REVIEW_BLOCKED_MESSAGE);
+  }
+
+  /** Handed to the submit button: the same guarantee, checked again at the
+   * moment of submission. Returns a sentence to show, or null to go ahead. */
+  async function ensureSavedBeforeSubmit(): Promise<string | null> {
+    if (await saveEverything()) return null;
+    return blockedRef.current ? describeSaveFailure(blockedRef.current) : REVIEW_BLOCKED_MESSAGE;
   }
 
   const statusLabel =
@@ -372,9 +480,11 @@ export function AnswerGrid({
       ? "Saving…"
       : status === "saved"
         ? "Saved"
-        : status === "error"
-          ? "Save failed — retrying"
-          : "";
+        : status === "stalled"
+          ? "Not saved yet"
+          : status === "blocked"
+            ? "Not saved"
+            : "";
 
   const valueWording = (value: ResponseValue) => {
     if (value === null) return "not answered";
@@ -406,7 +516,7 @@ export function AnswerGrid({
           className="text-xs font-medium"
           style={{
             color:
-              status === "error"
+              status === "blocked" || status === "stalled"
                 ? "var(--status-critical-text)"
                 : status === "saved"
                   ? "var(--status-good-text)"
@@ -496,6 +606,7 @@ export function AnswerGrid({
             attemptId={attemptId}
             receiptPath={receiptPath}
             unansweredCount={unansweredCount}
+            ensureSaved={ensureSavedBeforeSubmit}
           />
           <button type="button" onClick={() => setStage("grid")} className="btn btn-secondary">
             Back to the grid
@@ -526,10 +637,14 @@ export function AnswerGrid({
 
       {instructions && <p className="well p-3 text-sm text-ink-secondary">{instructions}</p>}
 
-      {saveError && status === "error" && (
+      {blockedCode && (
         <p role="alert" className="banner banner-critical">
-          We couldn&rsquo;t save just now ({saveError}). Your answers are safe in this browser and
-          we&rsquo;re retrying automatically — keep going.
+          {describeSaveFailure(blockedCode)}
+        </p>
+      )}
+      {status === "stalled" && !blockedCode && (
+        <p role="status" className="banner banner-warning">
+          {STILL_SAVING_MESSAGE}
         </p>
       )}
 
@@ -571,7 +686,19 @@ export function AnswerGrid({
           </span>
         </div>
 
-        <div className="table-frame mt-2" style={{ maxHeight: "70vh", overflow: "auto" }}>
+        {/* Focus leaving the grid (to Review, or anywhere else) saves at once
+            rather than waiting out the debounce. A React handler on this
+            element — not a window/document blur listener, which the
+            no-auto-submit contract forbids — and it only ever SAVES. */}
+        <div
+          className="table-frame mt-2"
+          style={{ maxHeight: "70vh", overflow: "auto" }}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              void flush();
+            }
+          }}
+        >
           <table className="border-collapse text-left text-xs">
             <caption className="sr-only">
               {assignmentTitle} — your answer sheet, laid out as the original spreadsheet:{" "}
@@ -669,9 +796,9 @@ export function AnswerGrid({
         )}
       </div>
 
-      {reviewError && (
+      {reviewNotice && (
         <p role="alert" className="banner banner-warning">
-          {reviewError}
+          {reviewNotice}
         </p>
       )}
 
@@ -680,7 +807,12 @@ export function AnswerGrid({
           Your answers save themselves as you go, and stay in this browser too. Switching tabs,
           refreshing or losing connection never submits anything.
         </p>
-        <button type="button" onClick={() => void openReview()} className="btn btn-primary">
+        <button
+          type="button"
+          onClick={() => void openReview()}
+          disabled={openingReview}
+          className="btn btn-primary"
+        >
           Review &amp; submit ({answeredCount} of {questionCount} answered)
         </button>
       </div>

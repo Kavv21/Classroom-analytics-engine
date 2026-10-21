@@ -31,7 +31,7 @@ script. No page or action uses it.
 | Domain types & formulas | `lib/types/domain.ts` | Metric formulas live here, mirrored by SQL views |
 | Import parsing | `lib/imports/parse-grid.ts` | Pure; fails loudly on ambiguous rows |
 | Roster | `lib/roster/` | Parse, classify, commit |
-| Attempts | `lib/attempts/` | Grid layout, answer validation/commit, autosave batching + local draft store |
+| Attempts | `lib/attempts/` | Grid layout, answer validation/commit, autosave batching + local draft store, save/submit failure classes (`save-failure.ts`) |
 | Analytics | `lib/analytics/` | View readers + pure chart shaping |
 | Query builder | `lib/query-builder/` | Catalogue, validation, execution |
 | Exports | `lib/exports/` | Excel / CSV / PDF + provenance |
@@ -118,3 +118,28 @@ reads cost ~360 ms of pure network wait before render. See
   analytics page is dynamic because it is user- and RLS-scoped.
 - No websockets/realtime.
 - No natural-language querying (explicitly excluded).
+
+## Autosave and failures (answer grid)
+
+`components/attempts/answer-grid.tsx` sends every changed cell as one
+batch, after 800 ms of quiet or 2 s after the first unsaved change
+(whichever is first), immediately when focus leaves the grid, and before
+review. A flush that finds a save already in flight **waits for it** and
+then sends whatever it didn't carry; "Review & submit" opens only once
+everything has landed, and the submit button checks again.
+
+Failures are classified in `lib/attempts/save-failure.ts`:
+
+- **Transient** (network, 5xx, timeouts, expired session, a 429/500 from
+  middleware, anything unrecognised): retried silently with exponential
+  backoff (~1, 2, 4, 8, 16 s, then every ~30 s). The student sees only
+  "Saving…" until four tries have failed, then one calm line.
+- **Terminal** (closed, not open yet, already submitted, draft editing off,
+  not their attempt, assignment changed): no retry; one sentence saying
+  what happened and what to do.
+
+`saveResponses` / `submitAttempt` log every failure with
+`console.error("<action>: failed", { code, terminal, userId, attemptId,
+assignmentId, error, ... })` — search Vercel logs for `saveResponses: failed`.
+The browser receives only a code and a plain sentence. The local-storage
+draft (`lib/attempts/local-store.ts`) is unchanged.

@@ -18,6 +18,16 @@ import {
   type RosterEmailCheck,
 } from "@/lib/roster/validate";
 import { describeProvisioningFailure } from "@/lib/roster/provisioning-failure";
+import {
+  checkManualRows,
+  describeManualOutcome,
+  statusForOutcome,
+  MAX_MANUAL_ROWS,
+  type ManualAddOutcome,
+  type ManualAddRowResult,
+  type ManualAddSummary,
+  type ManualStudentRowInput,
+} from "@/lib/roster/manual";
 import type { RosterImportPreview, RosterImportSummary, RosterRowResult } from "@/lib/types/domain";
 
 export type RosterActionResult<T> = { success: true; data: T } | { success: false; error: string };
@@ -71,6 +81,7 @@ async function fetchEmailChecks(
       alreadyClassMember: row.already_class_member,
       pendingThisClass: row.pending_this_class,
       pendingOtherClass: row.pending_other_class,
+      pendingOtherClassName: row.pending_other_class_name ?? null,
     });
   }
   return emailChecks;
@@ -242,4 +253,122 @@ export async function commitRosterImport(
       total: summary.total,
     },
   };
+}
+
+/**
+ * Adds typed-in students to a class — the no-file path beside the import.
+ *
+ * Every row gets its own result; a bad row never blocks the others. Rows
+ * that fail validation here never reach the database. The rest go to
+ * add_students_to_class (migration 0031) in one call, which re-checks
+ * everything itself (email, name, allowed domain, who already exists) and
+ * hard-codes the STUDENT role — nothing role-like is read from `rows`.
+ */
+export async function addStudentsManually(
+  classId: string,
+  rows: ManualStudentRowInput[]
+): Promise<RosterActionResult<ManualAddSummary>> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { success: false, error: "Add at least one student." };
+  }
+  if (rows.length > MAX_MANUAL_ROWS) {
+    return {
+      success: false,
+      error: `Add at most ${MAX_MANUAL_ROWS} students at a time — use Import a roster for more.`,
+    };
+  }
+
+  const { supabase, authorized, checkError } = await requireProfessorForClass(classId);
+  if (checkError) {
+    return { success: false, error: "Couldn't check your access to this class. Please try again." };
+  }
+  if (!authorized) return { success: false, error: "Class not found, or you don't have access to it." };
+
+  // Rebuild each row from known fields only, as strings.
+  const clean: ManualStudentRowInput[] = rows.map((row) => ({
+    key: String(row?.key ?? ""),
+    fullName: String(row?.fullName ?? ""),
+    email: String(row?.email ?? ""),
+    rollNumber: String(row?.rollNumber ?? ""),
+    programme: String(row?.programme ?? ""),
+    yearOfStudy: String(row?.yearOfStudy ?? ""),
+    section: String(row?.section ?? ""),
+  }));
+  const checks = checkManualRows(clean, ALLOWED_EMAIL_DOMAIN);
+
+  const results = new Map<string, ManualAddRowResult>();
+  const toSend: Array<{ key: string } & Record<string, string | null>> = [];
+
+  clean.forEach((row, index) => {
+    const check = checks[index]!;
+    if (!check.ok) {
+      results.set(row.key, {
+        key: row.key,
+        email: row.email.trim().toLowerCase(),
+        fullName: row.fullName.trim(),
+        status: "failed",
+        outcome: "CLIENT_INVALID",
+        message: Object.values(check.fieldErrors)[0] ?? "Check this row's details.",
+        fieldErrors: check.fieldErrors,
+      });
+      return;
+    }
+    toSend.push({ key: row.key, ...check.data });
+  });
+
+  if (toSend.length > 0) {
+    const { data, error } = await supabase.rpc("add_students_to_class", {
+      p_class_id: classId,
+      p_rows: toSend,
+    });
+
+    if (error) {
+      console.error("addStudentsManually: add_students_to_class failed", { classId, error });
+      return { success: false, error: "Couldn't add these students. Nothing was changed — please try again." };
+    }
+
+    const byKey = new Map(toSend.map((row) => [row.key, row]));
+    for (const row of data as Array<{
+      key: string;
+      email: string;
+      outcome: ManualAddOutcome;
+      otherClassName?: string | null;
+      errorCode?: string | null;
+      errorMessage?: string | null;
+    }>) {
+      if (row.outcome === "NEEDS_ATTENTION" || row.outcome === "ERROR") {
+        console.error("addStudentsManually: row not added cleanly", { classId, ...row });
+      }
+      const fullName = String(byKey.get(row.key)?.fullName ?? row.email);
+      const { message, fieldErrors } = describeManualOutcome(row.outcome, fullName, row);
+      results.set(row.key, {
+        key: row.key,
+        email: row.email,
+        fullName,
+        status: statusForOutcome(row.outcome),
+        outcome: row.outcome,
+        message,
+        fieldErrors,
+      });
+    }
+  }
+
+  const ordered = clean.map(
+    (row) =>
+      results.get(row.key) ?? {
+        // The RPC answers every row it is sent; this is a backstop, not a path.
+        key: row.key,
+        email: row.email,
+        fullName: row.fullName,
+        status: "failed" as const,
+        outcome: "ERROR" as const,
+        message: "This student couldn't be added. Try again; if it keeps happening, contact an administrator.",
+      }
+  );
+
+  const added = ordered.filter((r) => r.status === "added").length;
+  const needsAttention = ordered.length - added;
+  if (ordered.some((r) => r.status !== "failed")) revalidatePath(`/classes/${classId}`);
+
+  return { success: true, data: { results: ordered, added, needsAttention } };
 }

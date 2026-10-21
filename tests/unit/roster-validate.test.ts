@@ -15,6 +15,7 @@ const NO_CHECK: RosterEmailCheck = {
   alreadyClassMember: false,
   pendingThisClass: false,
   pendingOtherClass: false,
+  pendingOtherClassName: null,
 };
 
 function context(overrides: Partial<ClassifyRosterRowsContext> = {}): ClassifyRosterRowsContext {

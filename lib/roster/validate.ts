@@ -7,6 +7,7 @@ import {
   type RawRosterRow,
   type RosterField,
 } from "@/lib/roster/parse";
+import { pendingOtherClassMessage } from "@/lib/roster/manual";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -113,8 +114,9 @@ function parseRow(
  * has no RLS-granted SELECT on arbitrary `profiles`/`roster_entries` rows
  * outside their own classes, but still needs a yes/no answer to "does this
  * email already exist somewhere" to avoid a unique-constraint violation on
- * roster_entries.email. The RPC returns only these booleans, never another
- * class's identity or any other student's profile fields.
+ * roster_entries.email. The RPC returns only these booleans, plus another
+ * class's name when the caller manages that class too — never any other
+ * student's profile fields.
  */
 export interface RosterEmailCheck {
   hasProfile: boolean;
@@ -125,6 +127,10 @@ export interface RosterEmailCheck {
   alreadyClassMember: boolean;
   pendingThisClass: boolean;
   pendingOtherClass: boolean;
+  /** Name of that other class — only when the caller manages it too
+   * (migration 0031); null otherwise, so another professor's class is
+   * never named. */
+  pendingOtherClassName: string | null;
 }
 
 export interface ClassifyRosterRowsContext {
@@ -207,10 +213,7 @@ export function classifyRosterRows(
       classification = "EXISTING_PROFILE";
     } else if (check?.pendingOtherClass) {
       classification = "DUPLICATE_PENDING_OTHER_CLASS";
-      errorsOut.push(
-        "This student is already pre-provisioned for a different class and hasn't signed in yet. " +
-          "Ask that class's professor, or wait until they sign in and enrol them directly."
-      );
+      errorsOut.push(pendingOtherClassMessage(check.pendingOtherClassName));
     } else {
       classification = "NEW";
     }

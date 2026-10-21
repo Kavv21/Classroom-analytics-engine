@@ -121,8 +121,13 @@ Every row is classified against the database during preview and
 
 `roster_entries.email` is globally unique, which is why the last two
 cases exist. Cross-class checks go through the `check_roster_emails` RPC,
-which answers only yes/no questions and never returns another class's
-data.
+which answers only yes/no questions. The one exception: for a row pending on
+another class, the message names that class when you manage it too (so you
+can fix it there); otherwise it says only "pending enrollment in another
+class".
+
+To add one or two students without a file, use **Add student** on the class
+page instead (`add_students_to_class`, see DATABASE_SCHEMA.md).
 
 Commit is transactional (`commit_roster_import`): a failure leaves no
 partial roster.

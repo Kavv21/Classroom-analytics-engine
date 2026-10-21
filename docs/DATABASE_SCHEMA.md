@@ -85,7 +85,10 @@ Duplicate detection and cross-class lookups are done via the
 `check_roster_emails` RPC (migration 0005) — a professor has no RLS-granted
 read access to another class's `roster_entries`/`profiles`, so this
 security-definer function answers only the yes/no questions import needs,
-never a full row.
+never a full row. Since migration 0031 it also returns
+`pending_other_class_name`: the other class's name, **only** when the caller
+can manage that class too (`can_manage_class_content`), otherwise NULL — so
+another professor's class is never named.
 
 ### Provisioning from both directions (migration 0030)
 
@@ -115,7 +118,45 @@ so a roster insert and a first sign-in racing each other cannot both miss.
 `imported` counts only rows that went through cleanly.
 
 Emergency revert of the sign-in path to the 0006 `handle_new_user`:
-`supabase/rollbacks/0031_rollback_handle_new_user.sql` (not a migration).
+`supabase/rollbacks/rollback_0030_handle_new_user.sql` (not a migration).
+
+### Adding students by hand (migration 0031)
+
+`add_students_to_class(p_class_id, p_rows jsonb)` — `security definer`,
+gated on `can_manage_class_content` (professor, TA or admin). Takes up to 50
+typed-in rows `{key, email, fullName, rollNumber?, programme?, yearOfStudy?,
+section?}` and returns one `{key, email, outcome, otherClassName?,
+errorCode?}` per row. Each row runs in its own sub-transaction under the
+same per-email advisory lock as `handle_new_user`, and is classified through
+`check_roster_emails`:
+
+| outcome | meaning |
+|---|---|
+| `ENROLLED` | had a profile; `class_members` row added |
+| `PROVISIONED` | had an auth account but no profile; roster entry written and provisioned on the spot by the 0030 trigger |
+| `PENDING_SIGNUP` | never signed in; roster entry written, provisioned at first sign-in |
+| `ALREADY_ENROLLED` | already a member, or already pending, in this class |
+| `PENDING_OTHER_CLASS` | pending on another class's roster; `otherClassName` only if the caller manages it |
+| `NEEDS_ATTENTION` | roster entry written but provisioning failed (`errorCode` from `provisioning_failures`) |
+| `INVALID` | `EMAIL_INVALID`, `NAME_REQUIRED` or `DOMAIN_NOT_ALLOWED` (`email_domain_allowed`); nothing written |
+| `ERROR` | unexpected failure for that row only; WARNING in the Postgres log. `ROSTER_EMAIL_CONFLICT` = the email is taken by a provisioned roster entry with no profile |
+
+The role is never a parameter: `intended_role` / `member_role` are the
+literal `'STUDENT'`, and any role key in `p_rows` is ignored. Each added row
+writes a `ROSTER_STUDENT_ADDED` audit event (`source: MANUAL`).
+
+### Known issues (logged, not fixed)
+
+- **`profiles.is_active` is global.** `set_student_active` is called per
+  class, but the column is on the person: deactivating a student in class A
+  shows them inactive in class B too. Nothing reads it to block access; it
+  is display only.
+- **Per-person profile fields are first-write-wins across rosters.**
+  `full_name`, `roll_number`, `programme`, `year_of_study` and `section` live
+  on `profiles`. Whichever roster provisions a person first sets them;
+  later imports and manual adds into other classes do not change them
+  (`apply_roster_entry` never overwrites a profile, and the `ENROLLED` path
+  writes only `class_members`).
 
 ## provisioning_failures
 id, roster_entry_id (FK roster_entries, on delete cascade), email,
@@ -549,7 +590,8 @@ shortcuts" rule — see the migration file for the full reasoning:
   failure never leaves a partial import.
 - `check_roster_emails(p_class_id, p_emails)` — `security definer`; answers
   only yes/no duplicate-detection questions for roster import, never
-  returns another class's identity or a student's other fields.
+  returns a student's other fields. Names another class only when the
+  caller manages it too (0031).
 - `set_student_active(p_class_id, p_profile_id, p_is_active)` —
   `security definer`; writes only `profiles.is_active`, nothing else.
 

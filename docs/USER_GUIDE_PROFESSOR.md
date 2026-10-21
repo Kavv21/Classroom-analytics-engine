@@ -32,6 +32,17 @@ Students do not have accounts yet at this point. Each student gets one the
 first time they sign in with the Google account matching their roster
 email. Until they do, they show as "Awaiting first sign-in".
 
+**Adding one or two students without a file.** Class → **Add student**.
+Type in each student's full name and university email (roll number,
+programme, year and section are optional); use **Add another row** for
+more. Each row is handled on its own — the result reads like "3 added, 1
+needs attention". Rows that went through are cleared; rows that didn't stay
+in the dialog with the reason, so you can fix just those and add again.
+A student who has signed in before can sign in to this class straight away;
+anyone else is set up at their first Google sign-in. If a student is
+waiting on another class's roster, ask them to sign in with Google once,
+then add them here.
+
 ## 4. Create and set up an assignment
 
 Class → **Manage assignments → Create an assignment**.

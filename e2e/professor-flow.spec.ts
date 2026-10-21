@@ -5,6 +5,7 @@ import {
   requireEnv,
   seededClass,
   signIn,
+  STUDENT_DOMAIN,
 } from "./helpers";
 
 /**
@@ -116,4 +117,63 @@ test("query builder rejects an incompatible chart combination with a clear messa
   const banner = page.getByRole("alert").filter({ hasText: "can’t be charted" });
   await expect(banner).toContainText("heatmap");
   await expect(banner).toContainText("at least 2 groupings");
+});
+
+test("professor adds a student by hand and they appear on the roster", async ({ page }) => {
+  const { data: professor } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("email", PROFESSOR_EMAIL)
+    .single();
+  const { data: domainRow } = await admin
+    .from("app_config")
+    .select("value")
+    .eq("key", "allowed_email_domain")
+    .maybeSingle();
+  const domain = (domainRow?.value as string | undefined) ?? STUDENT_DOMAIN;
+
+  const { data: classRow, error: classError } = await admin
+    .from("classes")
+    .insert({
+      name: `E2E Manual Add ${Date.now()}`,
+      professor_id: professor!.id,
+      class_code: `E2EM${Date.now().toString(36).toUpperCase()}`,
+    })
+    .select("id")
+    .single();
+  if (classError) throw new Error(`e2e class insert failed: ${classError.message}`);
+  createdClassIds.push(classRow!.id);
+
+  // Someone who signed in with Google before anyone rostered them: an auth
+  // account, no profile. Adding them provisions them on the spot, so they
+  // land in the roster table (a never-signed-in student would only move
+  // the "Awaiting first sign-in" count).
+  const email = `e2e-manual-${Date.now()}@${domain}`;
+  const { data: authUser, error: authError } = await admin.auth.admin.createUser({
+    email,
+    password: `E2e-${Date.now()}-x`,
+    email_confirm: true,
+  });
+  if (authError) throw new Error(`e2e auth user create failed: ${authError.message}`);
+
+  try {
+    await page.goto(`/classes/${classRow!.id}`);
+    await page.getByRole("button", { name: "Add student" }).click();
+
+    const dialog = page.getByRole("dialog");
+    const row = dialog.getByRole("group", { name: "Student 1" });
+    await row.getByLabel("Full name").fill("E2E Manual Student");
+    await row.getByLabel("Email").fill(email);
+    await row.getByLabel(/^Roll number/).fill("E2E001");
+    await dialog.getByRole("button", { name: "Add student" }).click();
+
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText("E2E Manual Student can sign in now.")).toBeVisible();
+    await expect(page.getByRole("cell", { name: email })).toBeVisible();
+  } finally {
+    await admin.from("roster_entries").delete().eq("email", email);
+    await admin.from("class_members").delete().eq("user_id", authUser!.user!.id);
+    await admin.from("profiles").delete().eq("id", authUser!.user!.id);
+    await admin.auth.admin.deleteUser(authUser!.user!.id);
+  }
 });

@@ -7,6 +7,7 @@ import { ArchiveButton } from "@/components/classes/archive-button";
 import { DeleteClassButton } from "@/components/classes/delete-class-button";
 import { StudentActiveToggle } from "@/components/classes/student-active-toggle";
 import { ManageTas } from "@/components/classes/manage-tas";
+import { AddStudentsDialog } from "@/components/roster/add-students-dialog";
 import { getClassAccess } from "@/lib/classes/access";
 import type { ClassTa } from "@/lib/classes/ta-actions";
 import { Badge } from "@/components/ui/badge";
@@ -158,7 +159,8 @@ export default async function ClassDetailPage({
           <p className="note-muted">Awaiting first sign-in</p>
           <p className="mt-0.5 text-lg font-semibold tabular-nums">{pendingStudents.length}</p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap gap-2">
+          <AddStudentsDialog classId={classId} />
           <Button asChild>
             <Link href={`/classes/${classId}/roster/import`}>Import a roster</Link>
           </Button>
@@ -229,8 +231,8 @@ export default async function ClassDetailPage({
       {students.length === 0 ? (
         <Alert className="mt-3">
           <AlertDescription>
-            No students yet. Import a roster to add them — they&rsquo;ll appear
-            here once you do.
+            No students yet. Import a roster or add them one at a time &mdash;
+            they&rsquo;ll appear here once you do.
           </AlertDescription>
         </Alert>
       ) : (

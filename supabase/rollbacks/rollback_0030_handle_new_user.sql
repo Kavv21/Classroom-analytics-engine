@@ -5,7 +5,7 @@
 -- definition in force before 0030), for when the login path breaks
 -- mid-class. Run it with ONE of:
 --
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/rollbacks/0031_rollback_handle_new_user.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/rollbacks/rollback_0030_handle_new_user.sql
 --   (or paste this file into the Supabase dashboard SQL editor and Run)
 --
 -- What it does NOT undo: everything else in 0030 stays — the

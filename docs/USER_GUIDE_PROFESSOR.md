@@ -58,6 +58,24 @@ saved. Fix the file and upload again.
 You can adjust the answer labels (what "0" and "1" mean) per question, and
 reorder questions.
 
+**A Google Form instead of a grid.** On the create form, choose **Type →
+Google Form link** and paste the Form's link (it must start with
+`https://`; links that aren't on docs.google.com, forms.gle or
+drive.google.com are allowed with a warning). There are no questions to
+import. Students see the assignment in their normal list and open the Form
+in a new tab; everything — answers, who responded, timing, grading —
+happens in Google Forms, and this app records none of it. Analytics shows
+"No responses are collected for this assignment".
+
+- Set your Form to collect email addresses and restrict it to your
+  university domain — this app does not record who responded.
+- The open/close window controls when this appears to students. It does
+  not stop anyone who already has the link — close the Form in Google when
+  you're done.
+
+A Form link is always an "other" assignment: it can't be the first or
+second, because those two are compared response by response.
+
 ## 5. Approve, then schedule
 
 There is no "publish" button. An assignment opens and closes **on its own,

@@ -30,6 +30,10 @@ Your state on each one:
 
 Choose **Start** or **Continue**.
 
+Some assignments are marked **Google Form**. Choose **View**, then
+**Open**: the Form opens in a new tab, and you answer and submit it there.
+Nothing about a Google Form assignment is saved or submitted on this site.
+
 ## Answering
 
 The whole assignment is one grid on the page — the same spreadsheet your

@@ -164,7 +164,12 @@ export async function gatherWorkbookData(
     await Promise.all([
       buildExportMetadata(supabase, options),
       selectAll(supabase, "assignments", (q) =>
-        q.select("id, title, sequence_number").eq("class_id", classId).order("sequence_number")
+        q
+          .select("id, title, sequence_number")
+          .eq("class_id", classId)
+          // Link assignments record no responses (migration 0032).
+          .eq("kind", "GRID")
+          .order("sequence_number")
       ),
       selectAll(supabase, "class_members", (q) =>
         q

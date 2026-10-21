@@ -158,6 +158,8 @@ export async function getStudentFullResponses(
     .from("assignments")
     .select("id, title, sequence_number")
     .eq("class_id", classId)
+    // Link assignments record no responses (migration 0032).
+    .eq("kind", "GRID")
     .order("sequence_number");
   if (assignmentsError) {
     throw new Error(`could not read assignments: ${assignmentsError.message}`);

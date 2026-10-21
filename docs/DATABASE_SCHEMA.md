@@ -173,7 +173,32 @@ which requires `can_manage_class_content` on that entry's class (or admin).
 id, class_id, title, description, instructions, assignment_stage,
 sequence_number, open_at, close_at, status, allow_draft_editing,
 allow_resubmission, response_zero_label, response_one_label, created_by,
-created_at, updated_at
+created_at, updated_at, kind, link_url
+
+Kinds (migration 0032): `GRID` (default — imported questions, attempts,
+responses, analytics) and `LINK` (a Google Form or other https URL that
+students open in a new tab; the app records **no responses and no
+per-student status**). Constraints:
+
+- `assignments_kind_valid` — kind in (GRID, LINK)
+- `assignments_kind_link_url` — LINK requires `link_url`; GRID requires it null
+- `assignments_link_url_https` — `^https://…`, no whitespace, ≤ 2048 chars
+- `assignments_link_not_paired` — LINK requires `sequence_number >= 3`
+  (positions 1/2 are the A1/A2 pair)
+
+Triggers: `questions_not_on_link_assignment` and
+`attempts_not_on_link_assignment` refuse questions/attempts on a LINK
+assignment; `assignments_kind_change` refuses turning an assignment with
+questions or attempts into a LINK. `assignment_submission_progress` covers
+GRID only; `duplicate_assignment` copies kind and link_url.
+
+`link_url` is an ordinary column, readable with the row by anyone the
+existing assignment policies let see it — including a student before the
+window opens. That is deliberate: the URL is handed to the whole class, and
+access is controlled in Google Forms (domain restriction, closing the Form).
+The schedule controls when the app *presents* the link, nothing more.
+Rollback: `supabase/rollbacks/rollback_0032_link_assignments.sql` (refuses
+to run while any LINK assignment exists).
 
 Stages: PRE_INSTRUCTION, POST_INSTRUCTION, FOLLOW_UP, OTHER
 Statuses: DRAFT, READY, OPEN, CLOSED, ARCHIVED
@@ -181,7 +206,8 @@ Statuses: DRAFT, READY, OPEN, CLOSED, ARCHIVED
 Status transitions are enforced by the `assignments_status_transition`
 trigger (migrations 0009, 0023, 0029), not just the UI:
 ```
-DRAFT  → READY      (requires ≥1 active question; READY = "professor saw
+DRAFT  → READY      (GRID: requires ≥1 active question; LINK: no check
+                     — since 0032; READY = "professor saw
                      and approved the full question list")
 READY  → DRAFT      (un-approve, resume editing)
 READY  → CLOSED     (retire a scheduled assignment — added in 0029)

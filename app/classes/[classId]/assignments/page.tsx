@@ -42,7 +42,7 @@ export default async function AssignmentsPage({
       supabase.from("classes").select("id, name").eq("id", classId).maybeSingle(),
       supabase
         .from("assignments")
-        .select("id, title, assignment_stage, sequence_number, status, open_at, close_at")
+        .select("id, title, assignment_stage, sequence_number, status, open_at, close_at, kind")
         .eq("class_id", classId)
         .order("sequence_number", { ascending: true })
         .order("created_at", { ascending: true }),
@@ -91,6 +91,9 @@ export default async function AssignmentsPage({
                   <p className="font-medium">
                     <span className="mono mr-2 text-ink-muted">#{a.sequence_number}</span>
                     {a.title}
+                    {a.kind === "LINK" && (
+                      <span className="badge badge-neutral ml-2 align-middle">Google Form link</span>
+                    )}
                   </p>
                   <p className="note mt-0.5 capitalize">
                     {a.assignment_stage.replaceAll("_", " ").toLowerCase()}

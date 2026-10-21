@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ResponseGridTable } from "@/components/assignments/response-grid-table";
 import { LocalDateTime } from "@/components/ui/local-date-time";
-import { gatherResponseGrid, orientationDescription } from "@/lib/exports/response-grid";
+import {
+  gatherResponseGrid,
+  NotAGridAssignmentError,
+  orientationDescription,
+} from "@/lib/exports/response-grid";
 import { requireClassStaffPage } from "@/lib/analytics/page-data";
 
 /**
@@ -36,7 +40,10 @@ export default async function ResponseGridPage({
   const { supabase, classRow } = await requireClassStaffPage(classId);
   if (!classRow) notFound();
 
-  const grid = await gatherResponseGrid(supabase, assignmentId);
+  const grid = await gatherResponseGrid(supabase, assignmentId).catch((err: unknown) => {
+    if (err instanceof NotAGridAssignmentError) notFound();
+    throw err;
+  });
 
   // The grid is reached from a class page, so an assignment id belonging to
   // a different class would be a broken link, not a data leak (RLS already

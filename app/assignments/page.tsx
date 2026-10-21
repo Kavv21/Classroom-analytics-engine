@@ -13,6 +13,7 @@ interface AssignmentRow {
   status: string;
   open_at: string | null;
   close_at: string | null;
+  kind: "GRID" | "LINK";
   classes: { name: string } | null;
 }
 
@@ -48,7 +49,7 @@ export default async function StudentAssignmentsPage() {
     supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
     supabase
       .from("assignments")
-      .select("id, title, assignment_stage, status, open_at, close_at, classes(name)")
+      .select("id, title, assignment_stage, status, open_at, close_at, kind, classes(name)")
       .order("status", { ascending: true })
       .order("close_at", { ascending: true, nullsFirst: false })
       .returns<AssignmentRow[]>(),
@@ -84,6 +85,7 @@ export default async function StudentAssignmentsPage() {
       ) : (
         <ul className="mt-6 space-y-3">
           {assignments.map((a) => {
+            if (a.kind === "LINK") return <LinkAssignmentRow key={a.id} assignment={a} now={now} />;
             const attempt = attemptByAssignment.get(a.id);
             const state = attempt?.state ?? "NOT_STARTED";
             const finished = state === "SUBMITTED" || state === "RESUBMITTED";
@@ -154,5 +156,52 @@ export default async function StudentAssignmentsPage() {
         </ul>
       )}
     </main>
+  );
+}
+
+/**
+ * A Google Form link assignment (migration 0032) in the list. It follows
+ * the same schedule as a grid assignment — it can be opened only while
+ * the window admits it — but it has no attempt, so no progress line and no
+ * receipt: the Form is where it is answered.
+ */
+function LinkAssignmentRow({ assignment: a, now }: { assignment: AssignmentRow; now: Date }) {
+  const open = assignmentAcceptsAnswers(a.status, { openAt: a.open_at, closeAt: a.close_at }, now);
+  const notYet = !!a.open_at && now < new Date(a.open_at);
+  return (
+    <li className="card-standard">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="font-medium">
+            {a.title}
+            <span className="badge badge-neutral ml-2 align-middle">Google Form</span>
+          </p>
+          <p className="note mt-0.5">
+            {a.classes?.name}
+            {open && a.close_at && (
+              <>
+                {" · until "}
+                <LocalDateTime value={a.close_at} />
+              </>
+            )}
+            {notYet && (
+              <>
+                {" · opens "}
+                <LocalDateTime value={a.open_at} />
+              </>
+            )}
+            {!open && !notYet && " · closed"}
+          </p>
+          <p className="note-muted mt-1">Answered in Google Forms, not here.</p>
+        </div>
+        {open ? (
+          <Link href={`/assignments/${a.id}`} className="btn btn-primary">
+            View
+          </Link>
+        ) : (
+          <span className="badge">{notYet ? "Not open yet" : "Closed"}</span>
+        )}
+      </div>
+    </li>
   );
 }

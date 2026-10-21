@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LINK_RESPONSES_NOTE, LINK_WINDOW_NOTE } from "@/lib/assignments/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { StatusActions } from "@/components/assignments/status-actions";
@@ -48,7 +49,7 @@ export default async function AssignmentDetailPage({
     supabase
       .from("assignments")
       .select(
-        "id, class_id, title, description, instructions, assignment_stage, sequence_number, open_at, close_at, status, allow_draft_editing, allow_resubmission, response_zero_label, response_one_label"
+        "id, class_id, title, description, instructions, assignment_stage, sequence_number, open_at, close_at, status, allow_draft_editing, allow_resubmission, response_zero_label, response_one_label, kind, link_url"
       )
       .eq("id", assignmentId)
       .eq("class_id", classId)
@@ -109,6 +110,9 @@ export default async function AssignmentDetailPage({
   }
 
   const status = assignment.status as AssignmentStatus;
+  // A Google Form link (migration 0032): no questions, no attempts, no
+  // responses, so none of the sections that report on those exist for it.
+  const isLink = assignment.kind === "LINK";
   const hasResponses = (responseCount ?? 0) > 0;
   const editable = status === "DRAFT" || status === "READY";
 
@@ -122,11 +126,12 @@ export default async function AssignmentDetailPage({
   // have started — which, for a scheduled assignment, is a date passing
   // rather than a status changing.
   const showStudentSections =
-    status === "OPEN" ||
+    !isLink &&
+    (status === "OPEN" ||
     status === "CLOSED" ||
     hasResponses ||
     effective.kind === "OPEN" ||
-    effective.kind === "WINDOW_PASSED";
+    effective.kind === "WINDOW_PASSED");
 
   const attemptTableRows: AttemptTableRow[] = (
     (attemptRows ?? []) as unknown as Array<{
@@ -164,9 +169,13 @@ export default async function AssignmentDetailPage({
         <span className="capitalize">
           {assignment.assignment_stage.replaceAll("_", " ").toLowerCase()}
         </span>
-        <span>
-          Answer labels: {assignment.response_zero_label} / {assignment.response_one_label}
-        </span>
+        {isLink ? (
+          <span>Google Form link</span>
+        ) : (
+          <span>
+            Answer labels: {assignment.response_zero_label} / {assignment.response_one_label}
+          </span>
+        )}
         {assignment.open_at ? (
           <span>
             Opens <LocalDateTime value={assignment.open_at} />
@@ -194,7 +203,7 @@ export default async function AssignmentDetailPage({
             Edit details
           </Link>
         )}
-        {status === "DRAFT" && !hasResponses && (
+        {!isLink && status === "DRAFT" && !hasResponses && (
           <Link
             href={`/classes/${classId}/assignments/${assignmentId}/import`}
             className="btn btn-secondary"
@@ -212,6 +221,24 @@ export default async function AssignmentDetailPage({
         )}
       </div>
 
+      {isLink && assignment.link_url && (
+        <>
+          <h2 className="title-sm mt-10">Form link</h2>
+          <div className="card-standard mt-3 space-y-2">
+            <a
+              href={assignment.link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-all font-medium underline underline-offset-2"
+            >
+              {assignment.link_url}
+            </a>
+            <p className="note">{LINK_RESPONSES_NOTE}</p>
+            <p className="note">{LINK_WINDOW_NOTE}</p>
+          </div>
+        </>
+      )}
+
       <h2 className="title-sm mt-10">Availability</h2>
       <div className="mt-3">
         <StatusActions
@@ -219,6 +246,7 @@ export default async function AssignmentDetailPage({
           classId={classId}
           status={status}
           questionCount={questions?.length ?? 0}
+          kind={isLink ? "LINK" : "GRID"}
           effective={effective}
           openAt={assignment.open_at}
           closeAt={assignment.close_at}
@@ -258,15 +286,19 @@ export default async function AssignmentDetailPage({
         </>
       )}
 
-      <h2 className="title-sm mt-10">Questions ({questions?.length ?? 0})</h2>
-      <QuestionManager
-        assignmentId={assignmentId}
-        questions={questions ?? []}
-        hasResponses={hasResponses}
-        editable={editable}
-      />
+      {!isLink && (
+        <>
+          <h2 className="title-sm mt-10">Questions ({questions?.length ?? 0})</h2>
+          <QuestionManager
+            assignmentId={assignmentId}
+            questions={questions ?? []}
+            hasResponses={hasResponses}
+            editable={editable}
+          />
+        </>
+      )}
 
-      {imports && imports.length > 0 && (
+      {!isLink && imports && imports.length > 0 && (
         <>
           <h2 className="title-sm mt-10">Import history</h2>
           <ul className="table-frame mt-3 divide-y divide-hairline bg-surface-raised text-sm">
@@ -303,6 +335,12 @@ export default async function AssignmentDetailPage({
       <div className="card-standard mt-3 flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="font-medium">Delete this assignment permanently</p>
+          {isLink ? (
+            <p className="note mt-0.5">
+              Removes the assignment from this app. Your Google Form and any
+              responses in it are not affected.
+            </p>
+          ) : (
           <p className="note mt-0.5">
             Removes the assignment and everything attached to it &mdash; its
             questions, every student attempt, and{" "}
@@ -312,6 +350,7 @@ export default async function AssignmentDetailPage({
             recorded against it. Archiving hides an assignment and keeps its
             data; this does not.
           </p>
+          )}
         </div>
         <DeleteAssignmentButton assignmentId={assignmentId} classId={classId} />
       </div>

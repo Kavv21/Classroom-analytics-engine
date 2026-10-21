@@ -30,11 +30,14 @@ import {
   valueAxis,
 } from "@/lib/charts/theme";
 import { questionLabel, questionLabelWithCode } from "@/lib/ui/question-label";
+import { LINK_NO_RESPONSES } from "@/lib/assignments/link";
 
 export interface AssignmentInfo {
   id: string;
   title: string;
   sequenceNumber: number;
+  /** LINK: a Google Form link (migration 0032) — nothing is collected. */
+  kind?: "GRID" | "LINK";
 }
 
 interface AssignmentAnalyticsProps {
@@ -333,26 +336,41 @@ export function AssignmentAnalytics({
     setSelectedQuestion(null);
   }
 
+  const assignmentPicker = (
+    <label className="text-xs text-ink-secondary">
+      <span className="mb-0.5 block">Assignment</span>
+      <select
+        value={assignmentId}
+        onChange={(e) => {
+          setAssignmentId(e.target.value);
+          resetFilters();
+        }}
+        className="input input-compact focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+      >
+        {assignments.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.kind === "LINK" ? `${a.title} (Google Form link)` : a.title}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  // A Google Form link collects nothing here. Say so, rather than draw a
+  // set of empty charts that read as "nobody answered".
+  if (assignments.find((a) => a.id === assignmentId)?.kind === "LINK") {
+    return (
+      <div className="mt-6 space-y-6">
+        <FilterRow>{assignmentPicker}</FilterRow>
+        <p className="banner">{LINK_NO_RESPONSES}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-6 space-y-6">
       <FilterRow>
-        <label className="text-xs text-ink-secondary">
-          <span className="mb-0.5 block">Assignment</span>
-          <select
-            value={assignmentId}
-            onChange={(e) => {
-              setAssignmentId(e.target.value);
-              resetFilters();
-            }}
-            className="input input-compact focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          >
-            {assignments.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        {assignmentPicker}
         <FilterSelect
           label="Energy source"
           value={energySource}

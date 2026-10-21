@@ -27,7 +27,7 @@ export default async function SubmissionReceiptPage({
   ] = await Promise.all([
     supabase
       .from("assignments")
-      .select("id, title, status, open_at, close_at")
+      .select("id, title, status, open_at, close_at, kind")
       .eq("id", assignmentId)
       .maybeSingle(),
     supabase
@@ -45,6 +45,8 @@ export default async function SubmissionReceiptPage({
 
   if (assignmentError) throw new Error(`Failed to load assignment: ${assignmentError.message}`);
   if (!assignment) notFound();
+  // A Google Form link has no attempt and so no receipt (migration 0032).
+  if (assignment.kind === "LINK") redirect(`/assignments/${assignmentId}`);
   if (attemptError) throw new Error(`Failed to load your attempt: ${attemptError.message}`);
   if (!attempt) redirect("/assignments");
   if (totalError) throw new Error(`Failed to load questions: ${totalError.message}`);

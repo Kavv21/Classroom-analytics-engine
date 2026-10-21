@@ -10,6 +10,7 @@ import {
   type AssignmentFormValues,
 } from "@/lib/assignments/schema";
 import { isoToLocalInput, localInputToIso } from "@/lib/assignments/schedule";
+import { LINK_RESPONSES_NOTE, LINK_WINDOW_NOTE, linkHostWarning } from "@/lib/assignments/link";
 import type { AssignmentActionResult } from "@/lib/assignments/actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Busy } from "@/components/ui/busy";
@@ -83,10 +84,13 @@ export function AssignmentForm({
     getValues,
     setValue,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<AssignmentFormValues>({
     resolver: zodResolver(assignmentFormSchema),
     defaultValues: {
+      kind: "GRID",
+      linkUrl: "",
       title: "",
       description: "",
       instructions: "",
@@ -125,6 +129,10 @@ export function AssignmentForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const kind = watch("kind") ?? "GRID";
+  const isLink = kind === "LINK";
+  const hostWarning = isLink ? linkHostWarning(watch("linkUrl")) : null;
+
   async function onSubmit(values: AssignmentFormValues) {
     setFormError(null);
     const result = await onSubmitAction({
@@ -159,6 +167,75 @@ export function AssignmentForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      {/* The type decides everything below it: a question grid gets its
+          questions imported on the next page; a link is the whole
+          assignment. Choosing a link pins the position to "other" — the
+          first/second pair is compared response by response, and a link
+          collects none. */}
+      <Controller
+        name="kind"
+        control={control}
+        render={({ field }) => (
+          <fieldset className="grid gap-2">
+            <legend className="mb-1 text-sm font-medium">Type</legend>
+            {[
+              {
+                value: "GRID",
+                label: "Question grid",
+                hint: "Students answer imported questions here, and you get analytics.",
+              },
+              {
+                value: "LINK",
+                label: "Google Form link",
+                hint: "Students open your Form in a new tab. Nothing is recorded here.",
+              },
+            ].map((option) => (
+              <label key={option.value} className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name={field.name}
+                  value={option.value}
+                  checked={(field.value ?? "GRID") === option.value}
+                  onChange={() => {
+                    field.onChange(option.value);
+                    if (option.value === "LINK") setValue("sequencePosition", "OTHER");
+                  }}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium">{option.label}</span>
+                  <span className="note block">{option.hint}</span>
+                </span>
+              </label>
+            ))}
+            {fieldError("kind")}
+          </fieldset>
+        )}
+      />
+
+      {isLink && (
+        <div className="grid gap-1.5">
+          <Label htmlFor="linkUrl">Form link</Label>
+          <Input
+            id="linkUrl"
+            type="url"
+            inputMode="url"
+            placeholder="https://forms.gle/…"
+            aria-invalid={!!errors.linkUrl}
+            aria-describedby="linkUrl-notes"
+            {...register("linkUrl")}
+          />
+          {fieldError("linkUrl")}
+          {hostWarning && (
+            <p className="text-xs text-[color:var(--status-warning-text)]">{hostWarning}</p>
+          )}
+          <div id="linkUrl-notes" className="note space-y-1">
+            <p>{LINK_RESPONSES_NOTE}</p>
+            <p>{LINK_WINDOW_NOTE}</p>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-1.5">
         <Label htmlFor="title">Title</Label>
         <Input id="title" type="text" aria-invalid={!!errors.title} {...register("title")} />
@@ -200,6 +277,17 @@ export function AssignmentForm({
           />
           {fieldError("assignmentStage")}
         </div>
+        {isLink ? (
+          <div className="grid gap-1.5">
+            <p className="text-sm font-medium">Which assignment is this?</p>
+            <p className="note">
+              Other &mdash; a standalone assignment. A Form link can&apos;t be the
+              first or second assignment, because those two are compared response
+              by response.
+            </p>
+            {fieldError("sequencePosition")}
+          </div>
+        ) : (
         <div className="grid gap-1.5">
           <Label htmlFor="sequencePosition">Which assignment is this?</Label>
           <Controller
@@ -229,10 +317,17 @@ export function AssignmentForm({
           </p>
           {fieldError("sequencePosition")}
         </div>
+        )}
       </div>
 
       <fieldset className="grid gap-1.5 rounded-md border border-hairline p-4">
         <legend className="eyebrow px-1">Schedule</legend>
+        {isLink ? (
+          <p id="schedule-help" className="note">
+            Once you have marked it ready, students see this assignment and its
+            link from the first time until the second. {LINK_WINDOW_NOTE}
+          </p>
+        ) : (
         <p id="schedule-help" className="note">
           These two times are what let students in. Once you have marked the
           assignment ready, it opens itself at the first time and stops
@@ -240,6 +335,7 @@ export function AssignmentForm({
           Leave them empty while you are still preparing: students can&apos;t
           reach an assignment with no schedule.
         </p>
+        )}
         <div className="mt-2 grid grid-cols-2 gap-4">
           <div className="grid gap-1.5">
             <Label htmlFor="openAt">Opens at</Label>
@@ -274,6 +370,8 @@ export function AssignmentForm({
         </p>
       </fieldset>
 
+      {!isLink && (
+      <>
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-1.5">
           <Label htmlFor="responseZeroLabel">Label for 0</Label>
@@ -309,6 +407,8 @@ export function AssignmentForm({
           )}
         />
       </div>
+      </>
+      )}
 
       {formError && (
         <Alert variant="destructive">

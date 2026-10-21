@@ -25,12 +25,14 @@ export default async function AssignmentAnalyticsPage({
   // Only the per-question summaries need the assignment list; progress
   // and timeline are class-scoped and were waiting behind it for nothing.
   const [assignments, progress, timeline] = await Promise.all([
-    getClassAssignments(supabase, classId),
+    getClassAssignments(supabase, classId, { includeLinks: true }),
     getSubmissionProgress(supabase, classId),
     getSubmissionTimeline(supabase, classId),
   ]);
   const questionSummaryLists = await Promise.all(
-    assignments.map((a) => getQuestionResponseSummaries(supabase, a.id))
+    assignments
+      .filter((a) => a.kind === "GRID")
+      .map((a) => getQuestionResponseSummaries(supabase, a.id))
   );
 
   return (
@@ -59,6 +61,7 @@ export default async function AssignmentAnalyticsPage({
             id: a.id,
             title: a.title,
             sequenceNumber: a.sequence_number,
+            kind: a.kind,
           }))}
           questionSummaries={questionSummaryLists.flat()}
           progress={progress}

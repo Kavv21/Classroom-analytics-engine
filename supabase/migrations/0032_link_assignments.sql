@@ -22,14 +22,14 @@
 --
 -- WHAT IS NEW
 --   1. kind + link_url columns and their constraints.
---   2. link_url is NOT readable through the table by anon/authenticated.
---      assignments_student_select deliberately shows a student a READY
---      assignment before it opens (title, dates) — only the questions are
---      held back until then (questions_student_select). A plain column
---      would hand the Form URL out early, and keep handing it out after
---      the window closes. So SELECT is re-granted column by column without
---      link_url, and the URL is read through assignment_link_urls(), which
---      applies the same window as a GRID assignment's answering.
+--   2. (deliberately nothing) link_url is an ordinary column, readable by
+--      anyone who can read the row. assignments_student_select shows a
+--      student a scheduled assignment before it opens, so a student who
+--      queries the API can see the URL outside the window. That is
+--      accepted: the professor distributes the URL to the whole class
+--      anyway, and real access control is the Form's own (domain
+--      restriction, closing the Form in Google). The app only decides
+--      when the link is PRESENTED, and the professor UI says so.
 --   3. A LINK assignment can be approved without questions; a GRID one
 --      still cannot (the 0029 trigger, otherwise verbatim).
 --   4. A LINK assignment can never get questions or an attempt row, and an
@@ -39,11 +39,6 @@
 --   6. assignment_submission_progress leaves LINK assignments out, so no
 --      "0 of 40 submitted" is ever shown for something that records nothing.
 --   7. duplicate_assignment copies kind and link_url.
---
--- MAINTENANCE NOTE: because SELECT on public.assignments is now granted per
--- column, a future column added to assignments needs its own
---   grant select (<column>) on public.assignments to authenticated;
--- in the same migration, or authenticated reads of it will fail.
 --
 -- Rollback: supabase/rollbacks/rollback_0032_link_assignments.sql
 -- (NOT a migration).
@@ -89,58 +84,10 @@ alter table public.assignments
 comment on column public.assignments.kind is
   'GRID: imported questions, attempts, responses, analytics. LINK: an external URL (Google Form) students open in a new tab; the app records no responses and no per-student status.';
 comment on column public.assignments.link_url is
-  'LINK assignments only (null for GRID). Not selectable by anon/authenticated — read it through assignment_link_urls(), which applies the schedule window.';
+  'LINK assignments only (null for GRID). Not a secret: readable with the row. The schedule window decides when the app presents it, not who can reach it.';
 
 -- ------------------------------------------------------------
--- 2. Hide link_url from direct reads
---
--- Table-level SELECT covers every column, so it is revoked and re-granted
--- for every column except link_url. INSERT/UPDATE/DELETE are untouched
--- (RLS still governs them). service_role keeps full access.
--- ------------------------------------------------------------
-revoke select on public.assignments from anon, authenticated;
-
-grant select (
-  id, class_id, title, description, instructions, assignment_stage,
-  sequence_number, open_at, close_at, status, allow_draft_editing,
-  allow_resubmission, response_zero_label, response_one_label,
-  created_by, created_at, updated_at, kind
-) on public.assignments to authenticated;
-
--- The URL for each requested LINK assignment the caller may have right now:
---   * staff of its class (and admins): always — they need it to edit it.
---   * a class member: only while assignment_accepts_answers() is true —
---     exactly the window in which a GRID assignment can be answered.
--- Anything else is simply absent from the result.
-create or replace function public.assignment_link_urls(p_assignment_ids uuid[])
-returns table (assignment_id uuid, link_url text)
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select a.id, a.link_url
-  from public.assignments a
-  where a.id = any(p_assignment_ids)
-    and a.kind = 'LINK'
-    and (
-      public.can_manage_class_content(a.class_id)
-      or public.is_admin()
-      or (
-        public.is_class_member(a.class_id)
-        and public.assignment_accepts_answers(a.status, a.open_at, a.close_at)
-      )
-    );
-$$;
-
-revoke execute on function public.assignment_link_urls(uuid[]) from public, anon;
-grant execute on function public.assignment_link_urls(uuid[]) to authenticated;
-
-comment on function public.assignment_link_urls(uuid[]) is
-  'link_url for LINK assignments the caller may see now: staff of the class and admins always; class members only while assignment_accepts_answers(status, open_at, close_at). Others are omitted.';
-
--- ------------------------------------------------------------
--- 3. Status FSM — 0029's function verbatim, except that the
+-- 2. Status FSM — 0029's function verbatim, except that the
 --    "approval needs questions" rule now applies to GRID only.
 -- ------------------------------------------------------------
 create or replace function public.enforce_assignment_status_transition()
@@ -182,7 +129,7 @@ end;
 $$;
 
 -- ------------------------------------------------------------
--- 4. A LINK assignment never has questions or attempts.
+-- 3. A LINK assignment never has questions or attempts.
 -- ------------------------------------------------------------
 create or replace function public.reject_children_of_link_assignment()
 returns trigger
@@ -246,7 +193,7 @@ revoke execute on function public.reject_children_of_link_assignment() from publ
 revoke execute on function public.enforce_assignment_kind_change() from public, anon, authenticated;
 
 -- ------------------------------------------------------------
--- 5. assignment_submission_progress — 0009's view plus `kind = 'GRID'`.
+-- 4. assignment_submission_progress — 0009's view plus `kind = 'GRID'`.
 --    Same columns, same order, so create or replace is legal.
 -- ------------------------------------------------------------
 create or replace view public.assignment_submission_progress
@@ -272,11 +219,8 @@ where a.kind = 'GRID'
 group by a.id, a.class_id;
 
 -- ------------------------------------------------------------
--- 6. duplicate_assignment — 0028's function, now copying kind and
---    link_url. It is security invoker, and authenticated can no longer
---    read link_url from the table, so the URL comes through
---    assignment_link_urls (the caller is staff of the class, checked
---    first, so it is always returned).
+-- 5. duplicate_assignment — 0028's function, now copying kind and
+--    link_url.
 -- ------------------------------------------------------------
 create or replace function public.duplicate_assignment(p_assignment_id uuid)
 returns uuid
@@ -287,21 +231,14 @@ as $$
 declare
   v_new_id uuid;
   v_class_id uuid;
-  v_kind text;
-  v_link_url text;
   v_sequence_number int;
 begin
-  select a.class_id, a.kind into v_class_id, v_kind
+  select a.class_id into v_class_id
   from public.assignments a
   where a.id = p_assignment_id and public.can_manage_class_content(a.class_id);
 
   if v_class_id is null then
     raise exception 'assignment not found, or you do not manage its class';
-  end if;
-
-  if v_kind = 'LINK' then
-    select l.link_url into v_link_url
-    from public.assignment_link_urls(array[p_assignment_id]) l;
   end if;
 
   v_sequence_number := public.next_assignment_sequence_number(v_class_id);
@@ -317,7 +254,7 @@ begin
     a.assignment_stage, v_sequence_number, null, null, 'DRAFT',
     a.allow_draft_editing, a.allow_resubmission, a.response_zero_label,
     a.response_one_label, auth.uid(),
-    a.kind, v_link_url
+    a.kind, a.link_url
   from public.assignments a
   where a.id = p_assignment_id
   returning id into v_new_id;

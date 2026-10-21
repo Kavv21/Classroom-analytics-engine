@@ -62,6 +62,8 @@ export async function buildExportMetadata(
     .from("assignments")
     .select("title, sequence_number")
     .eq("class_id", options.classId)
+    // Link assignments record no responses (migration 0032).
+    .eq("kind", "GRID")
     .order("sequence_number");
   if (assignmentsError) {
     throw new Error(`could not load assignments for export metadata: ${assignmentsError.message}`);

@@ -29,6 +29,9 @@ import {
   type AssignmentStatus,
 } from "@/lib/types/domain";
 
+const LINK_HAS_NO_QUESTIONS =
+  "This assignment is a Google Form link, so it has no questions to import.";
+
 export type AssignmentActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
@@ -184,7 +187,7 @@ async function requireClassStaffForAssignment(assignmentId: string) {
 
   const { data: assignment, error: checkError } = await supabase
     .from("assignments")
-    .select("id, class_id, status, sequence_number, title")
+    .select("id, class_id, status, sequence_number, title, kind")
     .eq("id", assignmentId)
     .maybeSingle();
 
@@ -236,8 +239,11 @@ export async function createAssignment(
     if (conflict) return sequenceConflictResult(v.sequencePosition, conflict.title);
   }
 
+  const kind = v.kind ?? "GRID";
   const row = {
     class_id: classId,
+    kind,
+    link_url: kind === "LINK" ? (v.linkUrl ?? "").trim() : null,
     title: v.title.trim(),
     description: nullIfBlank(v.description),
     instructions: nullIfBlank(v.instructions),
@@ -336,6 +342,28 @@ export async function updateAssignment(
     if (conflict) return sequenceConflictResult(v.sequencePosition, conflict.title);
   }
 
+  // GRID -> LINK only for an assignment with nothing a link can't have.
+  // The assignments_kind_change trigger (migration 0032) is the boundary;
+  // this turns its refusal into something the professor can act on.
+  const kind = v.kind ?? "GRID";
+  if (kind === "LINK" && assignment.kind !== "LINK") {
+    const [{ count: questionCount }, { count: attemptCount }] = await Promise.all([
+      supabase
+        .from("questions")
+        .select("id", { count: "exact", head: true })
+        .eq("assignment_id", assignmentId),
+      supabase
+        .from("assignment_attempts")
+        .select("id", { count: "exact", head: true })
+        .eq("assignment_id", assignmentId),
+    ]);
+    if ((questionCount ?? 0) > 0 || (attemptCount ?? 0) > 0) {
+      const message =
+        "This assignment already has questions or student attempts, so it can't become a Google Form link. Create a new assignment for the link instead.";
+      return { success: false, error: message, fieldErrors: { kind: [message] } };
+    }
+  }
+
   // Changing the sequence number AFTER questions are imported silently
   // invalidates every question code on this assignment.
   //
@@ -376,6 +404,8 @@ export async function updateAssignment(
   const { data, error } = await supabase
     .from("assignments")
     .update({
+      kind,
+      link_url: kind === "LINK" ? (v.linkUrl ?? "").trim() : null,
       title: v.title.trim(),
       description: nullIfBlank(v.description),
       instructions: nullIfBlank(v.instructions),
@@ -738,6 +768,9 @@ export async function previewAssignmentImport(
 ): Promise<AssignmentActionResult<AssignmentImportPreview>> {
   const { user, assignment, checkError } = await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
+  if (assignment.kind === "LINK") {
+    return { success: false, error: LINK_HAS_NO_QUESTIONS };
+  }
 
   if (assignment.status !== "DRAFT") {
     return {
@@ -767,6 +800,9 @@ export async function commitAssignmentImport(
   const { supabase, user, assignment, checkError } =
     await requireClassStaffForAssignment(assignmentId);
   if (!user || !assignment || checkError) return accessError(checkError, "Assignment");
+  if (assignment.kind === "LINK") {
+    return { success: false, error: LINK_HAS_NO_QUESTIONS };
+  }
 
   const parsed = await parseUpload(formData, assignment.sequence_number);
   if (!parsed.ok) return { success: false, error: parsed.error };

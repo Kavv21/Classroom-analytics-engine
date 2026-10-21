@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AssignmentImportWizard } from "@/components/assignments/import-wizard";
 
@@ -13,13 +13,15 @@ export default async function AssignmentImportPage({
 
   const { data: assignment, error } = await supabase
     .from("assignments")
-    .select("id, title, status, sequence_number")
+    .select("id, title, status, sequence_number, kind")
     .eq("id", assignmentId)
     .eq("class_id", classId)
     .maybeSingle();
 
   if (error) throw new Error(`Failed to load assignment: ${error.message}`);
   if (!assignment) notFound();
+  // A Google Form link has no questions (migration 0032).
+  if (assignment.kind === "LINK") redirect(`/classes/${classId}/assignments/${assignmentId}`);
 
   return (
     <main className="page-standard">

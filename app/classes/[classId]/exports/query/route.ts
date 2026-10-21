@@ -75,6 +75,8 @@ export async function POST(
         .from("assignments")
         .select("id, title, sequence_number")
         .eq("class_id", classId)
+        // Link assignments record no responses (migration 0032).
+        .eq("kind", "GRID")
         .order("sequence_number"),
       supabase.from("profiles").select("full_name, email").eq("id", user.id).maybeSingle(),
     ]);

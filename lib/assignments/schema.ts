@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { linkUrlError } from "@/lib/assignments/link";
 
 /** Blank, or something `new Date()` can actually resolve to an instant. */
 const datetimeField = z
@@ -18,6 +19,11 @@ const datetimeField = z
  */
 export const assignmentFormSchema = z
   .object({
+    // GRID: imported questions answered on the grid. LINK: a Google Form
+    // (or other https) link opened in a new tab — no questions, no
+    // attempts, no responses (migration 0032, lib/assignments/link.ts).
+    kind: z.enum(["GRID", "LINK"]).default("GRID"),
+    linkUrl: z.string().trim().optional().or(z.literal("")),
     title: z.string().trim().min(1, "Title is required").max(300),
     description: z.string().trim().max(5000).optional().or(z.literal("")),
     instructions: z.string().trim().max(10000).optional().or(z.literal("")),
@@ -57,9 +63,30 @@ export const assignmentFormSchema = z
   .refine((data) => !data.closeAt || !!data.openAt, {
     message: "Set an opening time too — students need a window, not just an end",
     path: ["openAt"],
+  })
+  .superRefine((data, ctx) => {
+    if (data.kind === "LINK") {
+      const problem = linkUrlError(data.linkUrl);
+      if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem, path: ["linkUrl"] });
+      // Positions 1 and 2 are the before/after pair, built from responses
+      // a link never collects (assignments_link_not_paired).
+      if (data.sequencePosition !== "OTHER") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "A Google Form link can't be the first or second assignment — those two are compared with each other",
+          path: ["sequencePosition"],
+        });
+      }
+    } else if (data.linkUrl && data.linkUrl.trim() !== "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A question-grid assignment doesn't take a link",
+        path: ["linkUrl"],
+      });
+    }
   });
 
-export type AssignmentFormValues = z.infer<typeof assignmentFormSchema>;
+export type AssignmentFormValues = z.input<typeof assignmentFormSchema>;
 
 export const questionLabelsSchema = z.object({
   responseZeroLabel: z.string().trim().min(1, "Label for 0 is required").max(100),

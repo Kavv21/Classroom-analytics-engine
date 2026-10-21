@@ -16,12 +16,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { LocalDateTime } from "@/components/ui/local-date-time";
+import { LINK_WINDOW_NOTE, type AssignmentKind } from "@/lib/assignments/link";
 
 interface StatusActionsProps {
   assignmentId: string;
   classId: string;
   status: AssignmentStatus;
   questionCount: number;
+  /** A LINK assignment has a Form link instead of questions, and no
+   * attempts — so no "review the questions" and no per-student reopen. */
+  kind?: AssignmentKind;
   /**
    * Computed server-side (see EffectiveStatusBadge) — this component must
    * not derive it, because deriving it needs `now()` and this runs on both
@@ -63,6 +67,7 @@ export function StatusActions({
   classId,
   status,
   questionCount,
+  kind = "GRID",
   effective,
   openAt,
   closeAt,
@@ -73,12 +78,20 @@ export function StatusActions({
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
   /** What the professor just did, said back in the same words. */
-  const DONE_MESSAGES: Partial<Record<AssignmentStatus, string>> = {
-    READY: "Marked ready. Set the schedule and it will open on its own.",
-    CLOSED: "Closed. Students can no longer answer, whatever the dates say.",
-    ARCHIVED: "Archived.",
-    DRAFT: "Back in draft. You can edit the questions again.",
-  };
+  const isLink = kind === "LINK";
+  const DONE_MESSAGES: Partial<Record<AssignmentStatus, string>> = isLink
+    ? {
+        READY: "Marked ready. Set the schedule and it will appear to students on its own.",
+        CLOSED: "Closed. It no longer appears to students here — close the Form in Google too.",
+        ARCHIVED: "Archived.",
+        DRAFT: "Back in draft.",
+      }
+    : {
+        READY: "Marked ready. Set the schedule and it will open on its own.",
+        CLOSED: "Closed. Students can no longer answer, whatever the dates say.",
+        ARCHIVED: "Archived.",
+        DRAFT: "Back in draft. You can edit the questions again.",
+      };
 
   async function move(to: AssignmentStatus) {
     setBusy(true);
@@ -144,7 +157,30 @@ export function StatusActions({
         <Card>
           <CardContent>
             <p className="eyebrow">Step 1 of 2</p>
-            {questionCount === 0 ? (
+            {isLink ? (
+              <>
+                <p className="heading mt-1">Check the link, then schedule</p>
+                <p className="note mt-1">
+                  Open the link above and make sure it is the Form you mean
+                  students to fill in before you put it on the calendar.
+                </p>
+                <label className="mt-3 flex items-start gap-2 text-sm">
+                  <Checkbox
+                    checked={reviewConfirmed}
+                    onCheckedChange={(v) => setReviewConfirmed(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span>I have opened the link and it is the right Form.</span>
+                </label>
+                <Button
+                  disabled={busy || !reviewConfirmed}
+                  onClick={() => move("READY")}
+                  className="mt-4"
+                >
+                  Mark ready to schedule
+                </Button>
+              </>
+            ) : questionCount === 0 ? (
               <p className="note mt-1">
                 Import your questions before you can mark this assignment ready.
               </p>
@@ -189,10 +225,12 @@ export function StatusActions({
               <>
                 <p className="heading mt-1">Not scheduled yet</p>
                 <p className="note mt-1">
-                  The questions are approved, but nobody can reach this
+                  {isLink
+                    ? "The link is approved, but students won't see this assignment until it has both an opening and a closing time. The dates are what put it in front of them."
+                    : <>The questions are approved, but nobody can reach this
                   assignment until it has both an opening and a closing time.
                   There is no publish button any more &mdash; the dates are what
-                  let students in, and it opens and closes on its own.
+                  let students in, and it opens and closes on its own.</>}
                 </p>
               </>
             )}
@@ -202,11 +240,19 @@ export function StatusActions({
                 <p className="heading mt-1">
                   Opens <LocalDateTime value={openAt} />
                 </p>
+                {isLink ? (
+                  <p className="note mt-1">
+                    Students can see that this assignment is coming. The link
+                    appears to them at the opening time, until{" "}
+                    <LocalDateTime value={closeAt} />. {LINK_WINDOW_NOTE}
+                  </p>
+                ) : (
                 <p className="note mt-1">
                   Students can see that this assignment is coming, but not its
                   questions. It lets them in by itself at the opening time and
                   stops accepting answers at <LocalDateTime value={closeAt} />.
                 </p>
+                )}
               </>
             )}
 
@@ -222,7 +268,9 @@ export function StatusActions({
                   )}
                 </p>
                 <p className="note mt-1">
-                  {closeAt
+                  {isLink
+                    ? `Students can see the link now. ${LINK_WINDOW_NOTE}`
+                    : closeAt
                     ? "Students are answering it now. It stops accepting answers at that time on its own — to end it sooner or run it longer, change the closing time."
                     : "Published under the old manual model, with no end date: it stays open until you close it. Give it an opening and closing time to put it on the calendar instead."}
                 </p>
@@ -234,11 +282,21 @@ export function StatusActions({
                 <p className="heading mt-1">
                   Window ended <LocalDateTime value={closeAt} />
                 </p>
+                {isLink ? (
+                  <p className="note mt-1">
+                    The window has ended, so this assignment no longer appears
+                    to students here. Anyone who already has the link can still
+                    use it &mdash; close the Form in Google if you haven&apos;t.
+                    Extend the closing time to show it again, or close it for
+                    good below.
+                  </p>
+                ) : (
                 <p className="note mt-1">
                   Students can no longer answer. Extend the closing time to let
                   the class back in, reopen one student&apos;s attempt under
                   Student attempts, or close it for good below.
                 </p>
+                )}
               </>
             )}
 
@@ -266,6 +324,18 @@ export function StatusActions({
         <Card>
           <CardContent>
             <p className="eyebrow">Closed</p>
+            {isLink ? (
+              <>
+                <p className="heading mt-1">Not shown to students</p>
+                <p className="note mt-1">
+                  Putting it back on the calendar shows it to the class again
+                  for as long as the new window lasts. Anyone who already has
+                  the link can use it whatever this says &mdash; close the Form
+                  in Google to stop responses.
+                </p>
+              </>
+            ) : (
+              <>
             <p className="heading mt-1">Students can&apos;t answer right now</p>
             <p className="note mt-1">
               Putting it back on the calendar returns it to the whole class:
@@ -273,6 +343,8 @@ export function StatusActions({
               new window lasts. To let just one student back in, leave it closed
               and use Reopen on their row under Student attempts.
             </p>
+              </>
+            )}
             <div className="mt-4 flex flex-wrap gap-2">
               <Button disabled={busy} onClick={() => move("READY")}>
                 Reschedule

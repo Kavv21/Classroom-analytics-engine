@@ -171,17 +171,27 @@ export interface AssignmentRow {
   id: string;
   title: string;
   sequence_number: number;
+  kind: "GRID" | "LINK";
 }
 
+/**
+ * The class's assignments, for analytics. Google Form link assignments
+ * (migration 0032) record no responses and no per-student status, so they
+ * are left out unless the caller asks for them — only the per-assignment
+ * view does, to say plainly that nothing is collected rather than leave
+ * the assignment missing.
+ */
 export async function getClassAssignments(
   supabase: SupabaseClient,
-  classId: string
+  classId: string,
+  options: { includeLinks?: boolean } = {}
 ): Promise<AssignmentRow[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from("assignments")
-    .select("id, title, sequence_number")
-    .eq("class_id", classId)
-    .order("sequence_number");
+    .select("id, title, sequence_number, kind")
+    .eq("class_id", classId);
+  if (!options.includeLinks) query = query.eq("kind", "GRID");
+  const { data, error } = await query.order("sequence_number");
   if (error) {
     throw new Error(`Could not load assignments: ${error.message}`);
   }

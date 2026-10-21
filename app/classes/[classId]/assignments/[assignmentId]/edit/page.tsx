@@ -16,7 +16,7 @@ export default async function EditAssignmentPage({
   const { data: assignment, error } = await supabase
     .from("assignments")
     .select(
-      "id, title, description, instructions, assignment_stage, sequence_number, open_at, close_at, status, allow_draft_editing, allow_resubmission, response_zero_label, response_one_label"
+      "id, title, description, instructions, assignment_stage, sequence_number, open_at, close_at, status, allow_draft_editing, allow_resubmission, response_zero_label, response_one_label, kind, link_url"
     )
     .eq("id", assignmentId)
     .eq("class_id", classId)
@@ -42,6 +42,8 @@ export default async function EditAssignmentPage({
           // back on the detail page.
           redirectBasePath={`/classes/${classId}/assignments`}
           defaultValues={{
+            kind: assignment.kind,
+            linkUrl: assignment.link_url ?? "",
             title: assignment.title,
             description: assignment.description ?? "",
             instructions: assignment.instructions ?? "",

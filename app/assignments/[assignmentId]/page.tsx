@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AnswerGrid } from "@/components/attempts/answer-grid";
+import { LinkAssignmentView } from "@/components/assignments/link-assignment-view";
 import { buildAnswerGrid, type AnswerGridQuestion } from "@/lib/attempts/answer-grid";
 import { canAnswerAssignment } from "@/lib/attempts/workable";
 import { assignmentAcceptsAnswers } from "@/lib/assignments/schedule";
@@ -51,7 +52,9 @@ export default async function TakeAssignmentPage({
     supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
     supabase
       .from("assignments")
-      .select("id, title, instructions, status, open_at, close_at, allow_draft_editing")
+      .select(
+        "id, title, description, instructions, status, open_at, close_at, allow_draft_editing, kind, link_url"
+      )
       .eq("id", assignmentId)
       .maybeSingle(),
     supabase
@@ -72,6 +75,31 @@ export default async function TakeAssignmentPage({
   if (assignmentError) throw new Error(`Failed to load assignment: ${assignmentError.message}`);
   if (!assignment) notFound();
   if (questionsError) throw new Error(`Failed to load questions: ${questionsError.message}`);
+
+  // A Google Form link (migration 0032): shown inside the same window a
+  // grid assignment is answerable in, and nothing else. No attempt is ever
+  // created for it — get_or_create_attempt is not called, and the database
+  // would refuse the row anyway (attempts_not_on_link_assignment). There is
+  // no per-student reopen for a link, so outside the window the student
+  // goes back to the list, where the row says when it opens or that it
+  // has closed.
+  if (assignment.kind === "LINK") {
+    const schedule = { openAt: assignment.open_at, closeAt: assignment.close_at };
+    if (!assignment.link_url || !assignmentAcceptsAnswers(assignment.status, schedule)) {
+      redirect("/assignments");
+    }
+    return (
+      <main className="page-dense-narrow">
+        <LinkAssignmentView
+          title={assignment.title}
+          description={assignment.description}
+          instructions={assignment.instructions}
+          linkUrl={assignment.link_url}
+          closeAt={assignment.close_at}
+        />
+      </main>
+    );
+  }
 
   // Outside the schedule window, an assignment is still answerable by a
   // student whose own attempt the professor reopened — the per-student

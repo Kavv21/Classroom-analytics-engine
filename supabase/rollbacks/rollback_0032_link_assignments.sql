@@ -166,13 +166,6 @@ begin
 end;
 $$;
 
-drop function if exists public.assignment_link_urls(uuid[]);
-
--- Table-level SELECT back: authenticated as 0007 granted it, anon as
--- Supabase's default privileges did (RLS gives anon no rows either way).
-revoke select on public.assignments from anon, authenticated;
-grant select on public.assignments to anon, authenticated;
-
 alter table public.assignments
   drop constraint if exists assignments_kind_valid,
   drop constraint if exists assignments_kind_link_url,

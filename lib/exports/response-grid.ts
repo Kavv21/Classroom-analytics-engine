@@ -401,6 +401,15 @@ export function buildGridMatrix(
   };
 }
 
+/** A Google Form link assignment (migration 0032) has no questions and
+ * no responses, so it has no grid. */
+export class NotAGridAssignmentError extends Error {
+  constructor(assignmentId: string) {
+    super(`Assignment ${assignmentId} is a link assignment and has no response grid.`);
+    this.name = "NotAGridAssignmentError";
+  }
+}
+
 /** Paged read — Supabase caps a plain select at 1000 rows. */
 async function selectAllPaged<T>(
   supabase: SupabaseClient,
@@ -434,7 +443,7 @@ export async function gatherResponseGrid(
   ] = await Promise.all([
     supabase
       .from("assignments")
-      .select("id, class_id, title, sequence_number")
+      .select("id, class_id, title, sequence_number, kind")
       .eq("id", assignmentId)
       .maybeSingle(),
     selectAllPaged<QuestionRow>(
@@ -473,6 +482,7 @@ export async function gatherResponseGrid(
   ]);
   if (assignmentError) throw new Error(`could not read assignment: ${assignmentError.message}`);
   if (!assignment) throw new Error("Assignment not found, or you don't have access to it.");
+  if (assignment.kind === "LINK") throw new NotAGridAssignmentError(assignmentId);
 
   const orientation = detectOrientation(questions);
   const ordered = orderGridQuestions(questions, orientation);
